@@ -20,6 +20,7 @@ from utils.database import get_db_session
 from sqlalchemy import func
 from utils.employee_mapper import get_photo_path
 from pathlib import Path
+from utils.supabase_client import get_supabase_client
 
 logger = logging.getLogger(__name__)
 
@@ -1038,6 +1039,25 @@ class DashboardWindow(QMainWindow):
                     parent=self
                 )
                 dlg.show()
+
+                # --- INTEGRACIÓN SUPABASE ---
+                try:
+                    sb = get_supabase_client()
+                    if sb:
+                        # Buscamos el ID único del empleado en Supabase usando su employee_id único
+                        emp_data = sb.table("empleados").select("id").eq("employee_id", trabajador.employee_id).execute()
+                        if emp_data.data:
+                            supabase_emp_id = emp_data.data[0]['id']
+                            sb.table("asistencias").insert({
+                                "empleado_id": supabase_emp_id,
+                                "tipo": tipo,
+                                "confianza": float(confianza),
+                                "ubicacion": info_empleado.get('sucursal', 'N/A') if info_empleado else 'N/A'
+                            }).execute()
+                            logger.info(f"✅ Asistencia sincronizada con Supabase para {trabajador.nombre}")
+                except Exception as es:
+                    logger.error(f"❌ Error sincronizando con Supabase: {es}")
+                # ----------------------------
             except Exception as e:
                 db.rollback()
                 logger.error(f"Error registro: {e}")
@@ -1090,6 +1110,24 @@ class DashboardWindow(QMainWindow):
             )
             dlg.show()
             self._set_status(f"{tipo.upper()} registrada", "success")
+
+            # --- INTEGRACIÓN SUPABASE ---
+            try:
+                sb = get_supabase_client()
+                if sb:
+                    emp_data = sb.table("empleados").select("id").eq("employee_id", self.trabajador.employee_id).execute()
+                    if emp_data.data:
+                        supabase_emp_id = emp_data.data[0]['id']
+                        sb.table("asistencias").insert({
+                            "empleado_id": supabase_emp_id,
+                            "tipo": tipo,
+                            "confianza": float(confianza),
+                            "ubicacion": self.trabajador.sucursal or "N/A"
+                        }).execute()
+                        logger.info(f"✅ Asistencia manual sincronizada con Supabase")
+            except Exception as es:
+                logger.error(f"❌ Error sincronizando manual con Supabase: {es}")
+            # ----------------------------
         except Exception as e:
             db.rollback()
             QMessageBox.critical(self, "Error", f"Error al registrar:\n{e}")

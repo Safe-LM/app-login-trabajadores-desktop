@@ -192,15 +192,72 @@ cd app-login-trabajadores-desktop
 |---------|------------|-----|
 | `admin` | `admin123` | Administrador |
 
-### Configuración de Supabase Cloud
+---
 
-Para activar la sincronización en la nube, el archivo `.env` debe incluir:
+## ☁️ Integración Supabase Cloud
+
+**Safe Link Monitoring** utiliza una arquitectura **Híbrida Cloud-Edge**. Esto significa que aunque el reconocimiento facial se procesa localmente (garantizando velocidad y privacidad), los resultados se sincronizan en **tiempo real** con una base de datos segura en la nube.
+
+### 🌟 Beneficios de la Nube
+- **Monitoreo Remoto:** Visualice asistencias desde cualquier parte del mundo en el dashboard de Supabase.
+- **Sincronización Multi-App:** Conecte múltiples terminales (sucursales) a una sola base de datos central.
+- **Backups Automáticos:** Asegure la información de sus empleados y registros de acceso ante fallos de hardware.
+- **Realtime Notifications:** Posibilidad de disparar alertas (Webhooks) al momento de una detección.
+
+### 🛠️ Configuración Inicial de Supabase
+
+Para integrar su proyecto, siga estos pasos:
+
+1. **Crear Proyecto:** Regístrese en [Supabase](https://supabase.com/) y cree un nuevo proyecto.
+2. **Setup de Base de Datos:** En el **SQL Editor**, ejecute el siguiente comando para preparar las tablas optimizadas para IA:
+
+```sql
+-- Tabla Maestra de Empleados
+CREATE TABLE empleados (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    employee_id INTEGER UNIQUE, -- ID único del empleado
+    nombre TEXT NOT NULL,
+    apellido TEXT,
+    puesto TEXT,
+    zona TEXT,
+    sucursal TEXT,
+    embeddings FLOAT8[], -- Vector IA de 128D (OpenCV SFace)
+    foto_url TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Tabla de Asistencias (Realtime)
+CREATE TABLE asistencias (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    empleado_id UUID REFERENCES empleados(id) ON DELETE CASCADE,
+    tipo TEXT CHECK (tipo IN ('entrada', 'salida')),
+    confianza FLOAT,
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    ubicacion TEXT
+);
+
+-- Deshabilitar RLS para desarrollo (o configurar políticas de red)
+ALTER TABLE empleados DISABLE ROW LEVEL SECURITY;
+ALTER TABLE asistencias DISABLE ROW LEVEL SECURITY;
+```
+
+3. **Variables de Entorno:** Configure su servidor local mediante el archivo `.env`:
+
 ```env
 SUPABASE_URL=https://tu-proyecto.supabase.co
 SUPABASE_KEY=tu-anon-key-de-supabase
 GEMINI_API_KEY=opcional_para_engine_hibrido
 ```
-> El sistema migrará automáticamente los registros locales a Supabase cuando detecte conexión.
+
+### 🧠 Sincronización de Datos (ETL)
+
+Si ya cuenta con datos locales (SQLite), use el motor de migración masiva incluido para subir identidades a la nube:
+
+```powershell
+python scripts/massive_cleanup.py
+```
+> Esto sincronizará automáticamente los 56 perfiles actuales con sus embeddings faciales.
+
 
 ---
 

@@ -114,23 +114,34 @@ DB_URL=sqlite:///database/asistencia.db
 
 ---
 
-## 📂 Organización del Proyecto
+## 🏗️ Estructura Profesional del Proyecto
 
-```text
-├── 🛠️ main.py                      # Punto de entrada de la aplicación
-├── ⚙️ config_gemini.py              # Gestión de variables y API Gemini
-├── 📊 train_face_recognition_opencv.py # Script de entrenamiento local
-├── 🚀 ejecutar.ps1                  # Lanzador rápido para Windows
-├── 📦 utils/                         # Núcleo lógico del sistema
-│   ├── face_recognition_opencv.py   # Motor de visión local
-│   ├── gemini_vision_matcher.py     # Integración con Google AI
-│   ├── hybrid_opencv_gemini_matcher.py # Lógica de decisión híbrida
-│   └── auth.py                      # Seguridad y sesiones
-├── 🖼️ windows/                      # Capa de presentación (PyQt5)
-│   ├── login_window.py              # Gestión de acceso
-│   └── dashboard_window.py          # Interfaz principal de monitoreo
-└── 💾 database/                     # Almacenamiento y modelos de datos
+El proyecto ha sido reorganizado siguiendo estándares de ingeniería de software para maximizar la mantenibilidad y escalabilidad.
+
+```mermaid
+graph TD
+    Root["📂 PROYECTO ROOT"]
+    Root --> Src["📂 src/ (Código Fuente)"]
+    Root --> Data["📂 data/ (Persistencia)"]
+    Root --> Docs["📂 docs/ (Documentación)"]
+    Root --> Scripts["📂 scripts/ (Mantenimiento)"]
+    
+    Src --> Windows["🪟 windows/ (Interfaces PyQt5)"]
+    Src --> Utils["⚙️ utils/ (Motores de Reconocimiento)"]
+    Src --> Assets["🎨 assets/ (Logos y Estilos)"]
+    
+    Data --> DB["🗄️ db/ (Base de Datos Trabajadores)"]
+    Data --> Photos["🖼️ photos/ (Dataset de Empleados)"]
+    Data --> Models["🧠 models/ (Modelos ONNX y YOLO)"]
+    
+    Scripts --> Training["🎯 Entrenamiento y Extracción"]
 ```
+
+### 📂 Desglose de Directorios
+- **`src/`**: Núcleo de la aplicación. Contiene el punto de entrada `main.py`.
+- **`data/`**: Todos los datos persistentes. La base de datos y las fotos están centralizadas aquí.
+- **`scripts/`**: Scripts de utilidad para entrenar modelos o extraer datos de archivos PDF.
+- **`docs/`**: Manuales, diagramas y archivos PDF originales de referencia.
 
 ---
 

@@ -1,158 +1,153 @@
-# Safe Link Monitoring — Control de Asistencia
+<p align="center">
+  <img src="https://img.shields.io/badge/Safe%20Link-Monitoring-6366f1?style=for-the-badge&labelColor=1e293b" alt="Safe Link Monitoring">
+</p>
+
+<h1 align="center">🛡️ Safe Link Monitoring - Control de Asistencia v2.0.4</h1>
 
 <p align="center">
-  <strong>Aplicación de escritorio para reconocimiento facial de trabajadores</strong>
+  <strong>Sistema inteligente de escritorio para el registro biométrico facial de personal en tiempo real.</strong>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Python-3.8+-3776AB?style=flat&logo=python&logoColor=white" alt="Python">
-  <img src="https://img.shields.io/badge/PyQt5-5.15-41CD52?style=flat&logo=qt&logoColor=white" alt="PyQt5">
-  <img src="https://img.shields.io/badge/OpenCV-4.8-5C3EE8?style=flat&logo=opencv&logoColor=white" alt="OpenCV">
-  <img src="https://img.shields.io/badge/License-Proprietary-red" alt="License">
+  <img src="https://img.shields.io/badge/Python-3.8+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/PyQt5-5.15-41CD52?style=flat-square&logo=qt&logoColor=white" alt="PyQt5">
+  <img src="https://img.shields.io/badge/OpenCV-4.8+-5C3EE8?style=flat-square&logo=opencv&logoColor=white" alt="OpenCV">
+  <img src="https://img.shields.io/badge/Google%20Gemini-Pro%20Vision-blue?style=flat-square&logo=google-gemini&logoColor=white" alt="Gemini">
+  <img src="https://img.shields.io/badge/Status-Production--Ready-success?style=flat-square" alt="Status">
 </p>
 
 ---
 
-## Descripción
+## 📋 Descripción General
 
-**Safe Link Monitoring - Control de Asistencia** es una aplicación de escritorio desarrollada para **Safe Link Monitoring** que permite el registro de entrada y salida de trabajadores mediante **reconocimiento facial en tiempo real**. Integra múltiples motores de reconocimiento (OpenCV, Gemini Vision, híbridos) para mayor precisión y confiabilidad.
+**Safe Link Monitoring - Control de Asistencia** es una solución de grado empresarial diseñada para automatizar el ciclo de asistencia (Check-In / Check-Out) mediante **biometría facial avanzada**. 
 
-### Características principales
-
-| Característica | Descripción |
-|----------------|-------------|
-| **Interfaz moderna** | UI con PyQt5, tema oscuro y diseño profesional |
-| **Reconocimiento facial** | OpenCV, Gemini Vision o híbrido (foto vs cámara) |
-| **Control de asistencia** | Registro automático de entrada/salida con timestamp |
-| **Base de datos** | SQLAlchemy, compatible con el ecosistema Safe Link |
-| **Splash y login** | Flujo de inicio con splash screen y autenticación |
-| **Multiplataforma** | Windows, Linux y macOS |
+A diferencia de sistemas convencionales, esta aplicación utiliza un **motor híbrido** que combina la velocidad local de OpenCV con la potencia de razonamiento visual de **Google Gemini Pro Vision**, garantizando precisión incluso en condiciones de iluminación difíciles o cambios de apariencia en el trabajador.
 
 ---
 
-## Requisitos del sistema
+## ✨ Características Premium
 
-- **Python** 3.8 o superior
-- **Cámara web** (integrada o USB)
-- **Sistema operativo:** Windows 10/11, Linux o macOS
+### 🧠 Inteligencia Artificial Híbrida
+- **Motor Primario (OpenCV SFace/YuNet)**: Reconocimiento ultra-rápido (< 200ms) para condiciones estándar.
+- **Motor Secundario (Gemini AI)**: Validación cruzada de alta fidelidad cuando la confianza local es baja.
+- **Self-Healing AI**: El sistema aprende de los embeddings diarios del personal para mejorar la precisión sin intervención manual.
+
+### 🎨 Interfaz de Usuario (UX/UI)
+- **Diseño Glassmorphism**: Interfaz moderna y profesional basada en el ecosistema Safe Link.
+- **Micro-interacciones**: Transiciones fluidas, splash screens animados y notificaciones visuales claras de éxito/error.
+- **Dashboard en Vivo**: Visualización en tiempo real de la captura de cámara con superposiciones inteligentes de detección.
+
+### 🔐 Seguridad y Cumplimiento
+- **Autenticación Bcrypt**: Gestión segura de credenciales administrativas.
+- **Persistencia Local**: Base de datos integrada con SQLAlchemy (SQLite/MySQL) para funcionamiento offline y sincronización posterior.
+- **Logs de Auditoría**: Registro detallado de cada intento de acceso y evento del sistema.
 
 ---
 
-## Instalación
+## 🏗️ Arquitectura del Sistema
 
-### 1. Clonar el repositorio
+El sistema se divide en capas modulares para facilitar el mantenimiento y escalabilidad:
 
-```bash
-git clone https://github.com/SafeLink-Monitoring/app-login-trabajadores-desktop.git
+```mermaid
+graph TD
+    A[Cámara Web / RTSP] --> B[Captura de Frames - OpenCV]
+    B --> C{Detección YuNet}
+    C -->|Rostro Detectado| D[Extracción de Embeddings]
+    D --> E{Motor Híbrido}
+    E -->|Confianza Alta| F[Matching Local - SFace]
+    E -->|Confianza Baja| G[Validación Nube - Gemini Vision]
+    F --> H[Lógica de Registro]
+    G --> H
+    H --> I[(Database SQLAlchemy)]
+    H --> J[Interfaz Gráfica - PyQt5]
+```
+
+---
+
+## 🚀 Guía de Instalación Robusta
+
+### 1. Preparación del Entorno
+Se recomienda utilizar **Python 3.10** para máxima compatibilidad con modelos de visión.
+
+```powershell
+# Clonar y entrar al proyecto
+git clone https://github.com/Safe-LM/app-login-trabajadores-desktop.git
 cd app-login-trabajadores-desktop
-```
 
-### 2. Crear entorno virtual (recomendado)
-
-```bash
+# Crear y activar entorno virtual
 python -m venv venv
-venv\Scripts\activate          # Windows
-# source venv/bin/activate     # Linux/macOS
+.\venv\Scripts\Activate.ps1
 ```
 
-### 3. Instalar dependencias
+### 2. Instalación de Dependencias
+Ejecute el script de instalación automática o use pip directamente:
 
-```bash
+```powershell
+# Opción A: Automatizado (Recomendado)
+.\iniciar.ps1
+
+# Opción B: Manual
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### 4. Configurar variables de entorno (opcional)
+### 3. Configuración de API Keys
+Para activar el motor de **Gemini AI**, cree un archivo `.env` en el directorio raíz:
 
-Para usar **Gemini Vision** como motor de reconocimiento, crea un archivo `.env` en la raíz:
-
-```
-GEMINI_API_KEY=tu_api_key_aqui
-```
-
-O configura la variable de entorno:
-
-```bash
-set GEMINI_API_KEY=tu_api_key_aqui    # Windows
-export GEMINI_API_KEY=tu_api_key_aqui # Linux/macOS
-```
-
-### 5. Ejecutar la aplicación
-
-```bash
-python main.py
+```env
+GEMINI_API_KEY=tu_api_key_de_google_ai_studio
+LOG_LEVEL=INFO
+DB_URL=sqlite:///database/asistencia.db
 ```
 
 ---
 
-## Uso
+## 📖 Guía de Uso
 
-1. **Inicio:** Se muestra el splash screen y luego la ventana de login.
-2. **Login:** Ingresa usuario y contraseña (por defecto: `empleado` / `empleado123`).
-3. **Dashboard:** Activa la cámara y registra tu asistencia con reconocimiento facial.
-4. **Registro:** El sistema identifica tu rostro y registra entrada o salida automáticamente.
+1. **Inicialización**: Ejecute `python main.py` o use el acceso directo `ejecutar.ps1`.
+2. **Autenticación**: Ingrese con las credenciales administrativas para acceder al Dashboard.
+3. **Mantenimiento de Base de Datos**: 
+   - Use `setup_fotos.py` para preparar las fotos de perfil de los empleados.
+   - Use `train_face_recognition_opencv.py` para regenerar los modelos locales si agrega personal nuevo.
+4. **Operación**: Posicione el rostro frente a la cámara. El sistema indicará en pantalla cuando el reconocimiento sea exitoso y registrará el timestamp automáticamente.
 
 ---
 
-## Estructura del proyecto
+## 📂 Organización del Proyecto
 
-```
-app-login-trabajadores-desktop/
-├── main.py                      # Punto de entrada
-├── config_gemini.py             # Configuración API Gemini
-├── train_face_recognition_opencv.py  # Entrenamiento de modelos
-├── requirements.txt
-├── windows/
-│   ├── splash_window.py         # Pantalla de carga
-│   ├── login_window.py         # Ventana de login
-│   └── dashboard_window.py     # Dashboard con cámara y registro
-├── utils/
-│   ├── auth.py                  # Autenticación
-│   ├── employee_mapper.py       # Mapeo de empleados
-│   ├── face_recognition_opencv.py
-│   ├── gemini_vision_matcher.py
-│   ├── hybrid_opencv_gemini_matcher.py
-│   ├── photo_to_photo_matcher.py
-│   └── process_photos.py
-├── main_codes/                  # Scripts de entrenamiento y pruebas
-└── _archivo/                    # Documentación y scripts legacy
+```text
+├── 🛠️ main.py                      # Punto de entrada de la aplicación
+├── ⚙️ config_gemini.py              # Gestión de variables y API Gemini
+├── 📊 train_face_recognition_opencv.py # Script de entrenamiento local
+├── 🚀 ejecutar.ps1                  # Lanzador rápido para Windows
+├── 📦 utils/                         # Núcleo lógico del sistema
+│   ├── face_recognition_opencv.py   # Motor de visión local
+│   ├── gemini_vision_matcher.py     # Integración con Google AI
+│   ├── hybrid_opencv_gemini_matcher.py # Lógica de decisión híbrida
+│   └── auth.py                      # Seguridad y sesiones
+├── 🖼️ windows/                      # Capa de presentación (PyQt5)
+│   ├── login_window.py              # Gestión de acceso
+│   └── dashboard_window.py          # Interfaz principal de monitoreo
+└── 💾 database/                     # Almacenamiento y modelos de datos
 ```
 
 ---
 
-## Tecnologías
+## 🔧 Solución de Problemas Comunes
 
-- **PyQt5** — Interfaz gráfica
-- **OpenCV** — Captura de cámara y procesamiento de imágenes
-- **SQLAlchemy** — ORM y base de datos
-- **NumPy / Pandas** — Procesamiento de datos
-- **Google Gemini** (opcional) — Reconocimiento facial con IA
-- **PyTorch / Ultralytics** (opcional) — Modelos avanzados
-
----
-
-## Solución de problemas
-
-| Problema | Solución |
-|----------|----------|
-| No se accede a la cámara | Cierra otras apps que usen la cámara y revisa permisos del sistema |
-| Reconocimiento no disponible | Verifica que los modelos estén entrenados y la ruta de fotos sea correcta |
-| Error de Gemini | Comprueba `GEMINI_API_KEY` en `.env` o variables de entorno |
-| Dependencias faltantes | Ejecuta `pip install -r requirements.txt` de nuevo |
+| Error | Causa Probable | Solución |
+|-------|----------------|----------|
+| **Error 429 (Quota Exceeded)** | Límite de API Gemini alcanzado. | El sistema cambiará automáticamente a solo OpenCV. Verifique su cuenta en Google AI Studio. |
+| **DLL Load Failed (PyTorch/CV2)** | Falta de C++ Redistributable o venv corrupto. | Instale "Microsoft Visual C++ Redistributable" y reinicie el VS Code. |
+| **No se detecta cámara** | Cámara en uso por otra app (Teams, Zoom). | Cierre la otra aplicación y presione "Activar Cámara" en el dashboard. |
 
 ---
 
-## Versión
+## 📄 Licencia y Créditos
 
-**v2.0.4** — Safe Link Monitoring
-
----
-
-## Licencia
-
-Proyecto propietario de **Safe Link Monitoring**. Uso interno.
-
----
+Este software es **Propiedad Privada** de **Safe Link Monitoring**. Queda prohibida su reproducción o distribución sin autorización expresa.
 
 <p align="center">
-  <sub>Desarrollado por Safe Link Monitoring</sub>
+  <sub>Desarrollado con ❤️ por el equipo de Ingeniería de Safe Link Monitoring</sub>
 </p>

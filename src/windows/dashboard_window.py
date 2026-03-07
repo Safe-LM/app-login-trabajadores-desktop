@@ -99,6 +99,117 @@ def _btn_style(color, hover, pressed=None):
 
 
 # ---------------------------------------------------------------------------
+# Diálogo personalizado de asistencia
+# ---------------------------------------------------------------------------
+
+class AttendanceDialog(QWidget):
+    """Diálogo premium personalizado para registro de asistencia."""
+
+    def __init__(self, tipo, nombre, confianza, hora, parent=None):
+        super().__init__(parent, Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setFixedSize(420, 320)
+        if parent:
+            geo = parent.geometry()
+            self.move(geo.center().x() - 210, geo.center().y() - 160)
+        self._build_ui(tipo, nombre, confianza, hora)
+
+    def _build_ui(self, tipo, nombre, confianza, hora):
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+
+        card = QFrame()
+        card.setStyleSheet(f"""
+            QFrame {{
+                background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
+                    stop:0 #111827, stop:1 #0f172a);
+                border: 1px solid #2d3748;
+                border-radius: 20px;
+            }}
+        """)
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(40)
+        shadow.setColor(QColor(0, 0, 0, 120))
+        shadow.setOffset(0, 8)
+        card.setGraphicsEffect(shadow)
+
+        cl = QVBoxLayout(card)
+        cl.setContentsMargins(32, 28, 32, 24)
+        cl.setSpacing(0)
+
+        is_entrada = tipo.upper() == "ENTRADA"
+        accent = _COLORS['success'] if is_entrada else _COLORS['accent']
+        icon_text = "✓" if is_entrada else "↩"
+
+        # Icon circle
+        icon_lbl = QLabel(icon_text)
+        icon_lbl.setFixedSize(56, 56)
+        icon_lbl.setAlignment(Qt.AlignCenter)
+        icon_lbl.setFont(QFont("Segoe UI", 22, QFont.Bold))
+        icon_lbl.setStyleSheet(f"""
+            background: {accent};
+            color: white;
+            border-radius: 28px;
+        """)
+        cl.addWidget(icon_lbl, 0, Qt.AlignCenter)
+        cl.addSpacing(14)
+
+        # Title
+        title = QLabel(f"{tipo.upper()} Registrada")
+        title.setFont(QFont("Segoe UI", 18, QFont.Bold))
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet(f"color: {_COLORS['text']}; background:transparent;")
+        cl.addWidget(title)
+        cl.addSpacing(16)
+
+        # Info rows
+        for label, value, color in [
+            ("Empleado", nombre, _COLORS['text']),
+            ("Confianza", f"{confianza}%", accent),
+            ("Hora", hora, _COLORS['text_dim']),
+        ]:
+            row = QHBoxLayout()
+            row.setContentsMargins(0, 4, 0, 4)
+            lk = QLabel(label)
+            lk.setFont(QFont("Segoe UI", 11))
+            lk.setStyleSheet(f"color: {_COLORS['text_muted']}; background:transparent;")
+            row.addWidget(lk)
+            row.addStretch()
+            vk = QLabel(value)
+            vk.setFont(QFont("Segoe UI", 11, QFont.Bold))
+            vk.setStyleSheet(f"color: {color}; background:transparent;")
+            row.addWidget(vk)
+            cl.addLayout(row)
+
+        cl.addSpacing(20)
+
+        # OK button
+        ok_btn = QPushButton("Aceptar")
+        ok_btn.setFont(QFont("Segoe UI", 11, QFont.Bold))
+        ok_btn.setCursor(Qt.PointingHandCursor)
+        ok_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {accent};
+                color: white;
+                border: none;
+                border-radius: 10px;
+                padding: 12px;
+            }}
+            QPushButton:hover {{ background: {_COLORS['accent_dark']}; }}
+        """)
+        ok_btn.clicked.connect(self.close)
+        cl.addWidget(ok_btn)
+
+        outer.addWidget(card)
+
+    def paintEvent(self, event):
+        """Fondo semi-transparente."""
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.fillRect(self.rect(), QColor(0, 0, 0, 80))
+
+
+# ---------------------------------------------------------------------------
 # Hilos de cámara y reconocimiento
 # ---------------------------------------------------------------------------
 
@@ -437,25 +548,28 @@ class DashboardWindow(QMainWindow):
         btn_row = QHBoxLayout()
         btn_row.setSpacing(10)
 
-        self.start_button = QPushButton("ACTIVAR")
+        self.start_button = QPushButton("  ▶  ACTIVAR")
         self.start_button.setStyleSheet(_btn_style(_COLORS['success'], '#059669', '#047857'))
+        self.start_button.setCursor(Qt.PointingHandCursor)
         self.start_button.clicked.connect(self.start_camera)
         btn_row.addWidget(self.start_button)
 
-        self.stop_button = QPushButton("DETENER")
+        self.stop_button = QPushButton("  ◼  DETENER")
         self.stop_button.setEnabled(False)
         self.stop_button.setStyleSheet(_btn_style(_COLORS['danger'], '#dc2626', '#b91c1c'))
+        self.stop_button.setCursor(Qt.PointingHandCursor)
         self.stop_button.clicked.connect(self.stop_camera)
         btn_row.addWidget(self.stop_button)
 
         cam_lay.addLayout(btn_row)
 
-        self.recognize_button = QPushButton("REGISTRAR ASISTENCIA")
+        self.recognize_button = QPushButton("  🔐  REGISTRAR ASISTENCIA")
         self.recognize_button.setEnabled(False)
         self.recognize_button.setStyleSheet(_btn_style(
             'qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #6366f1, stop:1 #4f46e5)',
             '#4f46e5', '#4338ca'
         ))
+        self.recognize_button.setCursor(Qt.PointingHandCursor)
         self.recognize_button.clicked.connect(self.register_attendance)
         cam_lay.addWidget(self.recognize_button)
 
@@ -516,31 +630,53 @@ class DashboardWindow(QMainWindow):
         pf_lay = QVBoxLayout(photo_frame)
         pf_lay.setContentsMargins(8, 8, 8, 8)
 
-        self.recognized_photo_label = QLabel("Foto del\nempleado")
-        self.recognized_photo_label.setFixedSize(180, 180)
+        self.recognized_photo_label = QLabel("👤")
+        self.recognized_photo_label.setFixedSize(200, 200)
         self.recognized_photo_label.setAlignment(Qt.AlignCenter)
+        self.recognized_photo_label.setFont(self._font(48))
         self.recognized_photo_label.setStyleSheet(f"""
             QLabel {{
                 background: {_COLORS['bg_dark']};
-                border: 1px solid {_COLORS['border']};
-                border-radius: 10px;
+                border: 2px dashed {_COLORS['border']};
+                border-radius: 14px;
                 color: {_COLORS['text_muted']};
-                font-size: 12px;
             }}
         """)
         pf_lay.addWidget(self.recognized_photo_label, 0, Qt.AlignCenter)
         i_lay.addWidget(photo_frame)
 
-        # Info fields
-        self.recognized_name_label = self._add_info_row(i_lay, "NOMBRE", "--")
-        self.recognized_zona_label = self._add_info_row(i_lay, "ZONA", "--")
-        self.recognized_sucursal_label = self._add_info_row(i_lay, "SUCURSAL", "--")
-        self.recognized_puesto_label = self._add_info_row(i_lay, "PUESTO", "--")
+        # Info fields with icons and accent bars
+        self.recognized_name_label = self._add_info_row(i_lay, "NOMBRE", "--", "👤", _COLORS['accent'])
+        self.recognized_zona_label = self._add_info_row(i_lay, "ZONA", "--", "📍", _COLORS['warning'])
+        self.recognized_sucursal_label = self._add_info_row(i_lay, "SUCURSAL", "--", "🏢", _COLORS['success'])
+        self.recognized_puesto_label = self._add_info_row(i_lay, "PUESTO", "--", "💼", '#a78bfa')
+
+        i_lay.addSpacing(6)
+
+        # Stats bar
+        stats_frame = QFrame()
+        stats_frame.setStyleSheet(f"""
+            QFrame {{
+                background: {_COLORS['bg_card_alt']};
+                border: 1px solid {_COLORS['border']};
+                border-radius: 8px;
+            }}
+        """)
+        stats_lay = QHBoxLayout(stats_frame)
+        stats_lay.setContentsMargins(10, 6, 10, 6)
+        stats_lay.setSpacing(0)
+        stats_text = QLabel("56 Empleados  ·  560 Embeddings  ·  OpenCV SFace")
+        stats_text.setFont(self._font(8))
+        stats_text.setAlignment(Qt.AlignCenter)
+        stats_text.setStyleSheet(f"color: {_COLORS['text_muted']}; background:transparent;")
+        stats_lay.addWidget(stats_text)
+        i_lay.addWidget(stats_frame)
 
         i_lay.addStretch()
 
         # Logout
-        logout_btn = QPushButton("CERRAR SESION")
+        logout_btn = QPushButton("  ↩  CERRAR SESIÓN")
+        logout_btn.setCursor(Qt.PointingHandCursor)
         logout_btn.setStyleSheet(f"""
             QPushButton {{
                 background: transparent;
@@ -552,7 +688,8 @@ class DashboardWindow(QMainWindow):
                 font-weight: 600;
             }}
             QPushButton:hover {{
-                background: rgba(239,68,68,0.1);
+                background: rgba(239,68,68,0.15);
+                border: 1px solid #f87171;
             }}
         """)
         logout_btn.clicked.connect(self.logout)
@@ -582,29 +719,44 @@ class DashboardWindow(QMainWindow):
             font-size: 9px; font-weight: 700; letter-spacing: 1px;
         """
 
-    def _add_info_row(self, parent_layout, label_text, default="--"):
+    def _add_info_row(self, parent_layout, label_text, default="--", icon="", accent_color=None):
         row = QFrame()
+        accent = accent_color or _COLORS['accent']
         row.setStyleSheet(f"""
             QFrame {{
                 background: {_COLORS['bg_card_alt']};
                 border: 1px solid {_COLORS['border']};
                 border-radius: 8px;
+                border-left: 3px solid {accent};
             }}
         """)
-        rl = QVBoxLayout(row)
+        rl = QHBoxLayout(row)
         rl.setContentsMargins(12, 8, 12, 8)
-        rl.setSpacing(2)
+        rl.setSpacing(10)
+
+        if icon:
+            icon_lbl = QLabel(icon)
+            icon_lbl.setFont(self._font(14))
+            icon_lbl.setFixedWidth(24)
+            icon_lbl.setStyleSheet("background:transparent;")
+            rl.addWidget(icon_lbl)
+
+        text_col = QVBoxLayout()
+        text_col.setSpacing(1)
 
         lbl = QLabel(label_text)
         lbl.setFont(self._font(8, True))
         lbl.setStyleSheet(f"color: {_COLORS['text_muted']}; background: transparent; letter-spacing: 1px;")
-        rl.addWidget(lbl)
+        text_col.addWidget(lbl)
 
         val = QLabel(default)
         val.setFont(self._font(12, True))
         val.setStyleSheet(f"color: {_COLORS['text']}; background: transparent;")
         val.setWordWrap(True)
-        rl.addWidget(val)
+        text_col.addWidget(val)
+
+        rl.addLayout(text_col)
+        rl.addStretch()
 
         parent_layout.addWidget(row)
         return val
@@ -893,11 +1045,13 @@ class DashboardWindow(QMainWindow):
                 db.commit()
                 self.attendance_registered = True
                 nombre = info_empleado.get('nombre', 'Trabajador') if info_empleado else 'Trabajador'
-                QMessageBox.information(self, "Asistencia Registrada",
-                    f"{tipo.upper()} registrada\n\n"
-                    f"Empleado: {nombre}\n"
-                    f"Confianza: {confianza*100:.0f}%\n"
-                    f"Hora: {datetime.now().strftime('%H:%M:%S')}")
+                dlg = AttendanceDialog(
+                    tipo, nombre,
+                    f"{confianza*100:.0f}",
+                    datetime.now().strftime('%H:%M:%S'),
+                    parent=self
+                )
+                dlg.show()
             except Exception as e:
                 db.rollback()
                 logger.error(f"Error registro: {e}")
@@ -942,10 +1096,14 @@ class DashboardWindow(QMainWindow):
             db.add(reg)
             db.commit()
             self.attendance_registered = True
-            QMessageBox.information(self, "Asistencia Registrada",
-                f"{tipo.upper()} registrada\n\n"
-                f"Confianza: {confianza*100:.1f}%\n"
-                f"Hora: {datetime.now().strftime('%H:%M:%S')}")
+            nombre = f"{self.trabajador.nombre} {self.trabajador.apellido}"
+            dlg = AttendanceDialog(
+                tipo, nombre,
+                f"{confianza*100:.0f}",
+                datetime.now().strftime('%H:%M:%S'),
+                parent=self
+            )
+            dlg.show()
             self._set_status(f"{tipo.upper()} registrada", "success")
         except Exception as e:
             db.rollback()

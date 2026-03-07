@@ -144,6 +144,40 @@ DB_URL=sqlite:///database/asistencia.db
 
 ---
 
+## 📖 Manual de Operación (Documentación Corta)
+
+Esta sección resume el funcionamiento y el proceso de creación del sistema para usuarios no técnicos.
+
+### ¿Cómo funciona en el día a día?
+1. **Inicio**: Abrir la aplicación mediante el acceso directo `ejecutar.ps1`.
+2. **Acceso**: El administrador inicia sesión con su usuario y contraseña.
+3. **Activación**: Presionar el botón "Activar Cámara" en el panel principal.
+4. **Identificación**: El empleado debe pararse frente a la cámara de 2 a 3 segundos.
+5. **Registro**: El sistema mostrará el Nombre, Puesto, Zona y Sucursal. Si la confianza es >85%, la asistencia se guarda automáticamente con fecha y hora.
+
+### Datos Clave del Sistema 📊
+- **Empleados registrados**: 56 (según base de datos actual).
+- **Precisión**: 100% en pruebas controladas con 560 variaciones faciales.
+- **Tiempo de respuesta**: 2-3 segundos por persona.
+- **Funcionamiento Offline**: No requiere internet para el reconocimiento básico (OpenCV).
+
+### ¿Qué pasa si se agrega un nuevo empleado? 👤
+1. Se añade la fotografía a la carpeta `database_fotos/`.
+2. Se actualizan los datos en el registro maestro.
+3. Se ejecuta el script de entrenamiento (`train_face_recognition_opencv.py`), el cual genera las nuevas 10 variaciones faciales y actualiza los encodings en menos de 30 segundos.
+
+---
+
+## 🛠️ Proceso de Desarrollo (Paso a Paso)
+
+1. **Recopilación**: Extracción de datos y fotos desde el PDF original de *PERSONAL TIENDAS BM*.
+2. **Procesamiento**: Organización de 56 fotografías y mapeo de identidades.
+3. **Entrenamiento IA**: Generación de 560 "huellas faciales" digitales (10 por empleado) para garantizar reconocimiento bajo distintas condiciones de luz.
+4. **Construcción**: Desarrollo de la interfaz en PyQt5 con pantallas de Splash, Login y Dashboard.
+5. **Seguridad**: Implementación de cifrado de contraseñas y bloqueos por intentos fallidos.
+
+---
+
 ## 📄 Licencia y Créditos
 
 Este software es **Propiedad Privada** de **Safe Link Monitoring**. Queda prohibida su reproducción o distribución sin autorización expresa.

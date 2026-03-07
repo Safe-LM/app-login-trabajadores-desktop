@@ -4,6 +4,10 @@ on:
   push:
     branches: [ main ]
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   # TAREA 3: Generación de Changelog y Versionado Automático (Conventional Commits)
   release-please:

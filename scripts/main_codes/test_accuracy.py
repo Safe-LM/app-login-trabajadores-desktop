@@ -15,8 +15,8 @@ import numpy as np
 from pathlib import Path
 from collections import defaultdict
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-MODELS_DIR = BASE_DIR / "models"
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+MODELS_DIR = BASE_DIR / "data" / "models" / "models"
 PHOTOS_DIR = BASE_DIR / "database_fotos" / "photos"
 JSON_PATH = BASE_DIR / "database_fotos" / "json" / "employees_db.json"
 ENCODINGS_PATH = BASE_DIR / "database_fotos" / "face_encodings_opencv.pkl"

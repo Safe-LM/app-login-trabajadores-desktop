@@ -1,0 +1,394 @@
+{
+  "1": {
+    "nombre": "ORTIZ ROCHA MARILU",
+    "zona": "CDMX",
+    "sucursal": "TIENDAS",
+    "puesto": "SUPERVISOR",
+    "photo_file": "photos/photo_0001_p1.jpeg"
+  },
+  "2": {
+    "nombre": "GARCIA VILLANUEVA GERSOM UZZIEL",
+    "zona": "CDMX",
+    "sucursal": "TIENDAS",
+    "puesto": "GERENTE",
+    "photo_file": "photos/photo_0002_p1.jpeg"
+  },
+  "3": {
+    "nombre": "HERNANDEZ CHAIRES MARITZA MONSERRAT",
+    "zona": "CDMX",
+    "sucursal": "MIRAMONTES",
+    "puesto": "ENCARGADA",
+    "photo_file": "photos/photo_0003_p2.jpeg"
+  },
+  "4": {
+    "nombre": "HERNANDEZ VAZQUEZ GABRIELA",
+    "zona": "CDMX",
+    "sucursal": "MIRAMONTES",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0004_p2.jpeg"
+  },
+  "5": {
+    "nombre": "CHAVEZ HERNANDEZ MIRIAM YANETH",
+    "zona": "CDMX",
+    "sucursal": "MIRAMONTES",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0005_p2.jpeg"
+  },
+  "6": {
+    "nombre": "PACHECO FUENTES ESTHER",
+    "zona": "CDMX",
+    "sucursal": "MIRAMONTES",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0006_p2.jpeg"
+  },
+  "7": {
+    "nombre": "MENDIVIL MORALES ANA LIDIA",
+    "zona": "CDMX",
+    "sucursal": "ACOXPA",
+    "puesto": "ENCARGADA",
+    "photo_file": "photos/photo_0007_p3.jpeg"
+  },
+  "8": {
+    "nombre": "OSORIO ROSALES BERENICE JANNET",
+    "zona": "CDMX",
+    "sucursal": "ACOXPA",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0008_p3.jpeg"
+  },
+  "9": {
+    "nombre": "GACHUZ GARCIA SONIA",
+    "zona": "CDMX",
+    "sucursal": "COPILCO",
+    "puesto": "ENCARGADA",
+    "photo_file": "photos/photo_0009_p4.jpeg"
+  },
+  "10": {
+    "nombre": "OLGUIN MORALES METZI MARIAN",
+    "zona": "CDMX",
+    "sucursal": "COPILCO",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0010_p4.jpeg"
+  },
+  "11": {
+    "nombre": "CERVANTES DAVID ALEJANDRA BEATRIZ",
+    "zona": "CDMX",
+    "sucursal": "TOLTECAS",
+    "puesto": "ENCARGADA",
+    "photo_file": "photos/photo_0011_p5.jpeg"
+  },
+  "12": {
+    "nombre": "MAGAÑA LEZAMA MARIA ESTHER",
+    "zona": "CDMX",
+    "sucursal": "TOLTECAS",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0012_p5.jpeg"
+  },
+  "13": {
+    "nombre": "MENDIETA RODRIGUEZ ALEJANDRA",
+    "zona": "CDMX",
+    "sucursal": "CUEMANCO",
+    "puesto": "ENCARGADA",
+    "photo_file": "photos/photo_0013_p6.jpeg"
+  },
+  "14": {
+    "nombre": "ESTRADA VAZQUEZ DIANA LAURA",
+    "zona": "CDMX",
+    "sucursal": "CUEMANCO",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0014_p6.jpeg"
+  },
+  "15": {
+    "nombre": "RUIZ MARTINEZ ANA KAREN",
+    "zona": "CDMX",
+    "sucursal": "AGUILAS",
+    "puesto": "ENCARGADA",
+    "photo_file": "photos/photo_0015_p7.jpeg"
+  },
+  "16": {
+    "nombre": "GARCIA DIAZ JOCELYN",
+    "zona": "CDMX",
+    "sucursal": "AGUILAS",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0016_p7.jpeg"
+  },
+  "17": {
+    "nombre": "GARCIA MONDRAGON VALENTINA SARAHI",
+    "zona": "CDMX",
+    "sucursal": "AGUILAS",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0017_p7.jpeg"
+  },
+  "18": {
+    "nombre": "LICEA CUEVAS MARIA DE LA PAZ",
+    "zona": "CDMX",
+    "sucursal": "AV TOLUCA",
+    "puesto": "ENCARGADA",
+    "photo_file": "photos/photo_0018_p8.jpeg"
+  },
+  "19": {
+    "nombre": "TAPIA HERNANDEZ DANIELA IVETTE",
+    "zona": "CDMX",
+    "sucursal": "AV TOLUCA",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0019_p8.jpeg"
+  },
+  "20": {
+    "nombre": "RODRIGUEZ CARMONA ANGELA MALENY",
+    "zona": "CDMX",
+    "sucursal": "POLANCO",
+    "puesto": "ENCARGADA",
+    "photo_file": "photos/photo_0020_p9.jpeg"
+  },
+  "21": {
+    "nombre": "MARTINEZ SOTO JANETH ISABEL",
+    "zona": "CDMX",
+    "sucursal": "POLANCO",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0021_p9.jpeg"
+  },
+  "22": {
+    "nombre": "MERCADO ESCOBAR MARIA GUADALUPE",
+    "zona": "CDMX",
+    "sucursal": "PTAL CENTENARIO",
+    "puesto": "ENCARGADA",
+    "photo_file": "photos/photo_0022_p10.jpeg"
+  },
+  "23": {
+    "nombre": "ENRIQUEZ MENDOZA ABIGAIL",
+    "zona": "CDMX",
+    "sucursal": "PTAL CENTENARIO",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0023_p10.jpeg"
+  },
+  "24": {
+    "nombre": "PEREZ GALLEGOS DANIELA",
+    "zona": "CDMX",
+    "sucursal": "SAN JERONIMO",
+    "puesto": "ENCARGADA",
+    "photo_file": "photos/photo_0024_p11.jpeg"
+  },
+  "25": {
+    "nombre": "ARAIZA DAVILA BERENICE ALFONSINA",
+    "zona": "CDMX",
+    "sucursal": "SAN JERONIMO",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0025_p11.jpeg"
+  },
+  "26": {
+    "nombre": "TAPIA APOLONIO LIZETH ADLUZ",
+    "zona": "CDMX",
+    "sucursal": "SAN JERONIMO",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0026_p11.jpeg"
+  },
+  "27": {
+    "nombre": "ROMERO MORALES VERONICA",
+    "zona": "CDMX",
+    "sucursal": "PLAZA ORIENTE",
+    "puesto": "ENCARGADA",
+    "photo_file": "photos/photo_0027_p12.jpeg"
+  },
+  "28": {
+    "nombre": "AVILES RAMIREZ ALMA DELIA",
+    "zona": "CDMX",
+    "sucursal": "PLAZA ORIENTE",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0028_p12.jpeg"
+  },
+  "29": {
+    "nombre": "MARTINEZ AVILA CELIA",
+    "zona": "CDMX",
+    "sucursal": "MIGUEL LAURENT",
+    "puesto": "ENCARGADA",
+    "photo_file": "photos/photo_0029_p13.jpeg"
+  },
+  "30": {
+    "nombre": "TORRES BURGOS MARIA EUGENIA",
+    "zona": "CDMX",
+    "sucursal": "MIGUEL LAURENT",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0030_p13.jpeg"
+  },
+  "31": {
+    "nombre": "AGUIRRE FRANCISCO NAOMI",
+    "zona": "CDMX",
+    "sucursal": "MIGUEL LAURENT",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0031_p13.jpeg"
+  },
+  "32": {
+    "nombre": "CRUZ VILCHIS MARIA DEL CARMEN",
+    "zona": "EDO DE MÉXICO",
+    "sucursal": "SAN MATEO",
+    "puesto": "ENCARGADA",
+    "photo_file": "photos/photo_0032_p14.jpeg"
+  },
+  "33": {
+    "nombre": "SANDOVAL TORRES LUNA YAZMIN",
+    "zona": "EDO DE MÉXICO",
+    "sucursal": "SAN MATEO",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0033_p14.jpeg"
+  },
+  "34": {
+    "nombre": "MORALES MARQUEZ KAREN",
+    "zona": "EDO DE MÉXICO",
+    "sucursal": "TECAMACHALCO",
+    "puesto": "ENCARGADA",
+    "photo_file": "photos/photo_0034_p15.jpeg"
+  },
+  "35": {
+    "nombre": "MINA NIEVES DANNA YESENIA",
+    "zona": "EDO DE MÉXICO",
+    "sucursal": "TECAMACHALCO",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0035_p15.jpeg"
+  },
+  "36": {
+    "nombre": "HERNANDEZ GARCIA MITZI GUADALUPE",
+    "zona": "EDO DE MÉXICO",
+    "sucursal": "METEPEC",
+    "puesto": "ENCARGADA",
+    "photo_file": "photos/photo_0036_p16.jpeg"
+  },
+  "37": {
+    "nombre": "SOLORZANO VELARDE ELVIA SAYURI",
+    "zona": "EDO DE MÉXICO",
+    "sucursal": "METEPEC",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0037_p16.jpeg"
+  },
+  "38": {
+    "nombre": "RODRIGUEZ TORRES JESSICA",
+    "zona": "CUERNAVACA",
+    "sucursal": "TIENDAS",
+    "puesto": "SUPERVISOR",
+    "photo_file": "photos/photo_0038_p17.jpeg"
+  },
+  "39": {
+    "nombre": "LOPEZ LOPEZ ADELAYDA",
+    "zona": "CUERNAVACA",
+    "sucursal": "PLAZA CUERNAVACA",
+    "puesto": "ENCARGADA",
+    "photo_file": "photos/photo_0039_p18.jpeg"
+  },
+  "40": {
+    "nombre": "SEVILLA LEONARDO ERIKA",
+    "zona": "CUERNAVACA",
+    "sucursal": "PLAZA CUERNAVAC",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0040_p19.jpeg"
+  },
+  "41": {
+    "nombre": "SANCHEZ TELLEZ ANA VICTORIA",
+    "zona": "CUERNAVACA",
+    "sucursal": "RIO MAYO",
+    "puesto": "ENCARGADA",
+    "photo_file": "photos/photo_0041_p20.jpeg"
+  },
+  "42": {
+    "nombre": "CRUZ REYES MARGARITA",
+    "zona": "CUERNAVACA",
+    "sucursal": "RIO MAYO",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0042_p20.jpeg"
+  },
+  "43": {
+    "nombre": "ALVARADO PADILLA NALLELY GUADALUPE",
+    "zona": "GUADALAJARA",
+    "sucursal": "TIENDAS",
+    "puesto": "SUPERVISOR",
+    "photo_file": "photos/photo_0043_p21.jpeg"
+  },
+  "44": {
+    "nombre": "AYON PEREZ LUZ VERONICA",
+    "zona": "GUADALAJARA",
+    "sucursal": "CIRCUNVALACION",
+    "puesto": "ENCARGADA",
+    "photo_file": "photos/photo_0044_p22.jpeg"
+  },
+  "45": {
+    "nombre": "PEÑA GALVAN MARIA MARGARITA",
+    "zona": "GUADALAJARA",
+    "sucursal": "CIRCUNVALACION",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0045_p22.jpeg"
+  },
+  "46": {
+    "nombre": "TORAL CRUZ ALEJANDRA",
+    "zona": "QUERÉTARO",
+    "sucursal": "TIENDAS",
+    "puesto": "SUPERVISOR",
+    "photo_file": "photos/photo_0046_p23.jpeg"
+  },
+  "47": {
+    "nombre": "MORALES CONTRERAS MARIA JOSE",
+    "zona": "QUERÉTARO",
+    "sucursal": "AMERICAS QRO",
+    "puesto": "ENCARGADA",
+    "photo_file": "photos/photo_0047_p24.jpeg"
+  },
+  "48": {
+    "nombre": "MONTAÑO ESQUIVEL JESSICA BELEN",
+    "zona": "QUERÉTARO",
+    "sucursal": "AMERICAS QRO",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0048_p24.jpeg"
+  },
+  "49": {
+    "nombre": "RESENDIZ MAQUEDA MARIA FERNANDA",
+    "zona": "QUERÉTARO",
+    "sucursal": "AMERICAS QRO",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0049_p24.jpeg"
+  },
+  "50": {
+    "nombre": "VAZQUEZ PEREZ MARIA DEL ROSARIO",
+    "zona": "QUERÉTARO",
+    "sucursal": "ESFERA QRO",
+    "puesto": "ENCARGADA",
+    "photo_file": "photos/photo_0050_p25.jpeg"
+  },
+  "51": {
+    "nombre": "SOTO RAMIREZ ANA GABRIELA",
+    "zona": "QUERÉTARO",
+    "sucursal": "ESFERA QRO",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0051_p25.jpeg"
+  },
+  "52": {
+    "nombre": "SUAREZ BARRIOS JESSICA DANIELA",
+    "zona": "QUERÉTARO",
+    "sucursal": "ESFERA QRO",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0052_p25.jpeg"
+  },
+  "53": {
+    "nombre": "RIVAS CAMPOS ESTHER FABIOLA",
+    "zona": "QUERÉTARO",
+    "sucursal": "B QUINTANA",
+    "puesto": "ENCARGADA",
+    "photo_file": "photos/photo_0053_p26.jpeg"
+  },
+  "54": {
+    "nombre": "OLVERA GARCIA YOCELIN MADAI",
+    "zona": "QUERÉTARO",
+    "sucursal": "B QUINTANA",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0054_p26.jpeg"
+  },
+  "55": {
+    "nombre": "RESENDIZ OLGUIN MANUEL HERNAN",
+    "zona": "QUERÉTARO",
+    "sucursal": "CIMATARIO",
+    "puesto": "ENCARGADA",
+    "photo_file": "photos/photo_0055_p27.jpeg"
+  },
+  "56": {
+    "nombre": "AGUILAR ACOSTA CITLALI",
+    "zona": "QUERÉTARO",
+    "sucursal": "CIMATARIO",
+    "puesto": "ASESORA",
+    "photo_file": "photos/photo_0056_p27.jpeg"
+  }
+}

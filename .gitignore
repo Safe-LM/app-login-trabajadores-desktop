@@ -44,15 +44,17 @@ config_local.py
 # *.sqlite
 # *.sqlite3
 
-# Modelos entrenados (grandes)
-*.pkl
-*.pickle
-*.h5
-*.onnx
+# Modelos entrenados
 *.pt
 *.pth
-models/
+!data/models/models/*.onnx
+!database_fotos/*.pkl
+!database_fotos/json/*.json
+
 trained/
+build/
+dist/
+bin/
 
 # Fotos de empleados (Añadidas por petición del usuario)
 # fotos_empleados/

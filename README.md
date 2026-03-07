@@ -5,7 +5,8 @@
   <img src="https://img.shields.io/badge/python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white&labelColor=1e293b" alt="Python">
   <img src="https://img.shields.io/badge/PyQt5-Desktop_App-41CD52?style=flat-square&logo=qt&logoColor=white&labelColor=1e293b" alt="PyQt5">
   <img src="https://img.shields.io/badge/OpenCV-DNN_SFace-5C3EE8?style=flat-square&logo=opencv&logoColor=white&labelColor=1e293b" alt="OpenCV">
-  <img src="https://img.shields.io/badge/Gemini-Vision_API-4285F4?style=flat-square&logo=google&logoColor=white&labelColor=1e293b" alt="Gemini">
+  <img src="https://img.shields.io/badge/Supabase-Cloud_DB-3ECF8E?style=flat-square&logo=supabase&logoColor=white&labelColor=1e293b" alt="Supabase">
+  <img src="https://img.shields.io/badge/GitHub_Actions-CI_CD-2088FF?style=flat-square&logo=github-actions&logoColor=white&labelColor=1e293b" alt="GitHub Actions">
   <img src="https://img.shields.io/badge/status-Production_Ready-10b981?style=flat-square&labelColor=1e293b" alt="Status">
 </p>
 
@@ -23,8 +24,9 @@
 **Safe Link Monitoring** resuelve el problema de la gestión manual de asistencia en cadenas de tiendas y oficinas, reemplazando hojas de firma, huella digital y tarjetas de proximidad por un sistema de **reconocimiento facial en tiempo real** que:
 
 - ✅ Identifica empleados en **2–3 segundos** con **99% de confianza**
-- ✅ Funciona **sin internet** (motor local OpenCV SFace)
-- ✅ Registra automáticamente la asistencia con **fecha, hora y nivel de confianza**
+- ✅ Arquitectura **Híbrida Cloud-Edge** (SQLite + Supabase Cloud)
+- ✅ Sincronización de asistencia **en tiempo real** multiplataforma
+- ✅ Registro automático con **Geolocalización por Sucursal** y nivel de confianza
 - ✅ Protege contra suplantación de identidad (anti-spoofing)
 
 > **56 empleados registrados** · **560 embeddings faciales** · **100% de precisión en pruebas controladas**
@@ -36,25 +38,33 @@
 El corazón del sistema es un **motor híbrido de doble capa** que garantiza precisión bajo cualquier condición:
 
 ```mermaid
-flowchart LR
-    CAM["Camara Web"] --> FRAME["Captura de Frame"]
-    FRAME --> YUNET["YuNet - Deteccion Facial"]
-    YUNET --> SFACE["SFace - Embeddings 128D"]
-    SFACE --> MATCH{"Motor Hibrido"}
-    MATCH -->|"Confianza Alta"| LOCAL["Match Local - OpenCV DNN"]
-    MATCH -->|"Confianza Baja"| GEMINI["Gemini Vision API"]
-    LOCAL --> REG["Registro Automatico"]
-    GEMINI --> REG
-    REG --> DB[("SQLite - Base de Datos")]
+flowchart TD
+    subgraph "Edge / Local App"
+        CAM["Cámara Web"] --> FRAME["Captura Frame"]
+        FRAME --> YUNET["YuNet - Detección"]
+        YUNET --> SFACE["SFace - Embeddings 128D"]
+        SFACE --> MATCH{"Matching IA"}
+        MATCH --> LOCAL_DB[("SQLite Local")]
+    end
+
+    subgraph "Cloud Backend"
+        LOCAL_DB --> SYNC["Sync Manager"]
+        SYNC -->|Realtime| SB_DB[("Supabase - PostgreSQL")]
+        SYNC -->|Backups| SB_STORAGE["Supabase Storage"]
+    end
+
+    LOCAL_DB --> REG["Panel Dashboard"]
+    SB_DB --> WEB["Panel Web Monitor"]
 ```
 
-### Motores de Reconocimiento
+### Infraestructura de IA y Datos
 
-| Motor | Tecnología | Velocidad | Precisión | Conectividad |
-|-------|-----------|-----------|-----------|--------------|
-| **🥇 OpenCV SFace** | DNN Embeddings 128D + YuNet | < 200ms | 99%+ | Offline |
-| **🥈 Gemini Vision** | Google AI Pro Vision API | ~2s | 99.5%+ | Requiere Internet |
-| **🥉 Photo Matcher** | Histogramas + Template Match | ~500ms | ~85% | Offline |
+| Capa | Tecnología | Función | Ubicación |
+|-------|-----------|-----------|-----------|
+| **Detección** | YuNet (DNN) | Localización de rostros 360° | Edge (Local) |
+| **Identificación** | SFace (DNN) | Extracción de embeddings 128D | Edge (Local) |
+| **Base de Datos** | Supabase / Postgre | Persistencia Global y Realtime | Cloud (AWS/DigitalOcean) |
+| **Seguridad** | Bandit / bcrypt | Cifrado y Auditoría de Seguridad | CI/CD + App |
 
 > El sistema intenta primero OpenCV SFace (el más rápido y preciso). Si la confianza es baja, escala automáticamente a Gemini Vision. Si no hay internet, usa Photo Matcher como último recurso.
 
@@ -95,11 +105,12 @@ flowchart LR
 </td>
 <td>
 
-### ⚡ Rendimiento
+### ⚡ Rendimiento Cloud-Native
 - Reconocimiento en **2–3 segundos**
+- Sincronización Supabase Realtime (< 100ms)
 - 10 augmentaciones por empleado (560 total)
-- Funciona 100% offline con motor local
-- Auto-healing: deshabilita motores con errores
+- CI/CD Automático: Linting, Security Scan y Auto-build
+- Auto-healing: deshabilita motores con errores de red
 
 </td>
 </tr>
@@ -181,13 +192,15 @@ cd app-login-trabajadores-desktop
 |---------|------------|-----|
 | `admin` | `admin123` | Administrador |
 
-### Configuración de Gemini Vision (Opcional)
+### Configuración de Supabase Cloud
 
-Para activar el motor de IA en la nube, cree un archivo `.env`:
+Para activar la sincronización en la nube, el archivo `.env` debe incluir:
 ```env
-GEMINI_API_KEY=tu_api_key_de_google_ai_studio
+SUPABASE_URL=https://tu-proyecto.supabase.co
+SUPABASE_KEY=tu-anon-key-de-supabase
+GEMINI_API_KEY=opcional_para_engine_hibrido
 ```
-> Sin esta key, el sistema funciona perfectamente con el motor local OpenCV.
+> El sistema migrará automáticamente los registros locales a Supabase cuando detecte conexión.
 
 ---
 

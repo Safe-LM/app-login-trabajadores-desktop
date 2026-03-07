@@ -126,9 +126,10 @@ def reconocer_automatico(frame: np.ndarray):
         try:
             from utils.improved_face_recognition import extraer_embedding_mejorado, comparar_embeddings_mejorado
             
-            # Detectar persona con YOLO primero
-            base_dir = Path(__file__).parent.parent
-            modelo_yolo = YOLO(str(base_dir / 'yolo11s.pt'))
+            # Detectar persona con YOLO primero en la carpeta de modelos
+            PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+            modelo_path = PROJECT_ROOT / "data" / "models" / "yolo11s.pt"
+            modelo_yolo = YOLO(str(modelo_path))
             results = modelo_yolo(frame, classes=[0], verbose=False)
             
             mejor_bbox = None

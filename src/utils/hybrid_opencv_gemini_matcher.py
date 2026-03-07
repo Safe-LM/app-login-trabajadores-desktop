@@ -55,8 +55,9 @@ def _check_gemini():
             return False
         
         try:
-            from utils.gemini_vision_matcher import GeminiVisionMatcher
-            database_dir = Path(__file__).parent.parent / "database_fotos"
+            from src.utils.gemini_vision_matcher import GeminiVisionMatcher
+            PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+            database_dir = PROJECT_ROOT / "data" / "photos"
             matcher = GeminiVisionMatcher(api_key=api_key, database_dir=database_dir)
             if matcher._disabled:
                 _gemini_available = False
@@ -85,7 +86,8 @@ class HybridOpenCVGeminiMatcher:
     def __init__(self, database_dir: Optional[Path] = None):
         """Inicializar matcher híbrido. OpenCV es el motor principal."""
         if database_dir is None:
-            database_dir = Path(__file__).parent.parent / "database_fotos"
+            PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+            database_dir = PROJECT_ROOT / "data" / "photos"
         self.database_dir = Path(database_dir)
         self.json_path = self.database_dir / "json" / "employees_db.json"
         
@@ -153,7 +155,7 @@ class HybridOpenCVGeminiMatcher:
         """Verificar y cargar OpenCV matcher de forma lazy (solo cuando se necesita)."""
         if self._opencv_available is None:
             try:
-                from utils.face_recognition_opencv import get_opencv_recognizer
+                from src.utils.face_recognition_opencv import get_opencv_recognizer
                 self.opencv_matcher = get_opencv_recognizer(self.database_dir)
                 self._opencv_available = self.opencv_matcher is not None
                 if self._opencv_available:

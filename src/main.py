@@ -3,6 +3,16 @@ Aplicación de escritorio para reconocimiento facial de trabajadores.
 Usa PyQt5 para la interfaz gráfica y OpenCV para la cámara.
 """
 import sys
+import os
+from pathlib import Path
+
+# Configurar rutas para la nueva estructura profesional
+BASE_DIR = Path(__file__).resolve().parent.parent
+SRC_DIR = BASE_DIR / "src"
+# Añadir 'src' al path para que las importaciones directas de 'windows' y 'utils' funcionen
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
 import logging
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import Qt, QTimer

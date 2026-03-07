@@ -33,7 +33,8 @@ $activateScript = Join-Path $PSScriptRoot "venv\Scripts\Activate.ps1"
 if (Test-Path $activateScript) {
     & $activateScript
     Write-Host "✅ Entorno virtual activado" -ForegroundColor Green
-} else {
+}
+else {
     Write-Host "❌ No se encontró el script de activación" -ForegroundColor Red
     exit 1
 }
@@ -66,7 +67,8 @@ if (Test-Path ".env") {
 }
 if ($env:GEMINI_API_KEY) {
     Write-Host "Gemini Vision API configurada (boost de precisión)" -ForegroundColor Green
-} else {
+}
+else {
     Write-Host "Motor principal: OpenCV (Gemini opcional via .env)" -ForegroundColor Cyan
 }
 Write-Host ""
@@ -74,5 +76,5 @@ Write-Host ""
 # Ejecutar aplicación usando el Python del venv
 Write-Host "Iniciando aplicación..." -ForegroundColor Yellow
 Write-Host ""
-& $venvPython main.py
+& $venvPython src/main.py
 

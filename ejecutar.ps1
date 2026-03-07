@@ -8,7 +8,8 @@ Set-Location $scriptPath
 $activateScript = Join-Path $scriptPath "venv\Scripts\Activate.ps1"
 if (Test-Path $activateScript) {
     & $activateScript
-} else {
+}
+else {
     Write-Host "❌ Error: No se encontró el entorno virtual. Ejecuta '.\iniciar.ps1' primero." -ForegroundColor Red
     exit 1
 }
@@ -16,8 +17,9 @@ if (Test-Path $activateScript) {
 # Ejecutar aplicación
 $venvPython = Join-Path $scriptPath "venv\Scripts\python.exe"
 if (Test-Path $venvPython) {
-    & $venvPython main.py
-} else {
+    & $venvPython src/main.py
+}
+else {
     Write-Host "❌ Error: Python del entorno virtual no encontrado." -ForegroundColor Red
     exit 1
 }

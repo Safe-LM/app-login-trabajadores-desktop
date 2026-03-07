@@ -8,15 +8,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.ext.declarative import declarative_base
 
-# Obtener la ruta de la base de datos compartida
-BASE_DIR = Path(__file__).parent.parent.parent
-DB_PATH = BASE_DIR / "app_loginTrabajadores" / "database" / "trabajadores.db"
+# Obtener la ruta de la base de datos
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+DB_DIR = PROJECT_ROOT / "data" / "db"
+DB_PATH = DB_DIR / "trabajadores.db"
 
-# Si no existe, usar una local
-if not DB_PATH.exists():
-    DB_DIR = Path(__file__).parent.parent / "database"
-    DB_DIR.mkdir(exist_ok=True)
-    DB_PATH = DB_DIR / "trabajadores.db"
+# Crear directorio si no existe
+if not DB_DIR.exists():
+    DB_DIR.mkdir(parents=True, exist_ok=True)
 
 DATABASE_URL = f"sqlite:///{DB_PATH}"
 

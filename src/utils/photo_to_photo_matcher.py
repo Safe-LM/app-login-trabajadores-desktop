@@ -60,7 +60,8 @@ class PhotoMatcher:
             lazy_load_dependencies: Cargar dependencias pesadas solo cuando se necesiten
         """
         if database_dir is None:
-            database_dir = Path(__file__).parent.parent / "database_fotos"
+            PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+            database_dir = PROJECT_ROOT / "data" / "photos"
         self.database_dir = Path(database_dir)
         self.json_path = self.database_dir / "json" / "employees_db.json"
         

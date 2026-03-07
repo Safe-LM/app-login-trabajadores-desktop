@@ -1,5 +1,5 @@
 PyQt5==5.15.10
-opencv-python==4.8.1.78
+opencv-python==4.13.0.92
 numpy>=1.24.3,<2.0
 sqlalchemy==2.0.23
 bcrypt==4.1.1

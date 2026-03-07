@@ -196,10 +196,10 @@ class LoginWindow(QMainWindow):
 
         creds = QLabel(
             f'<span style="color:{_C["dim"]}">Usuario: </span>'
-            f'<span style="color:{_C["text2"]}">empleado</span>'
+            f'<span style="color:{_C["text2"]}">admin</span>'
             f'<span style="color:{_C["faint"]}">  ·  </span>'
             f'<span style="color:{_C["dim"]}">Contraseña: </span>'
-            f'<span style="color:{_C["text2"]}">empleado123</span>'
+            f'<span style="color:{_C["text2"]}">admin123</span>'
         )
         creds.setFont(_f(10))
         creds.setStyleSheet("background:transparent;")

@@ -1,0 +1,21 @@
+PyQt5==5.15.10
+opencv-python==4.8.1.78
+numpy>=1.24.3,<2.0
+sqlalchemy==2.0.23
+bcrypt==4.1.1
+Pillow==10.1.0
+pandas==2.1.3
+openpyxl==3.1.2
+requests>=2.31.0
+
+# Sistema avanzado (opcional, requiere PyTorch)
+torch>=2.0.0
+torchvision>=0.15.0
+ultralytics>=8.0.0
+scikit-image>=0.20.0
+scikit-learn>=1.3.0
+albumentations>=1.3.0,<2.0.0
+
+# Opcional (requiere dlib y CMake - mejora precisión)
+# face-recognition>=1.3.0
+

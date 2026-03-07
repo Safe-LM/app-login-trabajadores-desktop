@@ -284,6 +284,117 @@ python scripts\train_face_recognition_opencv.py
 
 ---
 
+## 🤝 Contribuir al Proyecto
+
+Este proyecto sigue un flujo de trabajo profesional basado en **Issues**, **Branches** y **Pull Requests**. Todo cambio —por pequeño que sea— debe pasar por este proceso.
+
+### Flujo de trabajo
+
+```mermaid
+flowchart LR
+    A["1. Issue creado"] --> B["2. Asignarse al Issue"]
+    B --> C["3. Crear Branch"]
+    C --> D["4. Desarrollar"]
+    D --> E["5. Push + PR"]
+    E --> F["6. Code Review"]
+    F --> G["7. Merge a main"]
+```
+
+### Paso a paso
+
+#### 1. Revisar Issues y asignarse
+
+Antes de escribir código, revisa los **Issues abiertos** en el repositorio:
+
+```
+https://github.com/Safe-LM/app-login-trabajadores-desktop/issues
+```
+
+- Si ya existe un Issue para lo que quieres hacer, **asígnate** a ti mismo.
+- Si no existe, **crea uno nuevo** describiendo el problema o la mejora.
+
+#### 2. Crear una branch desde el Issue
+
+Usa esta convención de nombres para las ramas:
+
+| Tipo de cambio | Prefijo | Ejemplo |
+|----------------|---------|---------|
+| Nueva funcionalidad | `feature/` | `feature/agregar-reporte-pdf` |
+| Corrección de bug | `fix/` | `fix/login-no-responde` |
+| Documentación | `docs/` | `docs/actualizar-readme` |
+| Refactorización | `refactor/` | `refactor/reorganizar-matchers` |
+| Mejora de rendimiento | `perf/` | `perf/optimizar-embeddings` |
+
+```powershell
+# Asegúrate de estar en main actualizado
+git checkout main
+git pull origin main
+
+# Crear la nueva branch (ejemplo: Issue #12 - agregar exportar asistencia)
+git checkout -b feature/12-exportar-asistencia
+```
+
+> **Tip:** Incluye el número del Issue en el nombre de la branch para que se vincule automáticamente.
+
+#### 3. Desarrollar y hacer commits
+
+Haz commits pequeños y descriptivos siguiendo esta convención:
+
+```powershell
+# Formato: tipo: descripción corta
+git add .
+git commit -m "feat: agregar boton de exportar asistencia a CSV"
+git commit -m "fix: corregir formato de fecha en exportación"
+git commit -m "docs: documentar nueva función de exportación"
+```
+
+| Prefijo | Uso |
+|---------|-----|
+| `feat:` | Nueva funcionalidad |
+| `fix:` | Corrección de bug |
+| `docs:` | Solo documentación |
+| `refactor:` | Reestructuración sin cambiar funcionalidad |
+| `style:` | Formato, estilos CSS, etc. |
+| `perf:` | Mejoras de rendimiento |
+| `test:` | Agregar o corregir tests |
+
+#### 4. Push y crear Pull Request
+
+```powershell
+# Subir tu branch al repositorio
+git push origin feature/12-exportar-asistencia
+```
+
+Después ve a GitHub y crea un **Pull Request (PR)**:
+
+1. Ve a: `https://github.com/Safe-LM/app-login-trabajadores-desktop/pulls`
+2. Clic en **"New Pull Request"**
+3. Selecciona tu branch como **compare** y `main` como **base**
+4. Agrega un título claro y en la descripción escribe: `Closes #12` (para que cierre el Issue automáticamente)
+5. Asigna un **reviewer** para la revisión de código
+
+#### 5. Code Review y Merge
+
+- El reviewer revisa los cambios, deja comentarios si es necesario.
+- Si hay correcciones, hazlas en la misma branch y haz push de nuevo.
+- Una vez aprobado, el reviewer (o tú) hace **Merge** a `main`.
+- La branch se elimina automáticamente después del merge.
+
+### Reglas importantes
+
+> **⚠️ Nunca hagas push directo a `main`.** Todo cambio debe pasar por un PR.
+
+- Cada PR debe estar vinculado a un **Issue**.
+- Los PRs deben tener al menos **1 aprobación** antes del merge.
+- Mantén tus branches **actualizadas** con `main` antes de hacer PR:
+  ```powershell
+  git checkout feature/mi-branch
+  git pull origin main
+  ```
+- Si hay conflictos, resuélvelos **localmente** antes de hacer push.
+
+---
+
 ## 📄 Licencia
 
 Este software es **propiedad privada** de **Safe Link Monitoring**. Queda prohibida su reproducción o distribución sin autorización expresa.

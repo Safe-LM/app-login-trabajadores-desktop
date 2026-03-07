@@ -1,0 +1,16 @@
+name: Greetings
+
+on: [pull_request_target, issues]
+
+jobs:
+  greeting:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/first-interaction@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: '¡Hola! Muchas gracias por abrir tu primer número (issue) aquí. ¡Te damos la bienvenida al equipo de Safe Link Monitoring! 👋 Próximamente revisaremos tu reporte.'
+          pr-message: '¡Hola! Muchas gracias por enviar tu primer Pull Request. ¡Te damos la bienvenida al equipo de Safe Link Monitoring! 👋 Tu contribución es muy valiosa para nosotros.'

@@ -1,0 +1,23 @@
+name: 'Stale'
+on:
+  schedule:
+    - cron: '30 1 * * *'
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          stale-issue-message: 'Este issue ha sido marcado como "stale" porque no ha tenido actividad en 30 días. Se cerrará en 7 días si no hay más actividad. ¡Gracias!'
+          stale-pr-message: 'Este PR ha sido marcado como "stale" porque no ha tenido actividad en 14 días. Se cerrará en 7 días si no hay más actividad. ¡Gracias!'
+          stale-issue-label: 'stale'
+          stale-pr-label: 'stale'
+          days-before-stale: 30
+          days-before-pr-stale: 14
+          days-before-close: 7

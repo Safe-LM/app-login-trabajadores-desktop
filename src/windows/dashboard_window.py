@@ -947,7 +947,6 @@ class DashboardWindow(QMainWindow):
         QTimer.singleShot(100, self._init_face_recognition_async)
 
     def _init_face_recognition_async(self):
-        global FACE_RECOGNITION_AVAILABLE, inicializar_sistema_facial
         if inicializar_sistema_facial is None:
             _lazy_load_face_recognition()
         if FACE_RECOGNITION_AVAILABLE and inicializar_sistema_facial:
@@ -1048,7 +1047,6 @@ class DashboardWindow(QMainWindow):
             logger.error(f"Error registro silencioso: {e}")
 
     def register_attendance(self):
-        global FACE_RECOGNITION_AVAILABLE, reconocer_desde_frame
         if self.current_frame is None:
             QMessageBox.warning(self, "Error", "No hay imagen de camara. Activa la camara primero.")
             return

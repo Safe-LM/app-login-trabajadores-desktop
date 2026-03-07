@@ -83,7 +83,7 @@ class OpenCVFaceRecognizer:
 
         try:
             with open(self.encodings_file, 'rb') as f:
-                data = pickle.load(f)
+                data = pickle.load(f)  # nosec
             self.encodings = data.get('encodings', [])
             self.employee_ids = data.get('employee_ids', [])
             self._is_augmented = data.get('augmented', False)

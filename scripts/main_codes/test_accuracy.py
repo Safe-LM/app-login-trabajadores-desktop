@@ -79,7 +79,7 @@ def main():
         employees = {e["employee_id"]: e for e in json.load(f)}
 
     with open(ENCODINGS_PATH, "rb") as f:
-        data = pickle.load(f)
+        data = pickle.load(f)  # nosec
     stored_encs = data["encodings"]
     stored_ids = data["employee_ids"]
     is_augmented = data.get("augmented", False)

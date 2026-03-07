@@ -40,9 +40,9 @@ ENV/
 config_local.py
 
 # Base de datos local
-*.db
-*.sqlite
-*.sqlite3
+# *.db
+# *.sqlite
+# *.sqlite3
 
 # Modelos entrenados (grandes)
 *.pkl
@@ -54,16 +54,16 @@ config_local.py
 models/
 trained/
 
-# Fotos de empleados (datos sensibles)
-fotos_empleados/
-photos/
-empleados_fotos/
-database_fotos/
-_archivo/yolo/yolo_dataset/
-_archivo/datos_generados/
-*.pdf
-database_fotos/
-**/employees_db.json
+# Fotos de empleados (Añadidas por petición del usuario)
+# fotos_empleados/
+# photos/
+# empleados_fotos/
+# database_fotos/
+# _archivo/yolo/yolo_dataset/
+# _archivo/datos_generados/
+# *.pdf
+# database_fotos/
+# **/employees_db.json
 
 # Logs
 *.log

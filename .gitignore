@@ -205,3 +205,21 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Safe Link - datos sensibles (NO subir)
+database_fotos/
+fotos_empleados/
+photos/
+empleados_fotos/
+**/employees_db.json
+_archivo/yolo/yolo_dataset/
+_archivo/datos_generados/
+models/
+trained/
+*.pkl
+*.pickle
+*.onnx
+*.pt
+*.pth
+PERSONAL TIENDAS BM.pdf
+plantilla_personal_por_zona_sucursal.pdf

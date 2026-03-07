@@ -1,4 +1,4 @@
-PyQt5==5.15.10
+PyQt5==5.15.11
 opencv-python==4.8.1.78
 numpy>=1.24.3,<2.0
 sqlalchemy==2.0.23

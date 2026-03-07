@@ -548,13 +548,13 @@ class DashboardWindow(QMainWindow):
         btn_row = QHBoxLayout()
         btn_row.setSpacing(10)
 
-        self.start_button = QPushButton("  ▶  ACTIVAR")
+        self.start_button = QPushButton("ACTIVAR")
         self.start_button.setStyleSheet(_btn_style(_COLORS['success'], '#059669', '#047857'))
         self.start_button.setCursor(Qt.PointingHandCursor)
         self.start_button.clicked.connect(self.start_camera)
         btn_row.addWidget(self.start_button)
 
-        self.stop_button = QPushButton("  ◼  DETENER")
+        self.stop_button = QPushButton("DETENER")
         self.stop_button.setEnabled(False)
         self.stop_button.setStyleSheet(_btn_style(_COLORS['danger'], '#dc2626', '#b91c1c'))
         self.stop_button.setCursor(Qt.PointingHandCursor)
@@ -563,7 +563,7 @@ class DashboardWindow(QMainWindow):
 
         cam_lay.addLayout(btn_row)
 
-        self.recognize_button = QPushButton("  🔐  REGISTRAR ASISTENCIA")
+        self.recognize_button = QPushButton("REGISTRAR ASISTENCIA")
         self.recognize_button.setEnabled(False)
         self.recognize_button.setStyleSheet(_btn_style(
             'qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #6366f1, stop:1 #4f46e5)',
@@ -630,26 +630,26 @@ class DashboardWindow(QMainWindow):
         pf_lay = QVBoxLayout(photo_frame)
         pf_lay.setContentsMargins(8, 8, 8, 8)
 
-        self.recognized_photo_label = QLabel("👤")
-        self.recognized_photo_label.setFixedSize(200, 200)
+        self.recognized_photo_label = QLabel("Sin foto")
+        self.recognized_photo_label.setFixedSize(180, 180)
         self.recognized_photo_label.setAlignment(Qt.AlignCenter)
-        self.recognized_photo_label.setFont(self._font(48))
         self.recognized_photo_label.setStyleSheet(f"""
             QLabel {{
                 background: {_COLORS['bg_dark']};
-                border: 2px dashed {_COLORS['border']};
-                border-radius: 14px;
+                border: 1px solid {_COLORS['border']};
+                border-radius: 12px;
                 color: {_COLORS['text_muted']};
+                font-size: 11px;
             }}
         """)
         pf_lay.addWidget(self.recognized_photo_label, 0, Qt.AlignCenter)
         i_lay.addWidget(photo_frame)
 
-        # Info fields with icons and accent bars
-        self.recognized_name_label = self._add_info_row(i_lay, "NOMBRE", "--", "👤", _COLORS['accent'])
-        self.recognized_zona_label = self._add_info_row(i_lay, "ZONA", "--", "📍", _COLORS['warning'])
-        self.recognized_sucursal_label = self._add_info_row(i_lay, "SUCURSAL", "--", "🏢", _COLORS['success'])
-        self.recognized_puesto_label = self._add_info_row(i_lay, "PUESTO", "--", "💼", '#a78bfa')
+        # Info fields with accent bars
+        self.recognized_name_label = self._add_info_row(i_lay, "NOMBRE", "--", _COLORS['accent'])
+        self.recognized_zona_label = self._add_info_row(i_lay, "ZONA", "--", _COLORS['warning'])
+        self.recognized_sucursal_label = self._add_info_row(i_lay, "SUCURSAL", "--", _COLORS['success'])
+        self.recognized_puesto_label = self._add_info_row(i_lay, "PUESTO", "--", '#a78bfa')
 
         i_lay.addSpacing(6)
 
@@ -675,7 +675,7 @@ class DashboardWindow(QMainWindow):
         i_lay.addStretch()
 
         # Logout
-        logout_btn = QPushButton("  ↩  CERRAR SESIÓN")
+        logout_btn = QPushButton("CERRAR SESIÓN")
         logout_btn.setCursor(Qt.PointingHandCursor)
         logout_btn.setStyleSheet(f"""
             QPushButton {{
@@ -719,7 +719,7 @@ class DashboardWindow(QMainWindow):
             font-size: 9px; font-weight: 700; letter-spacing: 1px;
         """
 
-    def _add_info_row(self, parent_layout, label_text, default="--", icon="", accent_color=None):
+    def _add_info_row(self, parent_layout, label_text, default="--", accent_color=None):
         row = QFrame()
         accent = accent_color or _COLORS['accent']
         row.setStyleSheet(f"""
@@ -730,33 +730,20 @@ class DashboardWindow(QMainWindow):
                 border-left: 3px solid {accent};
             }}
         """)
-        rl = QHBoxLayout(row)
+        rl = QVBoxLayout(row)
         rl.setContentsMargins(12, 8, 12, 8)
-        rl.setSpacing(10)
-
-        if icon:
-            icon_lbl = QLabel(icon)
-            icon_lbl.setFont(self._font(14))
-            icon_lbl.setFixedWidth(24)
-            icon_lbl.setStyleSheet("background:transparent;")
-            rl.addWidget(icon_lbl)
-
-        text_col = QVBoxLayout()
-        text_col.setSpacing(1)
+        rl.setSpacing(2)
 
         lbl = QLabel(label_text)
         lbl.setFont(self._font(8, True))
         lbl.setStyleSheet(f"color: {_COLORS['text_muted']}; background: transparent; letter-spacing: 1px;")
-        text_col.addWidget(lbl)
+        rl.addWidget(lbl)
 
         val = QLabel(default)
         val.setFont(self._font(12, True))
         val.setStyleSheet(f"color: {_COLORS['text']}; background: transparent;")
         val.setWordWrap(True)
-        text_col.addWidget(val)
-
-        rl.addLayout(text_col)
-        rl.addStretch()
+        rl.addWidget(val)
 
         parent_layout.addWidget(row)
         return val

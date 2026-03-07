@@ -24,7 +24,7 @@ class OpenCVFaceRecognizer:
         self.database_dir = database_dir
         self.encodings_file = database_dir / "face_encodings_opencv.pkl"
         self.metadata_file = database_dir / "json" / "employees_db.json"
-        self.models_dir = database_dir.parent / "models"
+        self.models_dir = database_dir.parent / "data" / "models" / "models"
 
         self.encodings: List[np.ndarray] = []
         self.employee_ids: List[int] = []

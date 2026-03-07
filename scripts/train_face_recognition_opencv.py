@@ -120,8 +120,9 @@ def main():
     logger.info("ENTRENAMIENTO - Reconocimiento Facial DNN (SFace)")
     logger.info("=" * 55)
 
-    base_dir = Path(__file__).parent
-    models_dir = base_dir / "models"
+    # base_dir = raíz del proyecto (un nivel arriba de scripts/)
+    base_dir = Path(__file__).resolve().parent.parent
+    models_dir = base_dir / "data" / "models" / "models"
     photos_dir = base_dir / "database_fotos" / "photos"
     json_path = base_dir / "database_fotos" / "json" / "employees_db.json"
     output_file = base_dir / "database_fotos" / "face_encodings_opencv.pkl"

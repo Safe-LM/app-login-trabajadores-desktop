@@ -55,7 +55,7 @@ def _check_gemini():
             return False
         
         try:
-            from src.utils.gemini_vision_matcher import GeminiVisionMatcher
+            from utils.gemini_vision_matcher import GeminiVisionMatcher
             PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
             database_dir = PROJECT_ROOT / "database_fotos"
             matcher = GeminiVisionMatcher(api_key=api_key, database_dir=database_dir)
@@ -155,7 +155,7 @@ class HybridOpenCVGeminiMatcher:
         """Verificar y cargar OpenCV matcher de forma lazy (solo cuando se necesita)."""
         if self._opencv_available is None:
             try:
-                from src.utils.face_recognition_opencv import get_opencv_recognizer
+                from utils.face_recognition_opencv import get_opencv_recognizer
                 self.opencv_matcher = get_opencv_recognizer(self.database_dir)
                 self._opencv_available = self.opencv_matcher is not None
                 if self._opencv_available:

@@ -785,18 +785,18 @@ class DashboardWindow(QMainWindow):
 
     def setup_photos_database(self):
         root_dir = Path(__file__).resolve().parent.parent.parent
-        data_photos_dir = root_dir / "data" / "photos"
-        photos_dir = data_photos_dir / "photos"
-        json_path = data_photos_dir / "json" / "employees_db.json"
+        database_fotos_dir = root_dir / "database_fotos"
+        photos_dir = database_fotos_dir / "photos"
+        json_path = database_fotos_dir / "json" / "employees_db.json"
         
         if photos_dir.exists() and json_path.exists():
             logger.info(f"DB fotos: {len(list(photos_dir.glob('*.jpeg')))} fotos")
             return
         
-        from src.utils.process_photos import process_photos_folder
+        from utils.process_photos import process_photos_folder
         photos_old = root_dir.parent / "photos"
         if photos_old.exists() and photos_old.is_dir():
-            QTimer.singleShot(500, lambda: process_photos_folder(photos_old, data_photos_dir))
+            QTimer.singleShot(500, lambda: process_photos_folder(photos_old, database_fotos_dir))
 
     def init_face_recognition(self):
         self._set_status("Cargando reconocimiento facial...", "warning")

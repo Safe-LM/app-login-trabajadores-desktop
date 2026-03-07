@@ -57,7 +57,7 @@ def _check_gemini():
         try:
             from src.utils.gemini_vision_matcher import GeminiVisionMatcher
             PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-            database_dir = PROJECT_ROOT / "data" / "photos"
+            database_dir = PROJECT_ROOT / "database_fotos"
             matcher = GeminiVisionMatcher(api_key=api_key, database_dir=database_dir)
             if matcher._disabled:
                 _gemini_available = False
@@ -87,7 +87,7 @@ class HybridOpenCVGeminiMatcher:
         """Inicializar matcher híbrido. OpenCV es el motor principal."""
         if database_dir is None:
             PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-            database_dir = PROJECT_ROOT / "data" / "photos"
+            database_dir = PROJECT_ROOT / "database_fotos"
         self.database_dir = Path(database_dir)
         self.json_path = self.database_dir / "json" / "employees_db.json"
         

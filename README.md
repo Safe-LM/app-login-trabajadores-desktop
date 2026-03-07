@@ -8,6 +8,8 @@
   <img src="https://img.shields.io/badge/Supabase-Cloud_DB-3ECF8E?style=flat-square&logo=supabase&logoColor=white&labelColor=1e293b" alt="Supabase">
   <img src="https://img.shields.io/badge/GitHub_Actions-CI_CD-2088FF?style=flat-square&logo=github-actions&logoColor=white&labelColor=1e293b" alt="GitHub Actions">
   <img src="https://github.com/Safe-LM/app-login-trabajadores-desktop/actions/workflows/supabase-sync.yml/badge.svg" alt="Supabase Sync Check">
+  <img src="https://github.com/Safe-LM/app-login-trabajadores-desktop/actions/workflows/ai-accuracy-guard.yml/badge.svg" alt="AI Accuracy Guard">
+  <img src="https://github.com/Safe-LM/app-login-trabajadores-desktop/actions/workflows/release-build.yml/badge.svg" alt="Build Status">
   <img src="https://img.shields.io/badge/status-Production_Ready-10b981?style=flat-square&labelColor=1e293b" alt="Status">
 </p>
 

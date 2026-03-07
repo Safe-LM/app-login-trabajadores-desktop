@@ -1,0 +1,45 @@
+name: 🎯 AI Accuracy Guard
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  accuracy-test:
+    name: 🤖 Verificación de Modelos
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Instalar dependencias base
+        run: |
+          pip install opencv-python-headless numpy requests pillow
+
+      - name: Ejecutar Test de Precisión
+        run: |
+          echo "🚀 Iniciando evaluación de precisión facial..."
+          # Ejecutamos el script y capturamos la salida
+          OUTPUT=$(python scripts/main_codes/test_accuracy.py)
+          echo "$OUTPUT"
+          
+          # Extraer el porcentaje de Accuracy usando grep y sed
+          ACCURACY=$(echo "$OUTPUT" | grep "ACCURACY:" | grep -oE "[0-9]+(\.[0-9]+)?")
+          echo "🎯 Precisión detectada: $ACCURACY%"
+          
+          # Umbral mínimo de calidad (95%)
+          THRESHOLD=95
+          if (( $(echo "$ACCURACY < $THRESHOLD" | bc -l) )); then
+            echo "❌ ERROR: La precisión del modelo ($ACCURACY%) es inferior al umbral aceptable ($THRESHOLD%)."
+            echo "Revisar los embeddings o la iluminación de las fotos base."
+            exit 1
+          fi
+          echo "✅ Calidad de IA aprobada"

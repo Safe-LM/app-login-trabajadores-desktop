@@ -1,0 +1,122 @@
+name: CI - Code Quality
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    name: 🔍 Lint & Syntax Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Instalar dependencias de lint
+        run: pip install flake8 pyflakes
+
+      - name: Verificar sintaxis Python
+        run: |
+          echo "🔍 Verificando sintaxis..."
+          python -m py_compile src/main.py
+          python -m py_compile src/utils/database.py
+          python -m py_compile src/utils/auth.py
+          python -m py_compile src/utils/models.py
+          python -m py_compile src/utils/employee_mapper.py
+          echo "✅ Sintaxis correcta"
+
+      - name: Lint con flake8
+        run: |
+          flake8 src/ scripts/ \
+            --count \
+            --select=E9,F63,F7,F82 \
+            --show-source \
+            --statistics \
+            --max-line-length=150 \
+            --exclude=__pycache__,venv,.git
+
+  dependencies:
+    name: 📦 Verificar Dependencias
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+        continue-on-error: false
+
+      - name: Verificar imports principales
+        run: |
+          python -c "import cv2; print(f'OpenCV {cv2.__version__}')"
+          python -c "import numpy; print(f'NumPy {numpy.__version__}')"
+          python -c "import sqlalchemy; print(f'SQLAlchemy {sqlalchemy.__version__}')"
+          python -c "import bcrypt; print(f'bcrypt OK')"
+          echo "✅ Todas las dependencias verificadas"
+
+  structure:
+    name: 📂 Verificar Estructura
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Verificar archivos críticos
+        run: |
+          echo "Verificando estructura del proyecto..."
+          files=(
+            "src/main.py"
+            "src/utils/database.py"
+            "src/utils/face_recognition_opencv.py"
+            "src/utils/hybrid_opencv_gemini_matcher.py"
+            "src/windows/login_window.py"
+            "src/windows/dashboard_window.py"
+            "requirements.txt"
+            "ejecutar.ps1"
+          )
+          for file in "${files[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Falta: $file"
+              exit 1
+            else
+              echo "✅ $file"
+            fi
+          done
+          echo ""
+          echo "✅ Estructura del proyecto correcta"
+
+      - name: Verificar base de datos de fotos
+        run: |
+          if [ -d "database_fotos/photos" ] && [ -d "database_fotos/json" ]; then
+            PHOTOS=$(find database_fotos/photos -name "*.jpeg" -o -name "*.jpg" -o -name "*.png" | wc -l)
+            echo "📸 Fotos de empleados: $PHOTOS"
+            echo "✅ Base de datos de fotos presente"
+          else
+            echo "⚠️ database_fotos/ no encontrada (puede estar en .gitignore)"
+          fi
+
+      - name: Verificar modelos ONNX
+        run: |
+          if [ -d "data/models" ]; then
+            MODELS=$(find data/models -name "*.onnx" | wc -l)
+            echo "🧠 Modelos ONNX: $MODELS"
+          else
+            echo "⚠️ data/models/ no encontrada"
+          fi

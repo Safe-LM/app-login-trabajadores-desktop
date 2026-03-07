@@ -7,6 +7,7 @@
   <img src="https://img.shields.io/badge/OpenCV-DNN_SFace-5C3EE8?style=flat-square&logo=opencv&logoColor=white&labelColor=1e293b" alt="OpenCV">
   <img src="https://img.shields.io/badge/Supabase-Cloud_DB-3ECF8E?style=flat-square&logo=supabase&logoColor=white&labelColor=1e293b" alt="Supabase">
   <img src="https://img.shields.io/badge/GitHub_Actions-CI_CD-2088FF?style=flat-square&logo=github-actions&logoColor=white&labelColor=1e293b" alt="GitHub Actions">
+  <img src="https://github.com/Safe-LM/app-login-trabajadores-desktop/actions/workflows/supabase-sync.yml/badge.svg" alt="Supabase Sync Check">
   <img src="https://img.shields.io/badge/status-Production_Ready-10b981?style=flat-square&labelColor=1e293b" alt="Status">
 </p>
 

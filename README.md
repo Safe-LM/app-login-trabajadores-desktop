@@ -284,6 +284,89 @@ python scripts\train_face_recognition_opencv.py
 
 ---
 
+## 🤖 GitHub Actions Automatizados
+
+Este repositorio tiene las siguientes automatizaciones activas en GitHub Actions:
+
+### 1. 🔍 CI - Code Quality (`ci.yml`)
+**Disparador:** Push y Pull Request a `main`
+
+Ejecuta cuatro trabajos en paralelo para garantizar la calidad del código:
+
+| Job | Runner | Qué hace |
+|-----|--------|----------|
+| **Lint & Syntax Check** | ubuntu-latest | Compila todos los módulos Python con `py_compile` y ejecuta `flake8` para detectar errores de sintaxis y uso de variables no definidas |
+| **Security Scan** | ubuntu-latest | Analiza el código fuente con `bandit` en busca de vulnerabilidades de seguridad de nivel medio-alto |
+| **Verificar Dependencias** | windows-latest | Instala `requirements.txt` y comprueba que los imports principales (OpenCV, NumPy, SQLAlchemy, bcrypt) funcionan correctamente |
+| **Verificar Estructura** | ubuntu-latest | Confirma que todos los archivos críticos del proyecto existen y verifica la presencia de la base de datos de fotos y los modelos ONNX |
+
+---
+
+### 2. 🏷️ Auto Label PR (`auto-label.yml`)
+**Disparador:** Pull Request abierto o actualizado (`opened`, `synchronize`)
+
+Añade automáticamente etiquetas a los PRs según el prefijo del nombre de la branch:
+
+| Prefijo de branch | Etiqueta asignada |
+|-------------------|-------------------|
+| `feature/` | `enhancement` |
+| `fix/` | `bug` |
+| `docs/` | `documentation` |
+| `refactor/` | `refactor` |
+| `perf/` | `performance` |
+| `style/` | `style` |
+
+---
+
+### 3. 📏 PR Size Labeler (`pr-size-labeler.yml`)
+**Disparador:** Pull Request abierto o actualizado
+
+Mide el tamaño del PR (líneas cambiadas) y aplica una etiqueta de tamaño:
+
+| Etiqueta | Líneas cambiadas |
+|----------|-----------------|
+| `XS` | 0 – 99 |
+| `S` | 100 – 299 |
+| `M` | 300 – 699 |
+| `L` | 700 – 1 499 |
+| `XL` | 1 500+ |
+
+---
+
+### 4. 💬 PR Review Helper (`pr-helper.yml`)
+**Disparador:** Pull Request recién abierto
+
+Publica automáticamente un comentario en cada nuevo PR con recordatorios para el revisor:
+- ¿El código sigue los estándares de Python?
+- ¿El reconocimiento facial sigue funcionando?
+- ¿Se modificó la base de datos SQLite?
+- ¿Se agregaron archivos a `database_fotos/`?
+
+---
+
+### 5. 👋 Greetings (`greetings.yml`)
+**Disparador:** Primer Issue o primer Pull Request de un usuario
+
+Da la bienvenida automáticamente a los nuevos colaboradores con un mensaje personalizado en su primer Issue o PR.
+
+---
+
+### 6. 🗃️ Stale Issues & PRs (`stale.yml`)
+**Disparador:** Programado diariamente a la 01:30 UTC
+
+Gestiona la actividad de Issues y PRs automáticamente:
+- **Issues** sin actividad por **30 días** → marcados como `stale`; si continúan sin actividad **7 días más** → cerrados
+- **PRs** sin actividad por **14 días** → marcados como `stale`; si continúan sin actividad **7 días más** → cerrados
+
+---
+
+### 7. 📦 Dependabot (`dependabot.yml`)
+**Disparador:** Programado semanalmente
+
+Monitorea el archivo `requirements.txt` y abre Pull Requests automáticos para actualizar las dependencias de Python cuando hay nuevas versiones disponibles. Los PRs generados reciben las etiquetas `dependencies` y `python`.
+
+---
+
 ## 🤝 Contribuir al Proyecto
 
 Este proyecto sigue un flujo de trabajo profesional basado en **Issues**, **Branches** y **Pull Requests**. Todo cambio —por pequeño que sea— debe pasar por este proceso.

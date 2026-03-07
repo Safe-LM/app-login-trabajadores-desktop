@@ -1,0 +1,34 @@
+name: PR Review Helper
+
+on:
+  pull_request:
+    types: [opened]
+
+jobs:
+  pr-comment:
+    name: 💬 Tip de Revisión
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+
+    steps:
+      - name: Comentar tips en PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `### 🚀 ¡Nuevo Pull Request listo para revisión!
+            
+            Hola @${context.payload.pull_request.user.login}, gracias por tus cambios. 
+            
+            **Recordatorios para el revisor:**
+            1. 🐍 ¿El código sigue los estándares de Python?
+            2. 🧠 ¿El reconocimiento facial funciona después de estos cambios?
+            3. 🗄️ ¿Se modificó la base de datos (SQLite)?
+            4. 📂 ¿Se agregaron archivos a \`database_fotos/\`?
+            
+            _Este es un mensaje automático del bot de Safe Link Monitoring._`
+            })

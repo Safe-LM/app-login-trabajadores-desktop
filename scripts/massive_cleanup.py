@@ -76,10 +76,19 @@ def cleanup_and_reseed():
         eid = e['employee_id']
         nombre_completo = e['nombre']
         parts = nombre_completo.split()
-        nombre = parts[0] if parts else "Empleado"
-        apellido = " ".join(parts[1:]) if len(parts) > 1 else ""
+        if len(parts) >= 3:
+            # Caso típico: APELLIDO_PATERNO APELLIDO_MATERNO NOMBRE(S)
+            apellido = f"{parts[0]} {parts[1]}"
+            nombre = " ".join(parts[2:])
+        elif len(parts) == 2:
+            # Caso: APELLIDO NOMBRE
+            apellido = parts[0]
+            nombre = parts[1]
+        else:
+            nombre = nombre_completo
+            apellido = ""
         
-        # Insertar en SQLite
+        # Insertar en SQLite (Local)
         usuario = f"empleado_{eid}"
         new_worker = Trabajador(
             usuario=usuario,

@@ -24,7 +24,16 @@ def load_employee_data_from_json(json_path: Path) -> Dict[int, Dict]:
             employee_id = emp.get('employee_id')
             if employee_id:
                 nombre_completo = emp.get('nombre', '').strip()
-                partes_nombre = nombre_completo.split(' ', 1)
+                parts = nombre_completo.split()
+                if len(parts) >= 3:
+                    apellido = f"{parts[0]} {parts[1]}"
+                    nombre = " ".join(parts[2:])
+                elif len(parts) == 2:
+                    apellido = parts[0]
+                    nombre = parts[1]
+                else:
+                    nombre = nombre_completo
+                    apellido = ""
                 
                 employee_data[employee_id] = {
                     'employee_id': employee_id,
@@ -32,8 +41,8 @@ def load_employee_data_from_json(json_path: Path) -> Dict[int, Dict]:
                     'sucursal': emp.get('sucursal', '').strip(),
                     'puesto': emp.get('puesto', '').strip(),
                     'nombre_completo': nombre_completo,
-                    'nombre': partes_nombre[0] if len(partes_nombre) > 0 else nombre_completo,
-                    'apellido': partes_nombre[1] if len(partes_nombre) > 1 else '',
+                    'nombre': nombre,
+                    'apellido': apellido,
                     'photo_file': emp.get('photo_file', '')
                 }
         
@@ -88,7 +97,16 @@ def load_employee_data():
                 if employee_id > 0:
                     # Separar nombre completo en nombre y apellido
                     nombre_completo = row.get('nombre', '').strip()
-                    partes_nombre = nombre_completo.split(' ', 1)
+                    parts = nombre_completo.split()
+                    if len(parts) >= 3:
+                        apellido = f"{parts[0]} {parts[1]}"
+                        nombre = " ".join(parts[2:])
+                    elif len(parts) == 2:
+                        apellido = parts[0]
+                        nombre = parts[1]
+                    else:
+                        nombre = nombre_completo
+                        apellido = ""
                     
                     EMPLOYEE_DATA[employee_id] = {
                         'employee_id': employee_id,
@@ -96,8 +114,8 @@ def load_employee_data():
                         'sucursal': row.get('sucursal', '').strip(),
                         'puesto': row.get('puesto', '').strip(),
                         'nombre_completo': nombre_completo,
-                        'nombre': partes_nombre[0] if len(partes_nombre) > 0 else nombre_completo,
-                        'apellido': partes_nombre[1] if len(partes_nombre) > 1 else '',
+                        'nombre': nombre,
+                        'apellido': apellido,
                     }
         
         print(f"[OK] Cargados {len(EMPLOYEE_DATA)} empleados del CSV")

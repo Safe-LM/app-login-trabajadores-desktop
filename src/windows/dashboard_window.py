@@ -430,9 +430,7 @@ class DashboardWindow(QMainWindow):
         self.recognition_thread = RecognitionThread(self)
         self.recognition_thread.results_ready.connect(self.on_recognition_results)
         
-        # Flujo Kiosco: Iniciar reconocimiento y cámara de inmediato
-        QTimer.singleShot(500, self.start_camera)
-        QTimer.singleShot(800, lambda: self.recognition_thread.start())
+        # Flujo Manual: La cámara espera al botón ACTIVAR
         QTimer.singleShot(1000, self.init_face_recognition)
 
     # ------------------------------------------------------------------
@@ -773,11 +771,16 @@ class DashboardWindow(QMainWindow):
     def on_camera_started(self, success):
         if success:
             self.stop_button.setEnabled(True)
-            self.recognize_button.setEnabled(True)
-            self.start_button.setText("ACTIVAR")
-            self._set_status("Camara activa - buscando rostro", "success")
-            self._cam_badge.setText("EN VIVO")
-            self._cam_badge.setStyleSheet(self._badge_style('#fff', _COLORS['success']))
+            self.start_button.setText("LISTO")
+            
+            # Cuenta regresiva de 5 segundos para acomodarse
+            self._preparacion_count = 5
+            self._timer_preparacion = QTimer(self)
+            self._timer_preparacion.setInterval(1000)
+            self._timer_preparacion.timeout.connect(self._update_preparation_countdown)
+            self._timer_preparacion.start()
+            
+            self._update_preparation_countdown() # Primer llamado inmediato
         else:
             QMessageBox.critical(self, "Error de Camara",
                 "No se pudo acceder a la camara.\n\n"
@@ -785,10 +788,22 @@ class DashboardWindow(QMainWindow):
                 "y que tenga permisos de acceso.")
             self.camera_thread = None
             self.start_button.setEnabled(True)
-            self.start_button.setText("ACTIVAR")
-            self._set_status("Error al iniciar camara", "danger")
-            self._cam_badge.setText("ERROR")
-            self._cam_badge.setStyleSheet(self._badge_style('#fff', _COLORS['danger']))
+
+    def _update_preparation_countdown(self):
+        if self._preparacion_count > 0:
+            self._set_status(f"Acomodate frente a la camara... {self._preparacion_count}s", "warning")
+            self._cam_badge.setText(f"ESPERA {self._preparacion_count}S")
+            self._cam_badge.setStyleSheet(self._badge_style('#fff', _COLORS['warning']))
+            self._preparacion_count -= 1
+        else:
+            self._timer_preparacion.stop()
+            self._set_status("Buscando rostro - Escaneando...", "success")
+            self._cam_badge.setText("EN VIVO")
+            self._cam_badge.setStyleSheet(self._badge_style('#fff', _COLORS['success']))
+            self.recognize_button.setEnabled(True)
+            # Iniciar el hilo de reconocimiento después de la espera
+            if not self.recognition_thread.isRunning():
+                self.recognition_thread.start()
 
     def stop_camera(self):
         if self.camera_thread:
@@ -1128,8 +1143,8 @@ class DashboardWindow(QMainWindow):
                 parent=self
             )
             dlg.show()
-            self._set_status(f"{tipo.upper()} registrada", "success")
-
+            self._set_status(f"{tipo.upper()} registrada - Cerrando en 3s...", "success")
+            
             # --- INTEGRACIÓN SUPABASE ---
             try:
                 sb = get_supabase_client()
@@ -1147,6 +1162,9 @@ class DashboardWindow(QMainWindow):
             except Exception as es:
                 logger.error(f"❌ Error sincronizando manual con Supabase: {es}")
             # ----------------------------
+            
+            # Auto-Logout tras 3 segundos para el modo Check&Go
+            QTimer.singleShot(3000, self.logout)
         except Exception as e:
             db.rollback()
             QMessageBox.critical(self, "Error", f"Error al registrar:\n{e}")

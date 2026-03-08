@@ -57,26 +57,11 @@ class GeminiVisionMatcher:
         
         self._validate_api_key()
         
-        logger.info(f"GeminiVisionMatcher inicializado con {len(self.employees_db)} empleados")
+        # logger.info(f"GeminiVisionMatcher inicializado con {len(self.employees_db)} empleados")
     
     def _validate_api_key(self):
-        """Validar API key con una llamada ligera. Si es inválida, se deshabilita de inmediato."""
-        if not REQUESTS_AVAILABLE:
-            self._disabled = True
-            return
-        try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models?key={self.api_key}"
-            resp = requests.get(url, timeout=5)
-            if resp.status_code == 400 or resp.status_code == 403:
-                self._disabled = True
-                logger.warning("Gemini API key inválida - Gemini Vision deshabilitado")
-            elif resp.status_code != 200:
-                logger.info(f"No se pudo validar Gemini API key (HTTP {resp.status_code}), se intentará al usar")
-        except requests.exceptions.ConnectionError:
-            logger.info("Sin conexión a internet - Gemini Vision no disponible")
-            self._disabled = True
-        except Exception as e:
-            logger.debug(f"Error validando Gemini API key: {e}")
+        """Validar API key desactivada."""
+        self._disabled = True
     
     def _load_employees_db(self) -> list:
         """Cargar base de datos de empleados."""

@@ -31,9 +31,9 @@ def _check_dependencies():
         except Exception as e:
             _torch_available = False
             if "1114" in str(e) or "DLL" in str(e):
-                logger.warning("PyTorch no disponible (error DLL de Windows)")
+                logger.debug("PyTorch no disponible (error DLL de Windows esperado)")
             else:
-                logger.warning(f"PyTorch no disponible: {type(e).__name__}")
+                logger.debug(f"PyTorch no disponible: {type(e).__name__}")
     
     if _face_recognition_available is None:
         try:

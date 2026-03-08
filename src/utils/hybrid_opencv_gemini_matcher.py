@@ -32,47 +32,8 @@ def _check_requests():
     return _requests_available
 
 def _check_gemini():
-    """Verificar si Gemini está configurado y disponible."""
-    global _gemini_available, _gemini_matcher
-    if _gemini_available is None:
-        if not _check_requests():
-            _gemini_available = False
-            return False
-        
-        # Intentar obtener API key de variable de entorno primero
-        api_key = os.getenv('GEMINI_API_KEY')
-        
-        if not api_key:
-            try:
-                from config_gemini import get_gemini_api_key
-                api_key = get_gemini_api_key()
-            except Exception as e:
-                logger.debug(f"No se pudo cargar config_gemini: {e}")
-        
-        if not api_key:
-            _gemini_available = False
-            logger.debug("GEMINI_API_KEY no configurada - usando OpenCV")
-            return False
-        
-        try:
-            from utils.gemini_vision_matcher import GeminiVisionMatcher
-            PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-            database_dir = PROJECT_ROOT / "database_fotos"
-            matcher = GeminiVisionMatcher(api_key=api_key, database_dir=database_dir)
-            if matcher._disabled:
-                _gemini_available = False
-                logger.info("Gemini API key inválida o sin conexión - usando solo OpenCV")
-                return False
-            _gemini_matcher = matcher
-            _gemini_available = True
-            logger.info("Gemini Vision disponible")
-            return True
-        except Exception as e:
-            _gemini_available = False
-            logger.info(f"Gemini no disponible: {e} - usando solo OpenCV")
-            return False
-    
-    return _gemini_available
+    """Gemini desactivado por petición del usuario para evitar ruido y errores de cuota."""
+    return False
 
 
 class HybridOpenCVGeminiMatcher:

@@ -56,27 +56,27 @@ def _lazy_load_face_recognition():
 # ---------------------------------------------------------------------------
 
 _COLORS = {
-    'bg_dark': '#0a0f1a',
-    'bg_card': '#111827',
-    'bg_card_alt': '#1a2332',
-    'border': '#1f2937',
-    'border_accent': '#6366f1',
-    'text': '#e2e8f0',
-    'text_dim': '#94a3b8',
+    'bg_dark': '#05070a',         # Negro profundo
+    'bg_card': 'rgba(17, 24, 39, 0.7)', # Cristal oscuro
+    'bg_card_alt': 'rgba(31, 41, 55, 0.4)',
+    'border': 'rgba(55, 65, 81, 0.5)',
+    'border_accent': 'rgba(99, 102, 241, 0.6)',
+    'text': '#f8fafc',
+    'text_dim': '#cbd5e1',
     'text_muted': '#64748b',
-    'accent': '#6366f1',
+    'accent': '#818cf8',         # Indigo brillante
     'accent_dark': '#4f46e5',
-    'success': '#10b981',
+    'success': '#10b981',        # Esmeralda Neón
     'warning': '#f59e0b',
-    'danger': '#ef4444',
+    'danger': '#f43f5e',
 }
 
-def _card_style(extra=""):
+def _glass_style(extra=""):
     return f"""
         QFrame {{
             background: {_COLORS['bg_card']};
             border: 1px solid {_COLORS['border']};
-            border-radius: 16px;
+            border-radius: 20px;
             {extra}
         }}
     """
@@ -518,7 +518,7 @@ class DashboardWindow(QMainWindow):
 
         # ---- Left: camera ----
         cam_card = QFrame()
-        cam_card.setStyleSheet(_card_style())
+        cam_card.setStyleSheet(_glass_style())
         cam_lay = QVBoxLayout(cam_card)
         cam_lay.setContentsMargins(16, 16, 16, 16)
         cam_lay.setSpacing(12)
@@ -585,7 +585,7 @@ class DashboardWindow(QMainWindow):
 
         # ---- Right: info panel ----
         info_card = QFrame()
-        info_card.setStyleSheet(_card_style())
+        info_card.setStyleSheet(_glass_style())
         info_card.setFixedWidth(340)
         i_lay = QVBoxLayout(info_card)
         i_lay.setContentsMargins(16, 16, 16, 16)
@@ -626,32 +626,32 @@ class DashboardWindow(QMainWindow):
 
         i_lay.addWidget(self._status_frame)
 
-        # Photo
-        photo_frame = QFrame()
-        photo_frame.setStyleSheet(f"""
+        # Photo with Ring
+        photo_ring = QFrame()
+        photo_ring.setFixedSize(200, 200)
+        self._photo_ring_style = f"""
             QFrame {{
-                background: {_COLORS['bg_card_alt']};
-                border: 2px solid {_COLORS['border']};
-                border-radius: 12px;
+                background: qradialgradient(cx:0.5, cy:0.5, radius:0.5, fx:0.5, fy:0.5, 
+                    stop:0.45 transparent, stop:0.48 {_COLORS['border']}, stop:0.5 transparent);
+                border: none;
             }}
-        """)
-        pf_lay = QVBoxLayout(photo_frame)
-        pf_lay.setContentsMargins(8, 8, 8, 8)
+        """
+        photo_ring.setStyleSheet(self._photo_ring_style)
+        pr_lay = QVBoxLayout(photo_ring)
+        pr_lay.setContentsMargins(10, 10, 10, 10)
 
-        self.recognized_photo_label = QLabel("Sin foto")
-        self.recognized_photo_label.setFixedSize(180, 180)
+        self.recognized_photo_label = QLabel()
+        self.recognized_photo_label.setFixedSize(170, 170)
         self.recognized_photo_label.setAlignment(Qt.AlignCenter)
         self.recognized_photo_label.setStyleSheet(f"""
             QLabel {{
                 background: {_COLORS['bg_dark']};
+                border-radius: 85px; /* Circular */
                 border: 1px solid {_COLORS['border']};
-                border-radius: 12px;
-                color: {_COLORS['text_muted']};
-                font-size: 11px;
             }}
         """)
-        pf_lay.addWidget(self.recognized_photo_label, 0, Qt.AlignCenter)
-        i_lay.addWidget(photo_frame)
+        pr_lay.addWidget(self.recognized_photo_label, 0, Qt.AlignCenter)
+        i_lay.addWidget(photo_ring, 0, Qt.AlignCenter)
 
         # Info fields with accent bars
         self.recognized_name_label = self._add_info_row(i_lay, "NOMBRE(S)", "--", _COLORS['accent'])
@@ -860,15 +860,48 @@ class DashboardWindow(QMainWindow):
         resized = cv2.resize(frame, (nw, nh), interpolation=cv2.INTER_LINEAR)
         rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
         qimg = QImage(rgb.data, nw, nh, 3 * nw, QImage.Format_RGB888)
+        # --- HUD OVERLAY ---
+        painter = QPainter(qimg)
+        painter.setRenderHint(QPainter.Antialiasing)
+        
+        # Corner Brackets [ ]
+        p_color = QColor(_COLORS['accent'] if not self.attendance_registered else _COLORS['success'])
+        p_color.setAlpha(180)
+        pen = painter.pen()
+        pen.setColor(p_color)
+        pen.setWidth(2)
+        painter.setPen(pen)
+        
+        m = 40 # Margin
+        L = 30 # Length
+        # Top Left
+        painter.drawLine(m, m, m+L, m)
+        painter.drawLine(m, m, m, m+L)
+        # Top Right
+        painter.drawLine(nw-m, m, nw-m-L, m)
+        painter.drawLine(nw-m, m, nw-m, m+L)
+        # Bottom Left
+        painter.drawLine(m, nh-m, m+L, nh-m)
+        painter.drawLine(m, nh-m, m, nh-m-L)
+        # Bottom Right
+        painter.drawLine(nw-m, nh-m, nw-m-L, nh-m)
+        painter.drawLine(nw-m, nh-m, nw-m, nh-m-L)
+
+        # Scanning laser line (animated by time)
+        if not self.attendance_registered:
+            ty = int((datetime.now().timestamp() * 150) % (nh - 2*m)) + m
+            laser_grad = QLinearGradient(m, ty, nw-m, ty)
+            laser_grad.setColorAt(0, QColor(0,0,0,0))
+            laser_grad.setColorAt(0.5, p_color)
+            laser_grad.setColorAt(1, QColor(0,0,0,0))
+            painter.fillRect(m, ty, nw-2*m, 2, QBrush(laser_grad))
+        
+        painter.end()
+
         if lbl.text():
             lbl.setText("")
-            lbl.setStyleSheet(f"""
-                QLabel {{
-                    background: #000;
-                    border: 1px solid {_COLORS['border']};
-                    border-radius: 12px;
-                }}
-            """)
+            lbl.setStyleSheet(f"border-radius: 12px; background: #000; border: 1px solid {_COLORS['border']};")
+            
         lbl.setPixmap(QPixmap.fromImage(qimg))
 
     def update_frame(self):
@@ -927,11 +960,19 @@ class DashboardWindow(QMainWindow):
                     self.recognized_photo_label.setPixmap(
                         px.scaled(t, t, Qt.KeepAspectRatio, Qt.SmoothTransformation)
                     )
+                    # HUD: Anillo brillante
+                    self.recognized_photo_label.parent().setStyleSheet(f"""
+                        QFrame {{
+                            background: qradialgradient(cx:0.5, cy:0.5, radius:0.5, fx:0.5, fy:0.5, 
+                                stop:0.45 transparent, stop:0.48 {_COLORS['success']}, stop:0.5 transparent);
+                            border: none;
+                        }}
+                    """)
                     self.recognized_photo_label.setStyleSheet(f"""
                         QLabel {{
                             background: {_COLORS['bg_dark']};
                             border: 2px solid {_COLORS['success']};
-                            border-radius: 10px;
+                            border-radius: 85px;
                         }}
                     """)
 

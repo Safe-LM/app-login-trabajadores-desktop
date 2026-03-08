@@ -1,16 +1,11 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Safe%20Link-Monitoring-6366f1?style=for-the-badge&labelColor=0f172a&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM4MThjZjgiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMTIgMjJzOC00IDgtMTBWNWwtOC0zLTggM3Y3YzAgNiA4IDEwIDggMTB6Ii8+PC9zdmc+" alt="Safe Link Monitoring">
   <br><br>
-  <img src="https://img.shields.io/badge/version-2.0.4-818cf8?style=flat-square&labelColor=1e293b" alt="Version">
+  <img src="https://img.shields.io/badge/version-2.1.0-818cf8?style=flat-square&labelColor=1e293b" alt="Version">
   <img src="https://img.shields.io/badge/python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white&labelColor=1e293b" alt="Python">
-  <img src="https://img.shields.io/badge/PyQt5-Desktop_App-41CD52?style=flat-square&logo=qt&logoColor=white&labelColor=1e293b" alt="PyQt5">
-  <img src="https://img.shields.io/badge/OpenCV-DNN_SFace-5C3EE8?style=flat-square&logo=opencv&logoColor=white&labelColor=1e293b" alt="OpenCV">
-  <img src="https://img.shields.io/badge/Supabase-Cloud_DB-3ECF8E?style=flat-square&logo=supabase&logoColor=white&labelColor=1e293b" alt="Supabase">
-  <img src="https://img.shields.io/badge/GitHub_Actions-CI_CD-2088FF?style=flat-square&logo=github-actions&logoColor=white&labelColor=1e293b" alt="GitHub Actions">
-  <img src="https://github.com/Safe-LM/app-login-trabajadores-desktop/actions/workflows/supabase-sync.yml/badge.svg" alt="Supabase Sync Check">
-  <img src="https://github.com/Safe-LM/app-login-trabajadores-desktop/actions/workflows/ai-accuracy-guard.yml/badge.svg" alt="AI Accuracy Guard">
-  <img src="https://github.com/Safe-LM/app-login-trabajadores-desktop/actions/workflows/release-build.yml/badge.svg" alt="Build Status">
-  <img src="https://img.shields.io/badge/status-Production_Ready-10b981?style=flat-square&labelColor=1e293b" alt="Status">
+  <img src="https://img.shields.io/badge/PyQt5-SaaS_UI-41CD52?style=flat-square&logo=qt&logoColor=white&labelColor=1e293b" alt="PyQt5">
+  <img src="https://img.shields.io/badge/AI-Check%26Go-10b981?style=flat-square&labelColor=1e293b" alt="AI Flow">
+  <img src="https://img.shields.io/badge/UX-Premium%20HUD-FFD700?style=flat-square&labelColor=1e293b" alt="UX Style">
 </p>
 
 <h1 align="center">🛡️ Safe Link Monitoring</h1>
@@ -79,11 +74,12 @@ flowchart TD
 <tr>
 <td width="50%">
 
-### 🎨 Interfaz Premium
-- Diseño **glassmorphism** oscuro profesional
-- Transiciones fluidas y micro-animaciones
-- Splash screen animado al iniciar
-- Dashboard en tiempo real con superposiciones de detección
+### 🎨 Interfaz SaaS Premium
+- Estética **Glassmorphism OLED** de alta fidelidad
+- **HUD Táctico Animado** con indicadores de escaneo en vivo
+- Tarjetas de información con **jerarquía visual eléctrica**
+- Avatares **Square-Round (16px)** para integración perfecta
+- Feedback de estados dinámico (Cargando, Escaneando, Éxito)
 
 </td>
 <td width="50%">
@@ -292,14 +288,15 @@ sequenceDiagram
     end
 ```
 
-### Pasos detallados
+### ⚡ Flujo "Check & Go" (5s Automático)
 
-1. **Abrir** la aplicación con doble clic en `ejecutar.ps1`
-2. **Iniciar sesión** con las credenciales de administrador
-3. **Activar la cámara** desde el panel principal
-4. El empleado se **posiciona frente a la cámara** (2–3 segundos)
-5. El sistema muestra: **Nombre**, **Puesto**, **Zona**, **Sucursal** y **% de confianza**
-6. Si la confianza es **≥ 85%**, la asistencia se registra **automáticamente**
+El sistema está optimizado para operación "manos libres" en terminales de acceso masivo:
+
+1. **Autenticación Directa**: El empleado ingresa sus credenciales.
+2. **Fase de Preparación (5s)**: Al presionar **ACTIVAR**, el sistema otorga una cuenta regresiva de 5 segundos para que el usuario se posicione correctamente.
+3. **Escaneo Inteligente**: El HUD activa el sensor láser animado y busca el rostro con confianza ≥ 85%.
+4. **Registro Silencioso**: Una vez identificado, la asistencia se registra en **SQLite** y se sincroniza con **Supabase Cloud** inmediatamente.
+5. **Auto-Logout Protector (5s)**: Se muestra un mensaje de éxito estético y la sesión se cierra automáticamente tras 5 segundos, dejando la terminal lista para el siguiente usuario.
 
 ---
 

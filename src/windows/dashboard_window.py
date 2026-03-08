@@ -1,16 +1,34 @@
 """
 Ventana principal del dashboard con cámara y reconocimiento facial.
 """
+
 import logging
 import threading
 
 from PyQt5.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QFrame, QMessageBox, QApplication, QGraphicsDropShadowEffect,
-    QSizePolicy
+    QMainWindow,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QFrame,
+    QMessageBox,
+    QApplication,
+    QGraphicsDropShadowEffect,
+    QSizePolicy,
 )
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QThread, QSize
-from PyQt5.QtGui import QImage, QPixmap, QFont, QPalette, QColor, QPainter, QLinearGradient, QBrush
+from PyQt5.QtGui import (
+    QImage,
+    QPixmap,
+    QFont,
+    QPalette,
+    QColor,
+    QPainter,
+    QLinearGradient,
+    QBrush,
+)
 import cv2
 import numpy as np
 from datetime import datetime
@@ -28,6 +46,7 @@ FACE_RECOGNITION_AVAILABLE = False
 reconocer_desde_frame = None
 inicializar_sistema_facial = None
 
+
 def _lazy_load_face_recognition():
     global FACE_RECOGNITION_AVAILABLE, reconocer_desde_frame, inicializar_sistema_facial
     if reconocer_desde_frame is not None:
@@ -36,17 +55,21 @@ def _lazy_load_face_recognition():
         from utils.face_recognition import (
             reconocer_desde_frame as _reconocer,
             inicializar_sistema_facial as _inicializar,
-            FACE_RECOGNITION_AVAILABLE as _available
+            FACE_RECOGNITION_AVAILABLE as _available,
         )
+
         reconocer_desde_frame = _reconocer
         inicializar_sistema_facial = _inicializar
         FACE_RECOGNITION_AVAILABLE = _available
     except ImportError:
         FACE_RECOGNITION_AVAILABLE = False
+
         def _dummy_reconocer(*args, **kwargs):
             return False, 0.0, None
+
         def _dummy_inicializar():
             return False
+
         reconocer_desde_frame = _dummy_reconocer
         inicializar_sistema_facial = _dummy_inicializar
 
@@ -56,21 +79,22 @@ def _lazy_load_face_recognition():
 # ---------------------------------------------------------------------------
 
 _COLORS = {
-    'bg_dark': '#010409',         # Negro OLED (Estilo GitHub/Linear)
-    'bg_card': 'rgba(22, 27, 34, 0.8)', # Cristal moderno
-    'bg_card_alt': 'rgba(33, 38, 45, 0.5)',
-    'border': 'rgba(240, 246, 252, 0.1)', # Borde ultra fino
-    'border_accent': '#58a6ff',
-    'text': '#f0f6fc',
-    'text_dim': '#8b949e',
-    'text_muted': '#484f58',
-    'accent': '#00d2ff',         # Electric Blue
-    'accent_dark': '#3a86ff',
-    'success': '#39D353',        # Spring Green (Web style)
-    'warning': '#f0883e',        # Naranja vivo
-    'danger': '#ff4b5c',         # Coral vibrante
-    'gradient_main': 'qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #00d2ff, stop:1 #3a86ff)',
+    "bg_dark": "#010409",  # Negro OLED (Estilo GitHub/Linear)
+    "bg_card": "rgba(22, 27, 34, 0.8)",  # Cristal moderno
+    "bg_card_alt": "rgba(33, 38, 45, 0.5)",
+    "border": "rgba(240, 246, 252, 0.1)",  # Borde ultra fino
+    "border_accent": "#58a6ff",
+    "text": "#f0f6fc",
+    "text_dim": "#8b949e",
+    "text_muted": "#484f58",
+    "accent": "#00d2ff",  # Electric Blue
+    "accent_dark": "#3a86ff",
+    "success": "#39D353",  # Spring Green (Web style)
+    "warning": "#f0883e",  # Naranja vivo
+    "danger": "#ff4b5c",  # Coral vibrante
+    "gradient_main": "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #00d2ff, stop:1 #3a86ff)",
 }
+
 
 def _glass_style(extra=""):
     return f"""
@@ -82,9 +106,10 @@ def _glass_style(extra=""):
         }}
     """
 
+
 def _btn_style(color, hover, pressed=None):
     pressed = pressed or hover
-    bg = color if color.startswith('qlineargradient') else color
+    bg = color if color.startswith("qlineargradient") else color
     return f"""
         QPushButton {{
             background: {bg};
@@ -111,11 +136,14 @@ def _btn_style(color, hover, pressed=None):
 # Diálogo personalizado de asistencia
 # ---------------------------------------------------------------------------
 
+
 class AttendanceDialog(QWidget):
     """Diálogo premium personalizado para registro de asistencia."""
 
     def __init__(self, tipo, nombre, confianza, hora, parent=None):
-        super().__init__(parent, Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        super().__init__(
+            parent, Qt.Window | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
+        )
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setFixedSize(420, 320)
         if parent:
@@ -147,7 +175,7 @@ class AttendanceDialog(QWidget):
         cl.setSpacing(0)
 
         is_entrada = tipo.upper() == "ENTRADA"
-        accent = _COLORS['success'] if is_entrada else _COLORS['accent']
+        accent = _COLORS["success"] if is_entrada else _COLORS["accent"]
         icon_text = "✓" if is_entrada else "↩"
 
         # Icon circle
@@ -173,9 +201,9 @@ class AttendanceDialog(QWidget):
 
         # Info rows
         for label, value, color in [
-            ("Empleado", nombre, _COLORS['text']),
+            ("Empleado", nombre, _COLORS["text"]),
             ("Confianza", f"{confianza}%", accent),
-            ("Hora", hora, _COLORS['text_dim']),
+            ("Hora", hora, _COLORS["text_dim"]),
         ]:
             row = QHBoxLayout()
             row.setContentsMargins(0, 4, 0, 4)
@@ -200,7 +228,7 @@ class AttendanceDialog(QWidget):
         self.countdown_label.setAlignment(Qt.AlignCenter)
         self.countdown_label.setStyleSheet(f"color: {accent}; background:transparent;")
         cl.addWidget(self.countdown_label)
-        
+
         # Timer para actualizar el texto del countdown
         self._secs_left = 5
         self._count_timer = QTimer(self)
@@ -212,7 +240,9 @@ class AttendanceDialog(QWidget):
     def _update_countdown(self):
         self._secs_left -= 1
         if self._secs_left > 0:
-            self.countdown_label.setText(f"La sesion se cerrara en {self._secs_left}s...")
+            self.countdown_label.setText(
+                f"La sesion se cerrara en {self._secs_left}s..."
+            )
         else:
             self._count_timer.stop()
             self.close()
@@ -227,6 +257,7 @@ class AttendanceDialog(QWidget):
 # ---------------------------------------------------------------------------
 # Hilos de cámara y reconocimiento
 # ---------------------------------------------------------------------------
+
 
 class CameraThread(QThread):
     frame_ready = pyqtSignal(np.ndarray)
@@ -272,7 +303,9 @@ class CameraThread(QThread):
                             l, a, b = cv2.split(lab)
                             clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(4, 4))
                             l = clahe.apply(l)
-                            frame = cv2.cvtColor(cv2.merge([l, a, b]), cv2.COLOR_LAB2BGR)
+                            frame = cv2.cvtColor(
+                                cv2.merge([l, a, b]), cv2.COLOR_LAB2BGR
+                            )
                         except Exception:
                             pass
                     skip += 1
@@ -333,6 +366,7 @@ class RecognitionThread(QThread):
 
     def run(self):
         import time
+
         self.running = True
         while self.running:
             if self.current_frame is not None and not self.processing:
@@ -342,13 +376,19 @@ class RecognitionThread(QThread):
                     self.processing = True
                     try:
                         with self._frame_lock:
-                            f = self.current_frame.copy() if self.current_frame is not None else None
+                            f = (
+                                self.current_frame.copy()
+                                if self.current_frame is not None
+                                else None
+                            )
                         if f is not None:
                             self._process_frame(f)
                     except Exception as e:
                         msg = str(e)
                         if "1114" in msg or "DLL" in msg:
-                            self.process_interval = min(self.process_interval + 0.5, 5.0)
+                            self.process_interval = min(
+                                self.process_interval + 0.5, 5.0
+                            )
                         else:
                             logger.error(f"RecognitionThread: {msg[:150]}")
                     finally:
@@ -369,7 +409,9 @@ class RecognitionThread(QThread):
         fatal = any(s in msg for s in ("1114", "DLL", "WinError"))
         if fatal or count >= self._MAX_ERRORS_BEFORE_DISABLE:
             self._disabled_methods.add(method)
-            logger.warning(f"'{method}' deshabilitado: {type(error).__name__}: {msg[:80]}")
+            logger.warning(
+                f"'{method}' deshabilitado: {type(error).__name__}: {msg[:80]}"
+            )
         elif count == 1:
             logger.debug(f"Error '{method}': {msg[:80]}")
 
@@ -380,11 +422,14 @@ class RecognitionThread(QThread):
         mx = 480
         if h > mx or w > mx:
             s = min(mx / h, mx / w)
-            frame = cv2.resize(frame, (int(w * s), int(h * s)), interpolation=cv2.INTER_AREA)
+            frame = cv2.resize(
+                frame, (int(w * s), int(h * s)), interpolation=cv2.INTER_AREA
+            )
 
         if "hybrid" not in self._disabled_methods:
             try:
                 from utils.hybrid_opencv_gemini_matcher import match_photo_hybrid
+
                 ok, conf, info, method = match_photo_hybrid(frame, min_confidence=0.80)
                 if ok and info and conf >= 0.80:
                     self._error_counts.pop("hybrid", None)
@@ -396,6 +441,7 @@ class RecognitionThread(QThread):
         if "photo_matcher" not in self._disabled_methods:
             try:
                 from utils.photo_to_photo_matcher import match_photo_from_frame
+
                 ok, conf, info = match_photo_from_frame(frame, min_confidence=0.80)
                 if ok and info and conf >= 0.80:
                     self._error_counts.pop("photo_matcher", None)
@@ -407,6 +453,7 @@ class RecognitionThread(QThread):
         if "opencv" not in self._disabled_methods:
             try:
                 from utils.face_recognition_opencv import recognize_opencv
+
                 ok, conf, info = recognize_opencv(frame)
                 if ok and info:
                     self._error_counts.pop("opencv", None)
@@ -419,6 +466,7 @@ class RecognitionThread(QThread):
 # ---------------------------------------------------------------------------
 # Dashboard
 # ---------------------------------------------------------------------------
+
 
 class DashboardWindow(QMainWindow):
 
@@ -443,7 +491,7 @@ class DashboardWindow(QMainWindow):
 
         self.recognition_thread = RecognitionThread(self)
         self.recognition_thread.results_ready.connect(self.on_recognition_results)
-        
+
         # Flujo Manual: La cámara espera al botón ACTIVAR
         QTimer.singleShot(1000, self.init_face_recognition)
 
@@ -452,7 +500,9 @@ class DashboardWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def init_ui(self):
-        self.setWindowTitle(f"Safe Link Monitoring - {self.trabajador.nombre} {self.trabajador.apellido}")
+        self.setWindowTitle(
+            f"Safe Link Monitoring - {self.trabajador.nombre} {self.trabajador.apellido}"
+        )
         self.setMinimumSize(1100, 700)
         self.resize(1280, 780)
 
@@ -466,8 +516,8 @@ class DashboardWindow(QMainWindow):
             }}
         """)
         palette = QPalette()
-        palette.setColor(QPalette.Window, QColor(_COLORS['bg_dark']))
-        palette.setColor(QPalette.WindowText, QColor(_COLORS['text']))
+        palette.setColor(QPalette.Window, QColor(_COLORS["bg_dark"]))
+        palette.setColor(QPalette.WindowText, QColor(_COLORS["text"]))
         self.setPalette(palette)
 
         root = QWidget()
@@ -494,7 +544,9 @@ class DashboardWindow(QMainWindow):
         h_lay.addWidget(brand)
 
         sep = QLabel("|")
-        sep.setStyleSheet(f"color: {_COLORS['border']}; background: transparent; font-size: 18px;")
+        sep.setStyleSheet(
+            f"color: {_COLORS['border']}; background: transparent; font-size: 18px;"
+        )
         h_lay.addWidget(sep)
 
         page = QLabel("Control de Asistencia")
@@ -511,7 +563,9 @@ class DashboardWindow(QMainWindow):
 
         user_lbl = QLabel(f"{self.trabajador.nombre} {self.trabajador.apellido}")
         user_lbl.setFont(self._font(11))
-        user_lbl.setStyleSheet(f"color: {_COLORS['text']}; background: transparent; margin-left: 6px;")
+        user_lbl.setStyleSheet(
+            f"color: {_COLORS['text']}; background: transparent; margin-left: 6px;"
+        )
         h_lay.addWidget(user_lbl)
 
         root_lay.addWidget(header)
@@ -539,7 +593,9 @@ class DashboardWindow(QMainWindow):
 
         self._cam_badge = QLabel("OFFLINE")
         self._cam_badge.setFont(self._font(9, True))
-        self._cam_badge.setStyleSheet(self._badge_style(_COLORS['text_muted'], '#1f2937'))
+        self._cam_badge.setStyleSheet(
+            self._badge_style(_COLORS["text_muted"], "#1f2937")
+        )
         cam_header.addWidget(self._cam_badge)
         cam_lay.addLayout(cam_header)
 
@@ -564,14 +620,22 @@ class DashboardWindow(QMainWindow):
         btn_row.setSpacing(10)
 
         self.start_button = QPushButton("ACTIVAR")
-        self.start_button.setStyleSheet(_btn_style(_COLORS['gradient_main'], '#00d2ff', '#3a86ff'))
+        self.start_button.setStyleSheet(
+            _btn_style(_COLORS["gradient_main"], "#00d2ff", "#3a86ff")
+        )
         self.start_button.setCursor(Qt.PointingHandCursor)
         self.start_button.clicked.connect(self.start_camera)
         btn_row.addWidget(self.start_button)
 
         self.stop_button = QPushButton("DETENER")
         self.stop_button.setEnabled(False)
-        self.stop_button.setStyleSheet(_btn_style(_COLORS['bg_card_alt'], 'rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)'))
+        self.stop_button.setStyleSheet(
+            _btn_style(
+                _COLORS["bg_card_alt"],
+                "rgba(255,255,255,0.1)",
+                "rgba(255,255,255,0.05)",
+            )
+        )
         self.stop_button.setCursor(Qt.PointingHandCursor)
         self.stop_button.clicked.connect(self.stop_camera)
         btn_row.addWidget(self.stop_button)
@@ -580,10 +644,13 @@ class DashboardWindow(QMainWindow):
 
         self.recognize_button = QPushButton("REGISTRAR ASISTENCIA")
         self.recognize_button.setEnabled(False)
-        self.recognize_button.setStyleSheet(_btn_style(
-            'qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #10b981, stop:1 #059669)',
-            '#059669', '#047857'
-        ))
+        self.recognize_button.setStyleSheet(
+            _btn_style(
+                "qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #10b981, stop:1 #059669)",
+                "#059669",
+                "#047857",
+            )
+        )
         self.recognize_button.setCursor(Qt.PointingHandCursor)
         self.recognize_button.clicked.connect(self.register_attendance)
         cam_lay.addWidget(self.recognize_button)
@@ -616,19 +683,25 @@ class DashboardWindow(QMainWindow):
         self.status_label = QLabel("MODO ESCANEO")
         self.status_label.setFont(self._font(8, True))
         self.status_label.setAlignment(Qt.AlignCenter)
-        self.status_label.setStyleSheet(f"color: {_COLORS['accent']}; background: transparent; letter-spacing: 2.5px;")
+        self.status_label.setStyleSheet(
+            f"color: {_COLORS['accent']}; background: transparent; letter-spacing: 2.5px;"
+        )
         sh_lay.addWidget(self.status_label)
 
         self.confidence_label = QLabel("--")
         self.confidence_label.setFont(self._font(42, True))
         self.confidence_label.setAlignment(Qt.AlignCenter)
-        self.confidence_label.setStyleSheet(f"color: {_COLORS['text']}; background: transparent;")
+        self.confidence_label.setStyleSheet(
+            f"color: {_COLORS['text']}; background: transparent;"
+        )
         sh_lay.addWidget(self.confidence_label)
 
         conf_hint = QLabel("CONFIANZA")
         conf_hint.setFont(self._font(8, True))
         conf_hint.setAlignment(Qt.AlignCenter)
-        conf_hint.setStyleSheet(f"color: {_COLORS['text_muted']}; background: transparent; letter-spacing: 3px;")
+        conf_hint.setStyleSheet(
+            f"color: {_COLORS['text_muted']}; background: transparent; letter-spacing: 3px;"
+        )
         sh_lay.addWidget(conf_hint)
 
         i_lay.addWidget(self.status_hero)
@@ -665,11 +738,21 @@ class DashboardWindow(QMainWindow):
         ig_lay.setContentsMargins(14, 14, 14, 14)
         ig_lay.setSpacing(8)
 
-        self.recognized_name_label = self._add_info_row(ig_lay, "👤", "NOMBRE", "--", _COLORS['accent'])
-        self.recognized_apellido_label = self._add_info_row(ig_lay, "📋", "APELLIDOS", "--", '#58a6ff')
-        self.recognized_zona_label = self._add_info_row(ig_lay, "🗺️", "ZONA", "--", _COLORS['warning'])
-        self.recognized_sucursal_label = self._add_info_row(ig_lay, "🏢", "SUCURSAL", "--", _COLORS['success'])
-        self.recognized_puesto_label = self._add_info_row(ig_lay, "💼", "PUESTO", "--", '#bc8cff')
+        self.recognized_name_label = self._add_info_row(
+            ig_lay, "👤", "NOMBRE", "--", _COLORS["accent"]
+        )
+        self.recognized_apellido_label = self._add_info_row(
+            ig_lay, "📋", "APELLIDOS", "--", "#58a6ff"
+        )
+        self.recognized_zona_label = self._add_info_row(
+            ig_lay, "🗺️", "ZONA", "--", _COLORS["warning"]
+        )
+        self.recognized_sucursal_label = self._add_info_row(
+            ig_lay, "🏢", "SUCURSAL", "--", _COLORS["success"]
+        )
+        self.recognized_puesto_label = self._add_info_row(
+            ig_lay, "💼", "PUESTO", "--", "#bc8cff"
+        )
 
         i_lay.addWidget(info_grid)
 
@@ -721,9 +804,11 @@ class DashboardWindow(QMainWindow):
             font-size: 9px; font-weight: 700; letter-spacing: 1px;
         """
 
-    def _add_info_row(self, parent_layout, icon, label_text, default="--", accent_color=None):
+    def _add_info_row(
+        self, parent_layout, icon, label_text, default="--", accent_color=None
+    ):
         row = QFrame()
-        accent = accent_color or _COLORS['accent']
+        accent = accent_color or _COLORS["accent"]
         row.setStyleSheet(f"""
             QFrame {{
                 background: rgba(240, 246, 252, 0.03);
@@ -754,7 +839,9 @@ class DashboardWindow(QMainWindow):
 
         lbl = QLabel(label_text)
         lbl.setFont(self._font(7, True))
-        lbl.setStyleSheet(f"color: {_COLORS['text_muted']}; background: transparent; letter-spacing: 1px;")
+        lbl.setStyleSheet(
+            f"color: {_COLORS['text_muted']}; background: transparent; letter-spacing: 1px;"
+        )
         text_col.addWidget(lbl)
 
         val = QLabel(default)
@@ -779,7 +866,9 @@ class DashboardWindow(QMainWindow):
             self.start_button.setText("Iniciando...")
             self._set_status("Conectando camara...", "warning")
             self._cam_badge.setText("CONECTANDO")
-            self._cam_badge.setStyleSheet(self._badge_style(_COLORS['warning'], '#422006'))
+            self._cam_badge.setStyleSheet(
+                self._badge_style(_COLORS["warning"], "#422006")
+            )
             QApplication.processEvents()
             self.camera_thread = CameraThread(0)
             self.camera_thread.frame_ready.connect(self.on_frame_received)
@@ -790,34 +879,39 @@ class DashboardWindow(QMainWindow):
         if success:
             self.stop_button.setEnabled(True)
             self.start_button.setText("LISTO")
-            
+
             # Cuenta regresiva de 5 segundos para acomodarse
             self._preparacion_count = 5
             self._timer_preparacion = QTimer(self)
             self._timer_preparacion.setInterval(1000)
             self._timer_preparacion.timeout.connect(self._update_preparation_countdown)
             self._timer_preparacion.start()
-            
-            self._update_preparation_countdown() # Primer llamado inmediato
+
+            self._update_preparation_countdown()  # Primer llamado inmediato
         else:
-            QMessageBox.critical(self, "Error de Camara",
+            QMessageBox.critical(
+                self,
+                "Error de Camara",
                 "No se pudo acceder a la camara.\n\n"
                 "Verifica que no este siendo usada por otra app\n"
-                "y que tenga permisos de acceso.")
+                "y que tenga permisos de acceso.",
+            )
             self.camera_thread = None
             self.start_button.setEnabled(True)
 
     def _update_preparation_countdown(self):
         if self._preparacion_count > 0:
-            self._set_status(f"Acomodate frente a la camara... {self._preparacion_count}s", "warning")
+            self._set_status(
+                f"Acomodate frente a la camara... {self._preparacion_count}s", "warning"
+            )
             self._cam_badge.setText(f"ESPERA {self._preparacion_count}S")
-            self._cam_badge.setStyleSheet(self._badge_style('#fff', _COLORS['warning']))
+            self._cam_badge.setStyleSheet(self._badge_style("#fff", _COLORS["warning"]))
             self._preparacion_count -= 1
         else:
             self._timer_preparacion.stop()
             self._set_status("Buscando rostro - Escaneando...", "success")
             self._cam_badge.setText("EN VIVO")
-            self._cam_badge.setStyleSheet(self._badge_style('#fff', _COLORS['success']))
+            self._cam_badge.setStyleSheet(self._badge_style("#fff", _COLORS["success"]))
             self.recognize_button.setEnabled(True)
             # Iniciar el hilo de reconocimiento después de la espera
             if not self.recognition_thread.isRunning():
@@ -832,18 +926,20 @@ class DashboardWindow(QMainWindow):
             self.recognize_button.setEnabled(False)
             self._set_status("Camara detenida", "neutral")
             self._cam_badge.setText("OFFLINE")
-            self._cam_badge.setStyleSheet(self._badge_style(_COLORS['text_muted'], '#1f2937'))
+            self._cam_badge.setStyleSheet(
+                self._badge_style(_COLORS["text_muted"], "#1f2937")
+            )
             self.video_label.clear()
             self.video_label.setText("Presiona ACTIVAR para iniciar la camara")
             self.current_frame = None
-        if hasattr(self, 'recognition_thread') and self.recognition_thread.isRunning():
+        if hasattr(self, "recognition_thread") and self.recognition_thread.isRunning():
             self.recognition_thread.set_frame(None)
 
     def on_frame_received(self, frame: np.ndarray):
         if frame is None or frame.size == 0:
             return
         self.current_frame = frame
-        if not hasattr(self, '_fdc'):
+        if not hasattr(self, "_fdc"):
             self._fdc = 0
         self._fdc += 1
         if self._fdc >= 2:
@@ -852,10 +948,10 @@ class DashboardWindow(QMainWindow):
                 self.update_video_display(frame)
             except Exception:
                 pass
-        if hasattr(self, 'recognition_thread') and self.recognition_thread.isRunning():
+        if hasattr(self, "recognition_thread") and self.recognition_thread.isRunning():
             if not self.recognition_thread.processing:
                 t = datetime.now().timestamp()
-                if not hasattr(self, '_lfu'):
+                if not hasattr(self, "_lfu"):
                     self._lfu = 0
                 if t - self._lfu >= 0.5:
                     self._lfu = t
@@ -875,45 +971,49 @@ class DashboardWindow(QMainWindow):
         # --- HUD OVERLAY ---
         painter = QPainter(qimg)
         painter.setRenderHint(QPainter.Antialiasing)
-        
+
         # Corner Brackets [ ]
-        p_color = QColor(_COLORS['accent'] if not self.attendance_registered else _COLORS['success'])
+        p_color = QColor(
+            _COLORS["accent"] if not self.attendance_registered else _COLORS["success"]
+        )
         p_color.setAlpha(180)
         pen = painter.pen()
         pen.setColor(p_color)
         pen.setWidth(2)
         painter.setPen(pen)
-        
-        m = 40 # Margin
-        L = 30 # Length
+
+        m = 40  # Margin
+        L = 30  # Length
         # Top Left
-        painter.drawLine(m, m, m+L, m)
-        painter.drawLine(m, m, m, m+L)
+        painter.drawLine(m, m, m + L, m)
+        painter.drawLine(m, m, m, m + L)
         # Top Right
-        painter.drawLine(nw-m, m, nw-m-L, m)
-        painter.drawLine(nw-m, m, nw-m, m+L)
+        painter.drawLine(nw - m, m, nw - m - L, m)
+        painter.drawLine(nw - m, m, nw - m, m + L)
         # Bottom Left
-        painter.drawLine(m, nh-m, m+L, nh-m)
-        painter.drawLine(m, nh-m, m, nh-m-L)
+        painter.drawLine(m, nh - m, m + L, nh - m)
+        painter.drawLine(m, nh - m, m, nh - m - L)
         # Bottom Right
-        painter.drawLine(nw-m, nh-m, nw-m-L, nh-m)
-        painter.drawLine(nw-m, nh-m, nw-m, nh-m-L)
+        painter.drawLine(nw - m, nh - m, nw - m - L, nh - m)
+        painter.drawLine(nw - m, nh - m, nw - m, nh - m - L)
 
         # Scanning laser line (animated by time)
         if not self.attendance_registered:
-            ty = int((datetime.now().timestamp() * 150) % (nh - 2*m)) + m
-            laser_grad = QLinearGradient(m, ty, nw-m, ty)
-            laser_grad.setColorAt(0, QColor(0,0,0,0))
+            ty = int((datetime.now().timestamp() * 150) % (nh - 2 * m)) + m
+            laser_grad = QLinearGradient(m, ty, nw - m, ty)
+            laser_grad.setColorAt(0, QColor(0, 0, 0, 0))
             laser_grad.setColorAt(0.5, p_color)
-            laser_grad.setColorAt(1, QColor(0,0,0,0))
-            painter.fillRect(m, ty, nw-2*m, 2, QBrush(laser_grad))
-        
+            laser_grad.setColorAt(1, QColor(0, 0, 0, 0))
+            painter.fillRect(m, ty, nw - 2 * m, 2, QBrush(laser_grad))
+
         painter.end()
 
         if lbl.text():
             lbl.setText("")
-            lbl.setStyleSheet(f"border-radius: 12px; background: #000; border: 1px solid {_COLORS['border']};")
-            
+            lbl.setStyleSheet(
+                f"border-radius: 12px; background: #000; border: 1px solid {_COLORS['border']};"
+            )
+
         lbl.setPixmap(QPixmap.fromImage(qimg))
 
     def update_frame(self):
@@ -926,16 +1026,30 @@ class DashboardWindow(QMainWindow):
 
     def _set_status(self, text, level="neutral"):
         lvl_colors = {
-            'success': ('#10b981', 'rgba(16, 185, 129, 0.15)', 'rgba(16, 185, 129, 0.3)'),
-            'warning': ('#f59e0b', 'rgba(245, 158, 11, 0.1)', 'rgba(245, 158, 11, 0.2)'),
-            'danger':  ('#ef4444', 'rgba(239, 68, 68, 0.1)', 'rgba(239, 68, 68, 0.2)'),
-            'neutral': (_COLORS['accent'], 'rgba(0, 210, 255, 0.1)', 'rgba(0, 210, 255, 0.2)'),
+            "success": (
+                "#10b981",
+                "rgba(16, 185, 129, 0.15)",
+                "rgba(16, 185, 129, 0.3)",
+            ),
+            "warning": (
+                "#f59e0b",
+                "rgba(245, 158, 11, 0.1)",
+                "rgba(245, 158, 11, 0.2)",
+            ),
+            "danger": ("#ef4444", "rgba(239, 68, 68, 0.1)", "rgba(239, 68, 68, 0.2)"),
+            "neutral": (
+                _COLORS["accent"],
+                "rgba(0, 210, 255, 0.1)",
+                "rgba(0, 210, 255, 0.2)",
+            ),
         }
-        fg, bg, bc = lvl_colors.get(level, lvl_colors['neutral'])
+        fg, bg, bc = lvl_colors.get(level, lvl_colors["neutral"])
         self.status_label.setText(text.upper())
-        self.status_label.setStyleSheet(f"color: {fg}; background: transparent; letter-spacing: 2px;")
-        
-        if hasattr(self, 'status_hero'):
+        self.status_label.setStyleSheet(
+            f"color: {fg}; background: transparent; letter-spacing: 2px;"
+        )
+
+        if hasattr(self, "status_hero"):
             self.status_hero.setStyleSheet(f"""
                 QFrame#statusHero {{
                     background: {bg};
@@ -955,16 +1069,18 @@ class DashboardWindow(QMainWindow):
 
             pct = f"{confianza * 100:.0f}%"
             self.confidence_label.setText(pct)
-            self.confidence_label.setStyleSheet(f"color: {_COLORS['success']}; background: transparent;")
+            self.confidence_label.setStyleSheet(
+                f"color: {_COLORS['success']}; background: transparent;"
+            )
             self._set_status(f"Identificado via {metodo}", "success")
 
-            self.recognized_name_label.setText(info_empleado.get('nombre', 'N/A'))
-            self.recognized_apellido_label.setText(info_empleado.get('apellido', ''))
-            self.recognized_zona_label.setText(info_empleado.get('zona', 'N/A'))
-            self.recognized_sucursal_label.setText(info_empleado.get('sucursal', 'N/A'))
-            self.recognized_puesto_label.setText(info_empleado.get('puesto', 'N/A'))
+            self.recognized_name_label.setText(info_empleado.get("nombre", "N/A"))
+            self.recognized_apellido_label.setText(info_empleado.get("apellido", ""))
+            self.recognized_zona_label.setText(info_empleado.get("zona", "N/A"))
+            self.recognized_sucursal_label.setText(info_empleado.get("sucursal", "N/A"))
+            self.recognized_puesto_label.setText(info_empleado.get("puesto", "N/A"))
 
-            eid = info_empleado.get('employee_id', 0)
+            eid = info_empleado.get("employee_id", 0)
             photo_path = get_photo_path(eid)
             if photo_path and Path(photo_path).exists():
                 px = QPixmap(str(photo_path))
@@ -982,7 +1098,11 @@ class DashboardWindow(QMainWindow):
                         }}
                     """)
 
-            if confianza >= 0.85 and self.auto_register_enabled and not self.attendance_registered:
+            if (
+                confianza >= 0.85
+                and self.auto_register_enabled
+                and not self.attendance_registered
+            ):
                 self.auto_register_attendance_with_model(info_empleado, confianza)
         else:
             t = datetime.now().timestamp() * 1000
@@ -992,7 +1112,9 @@ class DashboardWindow(QMainWindow):
                 self.confidence_label.setText("--")
                 self.recognized_name_label.setText("--")
                 self.recognized_apellido_label.setText("--")
-                self.confidence_label.setStyleSheet(f"color: {_COLORS['text_muted']}; background: transparent;")
+                self.confidence_label.setStyleSheet(
+                    f"color: {_COLORS['text_muted']}; background: transparent;"
+                )
 
     # ------------------------------------------------------------------
     # Setup & init
@@ -1003,27 +1125,34 @@ class DashboardWindow(QMainWindow):
         database_fotos_dir = root_dir / "database_fotos"
         photos_dir = database_fotos_dir / "photos"
         json_path = database_fotos_dir / "json" / "employees_db.json"
-        
+
         if photos_dir.exists() and json_path.exists():
             logger.info(f"DB fotos: {len(list(photos_dir.glob('*.jpeg')))} fotos")
             return
-        
+
         from utils.process_photos import process_photos_folder
+
         photos_old = root_dir.parent / "photos"
         if photos_old.exists() and photos_old.is_dir():
-            QTimer.singleShot(500, lambda: process_photos_folder(photos_old, database_fotos_dir))
+            QTimer.singleShot(
+                500, lambda: process_photos_folder(photos_old, database_fotos_dir)
+            )
 
     def init_face_recognition(self):
         self._set_status("Analizando entorno...", "warning")
         _lazy_load_face_recognition()
         root_dir = Path(__file__).resolve().parent.parent.parent
-        model_path = root_dir / 'data' / 'models' / 'models' / 'face_recognition_model.pt'
-        metadata_path = root_dir / 'data' / 'models' / 'models' / 'employee_metadata.json'
+        model_path = (
+            root_dir / "data" / "models" / "models" / "face_recognition_model.pt"
+        )
+        metadata_path = (
+            root_dir / "data" / "models" / "models" / "employee_metadata.json"
+        )
         # Fallback a ubicación alternativa si no existe
         if not model_path.exists():
             base_dir = Path(__file__).parent.parent
-            model_path = base_dir / 'models' / 'face_recognition_model.pt'
-            metadata_path = base_dir / 'models' / 'employee_metadata.json'
+            model_path = base_dir / "models" / "face_recognition_model.pt"
+            metadata_path = base_dir / "models" / "employee_metadata.json"
 
         self.model_available = model_path.exists() and metadata_path.exists()
         QTimer.singleShot(100, self._init_face_recognition_async)
@@ -1037,6 +1166,7 @@ class DashboardWindow(QMainWindow):
                 QApplication.processEvents()
                 try:
                     from utils.register_photos import register_photos_from_database
+
                     register_photos_from_database()
                 except Exception as e:
                     logger.warning(f"Error registrando fotos: {e}")
@@ -1057,26 +1187,33 @@ class DashboardWindow(QMainWindow):
     # Attendance
     # ------------------------------------------------------------------
 
-    def auto_register_attendance_with_model(self, info_empleado: Dict, confianza: float):
+    def auto_register_attendance_with_model(
+        self, info_empleado: Dict, confianza: float
+    ):
         if self.attendance_registered:
             return
         try:
-            eid = info_empleado.get('employee_id', 0)
+            eid = info_empleado.get("employee_id", 0)
             db = get_db_session()
             trab = None
             try:
-                trab = db.query(Trabajador).filter(Trabajador.employee_id == eid).first()
+                trab = (
+                    db.query(Trabajador).filter(Trabajador.employee_id == eid).first()
+                )
                 if not trab:
-                    parts = info_empleado.get('nombre', '').split()
-                    nombre = parts[0] if parts else 'Empleado'
-                    apellido = ' '.join(parts[1:]) if len(parts) > 1 else 'Desconocido'
+                    parts = info_empleado.get("nombre", "").split()
+                    nombre = parts[0] if parts else "Empleado"
+                    apellido = " ".join(parts[1:]) if len(parts) > 1 else "Desconocido"
                     trab = Trabajador(
-                        usuario=f"empleado_{eid}", password_hash="",
-                        nombre=nombre, apellido=apellido,
-                        sucursal=info_empleado.get('sucursal', 'N/A'),
-                        zona=info_empleado.get('zona', 'N/A'),
-                        puesto=info_empleado.get('puesto', 'N/A'),
-                        employee_id=eid, activo=True
+                        usuario=f"empleado_{eid}",
+                        password_hash="",
+                        nombre=nombre,
+                        apellido=apellido,
+                        sucursal=info_empleado.get("sucursal", "N/A"),
+                        zona=info_empleado.get("zona", "N/A"),
+                        puesto=info_empleado.get("puesto", "N/A"),
+                        employee_id=eid,
+                        activo=True,
                     )
                     db.add(trab)
                     db.commit()
@@ -1096,28 +1233,47 @@ class DashboardWindow(QMainWindow):
             db = get_db_session()
             try:
                 hoy = datetime.now().date()
-                tid = trabajador.id if hasattr(trabajador, 'id') and trabajador.id else None
+                tid = (
+                    trabajador.id
+                    if hasattr(trabajador, "id") and trabajador.id
+                    else None
+                )
                 ultimo = None
                 if tid:
-                    ultimo = db.query(RegistroAsistencia).filter(
-                        RegistroAsistencia.trabajador_id == tid,
-                        func.date(RegistroAsistencia.timestamp) == hoy
-                    ).order_by(RegistroAsistencia.timestamp.desc()).first()
+                    ultimo = (
+                        db.query(RegistroAsistencia)
+                        .filter(
+                            RegistroAsistencia.trabajador_id == tid,
+                            func.date(RegistroAsistencia.timestamp) == hoy,
+                        )
+                        .order_by(RegistroAsistencia.timestamp.desc())
+                        .first()
+                    )
                 tipo = "salida" if ultimo and ultimo.tipo == "entrada" else "entrada"
                 reg = RegistroAsistencia(
-                    trabajador_id=tid, timestamp=datetime.now(), tipo=tipo,
-                    reconocimiento_facial=True, confianza=confianza,
-                    ubicacion=info_empleado.get('sucursal', 'N/A') if info_empleado else 'N/A'
+                    trabajador_id=tid,
+                    timestamp=datetime.now(),
+                    tipo=tipo,
+                    reconocimiento_facial=True,
+                    confianza=confianza,
+                    ubicacion=(
+                        info_empleado.get("sucursal", "N/A") if info_empleado else "N/A"
+                    ),
                 )
                 db.add(reg)
                 db.commit()
                 self.attendance_registered = True
-                nombre = info_empleado.get('nombre', 'Trabajador') if info_empleado else 'Trabajador'
+                nombre = (
+                    info_empleado.get("nombre", "Trabajador")
+                    if info_empleado
+                    else "Trabajador"
+                )
                 dlg = AttendanceDialog(
-                    tipo, nombre,
+                    tipo,
+                    nombre,
                     f"{confianza*100:.0f}",
-                    datetime.now().strftime('%H:%M:%S'),
-                    parent=self
+                    datetime.now().strftime("%H:%M:%S"),
+                    parent=self,
                 )
                 dlg.show()
 
@@ -1127,27 +1283,46 @@ class DashboardWindow(QMainWindow):
                     sb = get_supabase_client()
                     if sb:
                         # Buscamos el ID único del empleado en Supabase
-                        emp_data = sb.table("empleados").select("id").eq("employee_id", trabajador.employee_id).execute()
+                        emp_data = (
+                            sb.table("empleados")
+                            .select("id")
+                            .eq("employee_id", trabajador.employee_id)
+                            .execute()
+                        )
                         if emp_data.data:
-                            supabase_emp_id = emp_data.data[0]['id']
-                            sb.table("asistencias").insert({
-                                "empleado_id": supabase_emp_id,
-                                "tipo": tipo,
-                                "confianza": float(confianza),
-                                "ubicacion": info_empleado.get('sucursal', 'N/A') if info_empleado else 'N/A'
-                            }).execute()
-                            logger.info(f"✅ Asistencia sincronizada con Supabase para {trabajador.nombre}")
+                            supabase_emp_id = emp_data.data[0]["id"]
+                            sb.table("asistencias").insert(
+                                {
+                                    "empleado_id": supabase_emp_id,
+                                    "tipo": tipo,
+                                    "confianza": float(confianza),
+                                    "ubicacion": (
+                                        info_empleado.get("sucursal", "N/A")
+                                        if info_empleado
+                                        else "N/A"
+                                    ),
+                                }
+                            ).execute()
+                            logger.info(
+                                f"✅ Asistencia sincronizada con Supabase para {trabajador.nombre}"
+                            )
                             ok_cloud = True
                 except Exception as es:
                     logger.error(f"❌ Error sincronizando con Supabase: {es}")
-                
+
                 # Feedback visual y Auto-Logout (Modo SaaS Web)
-                msg = "REGISTRO SAAS EXITOSO" if ok_cloud else "IDENTIDAD VERIFICADA (LOCAL)"
+                msg = (
+                    "REGISTRO SAAS EXITOSO"
+                    if ok_cloud
+                    else "IDENTIDAD VERIFICADA (LOCAL)"
+                )
                 self._set_status(f"✨ {msg} ✨", "success")
-                
+
                 self._cam_badge.setText("SINCRO OK")
-                self._cam_badge.setStyleSheet(self._badge_style('#ffffff', _COLORS['success']))
-                
+                self._cam_badge.setStyleSheet(
+                    self._badge_style("#ffffff", _COLORS["success"])
+                )
+
                 # Cerrar sesión automáticamente tras 5 segundos
                 QTimer.singleShot(5000, self.logout)
                 # ----------------------------
@@ -1161,67 +1336,93 @@ class DashboardWindow(QMainWindow):
 
     def register_attendance(self):
         if self.current_frame is None:
-            QMessageBox.warning(self, "Error", "No hay imagen de camara. Activa la camara primero.")
+            QMessageBox.warning(
+                self, "Error", "No hay imagen de camara. Activa la camara primero."
+            )
             return
         if reconocer_desde_frame is None:
             _lazy_load_face_recognition()
         if not FACE_RECOGNITION_AVAILABLE or reconocer_desde_frame is None:
-            QMessageBox.warning(self, "Error", "Sistema de reconocimiento no disponible.")
+            QMessageBox.warning(
+                self, "Error", "Sistema de reconocimiento no disponible."
+            )
             return
         reconocido, confianza, idx = reconocer_desde_frame(
-            self.current_frame, trabajador_id=self.trabajador.id,
-            embedding_idx=self.trabajador.embedding_idx
+            self.current_frame,
+            trabajador_id=self.trabajador.id,
+            embedding_idx=self.trabajador.embedding_idx,
         )
         if not reconocido or confianza < 0.85:
-            QMessageBox.warning(self, "Reconocimiento Fallido",
+            QMessageBox.warning(
+                self,
+                "Reconocimiento Fallido",
                 f"No se pudo reconocer al trabajador.\n"
                 f"Confianza: {confianza*100:.1f}%\n\n"
-                "Asegurate de estar bien iluminado y mirar a la camara.")
+                "Asegurate de estar bien iluminado y mirar a la camara.",
+            )
             return
         db = get_db_session()
         try:
             today = datetime.now().date()
-            last = db.query(RegistroAsistencia).filter(
-                RegistroAsistencia.trabajador_id == self.trabajador.id,
-                RegistroAsistencia.timestamp >= datetime.combine(today, datetime.min.time())
-            ).order_by(RegistroAsistencia.timestamp.desc()).first()
-            tipo = 'salida' if last and last.tipo == 'entrada' else 'entrada'
+            last = (
+                db.query(RegistroAsistencia)
+                .filter(
+                    RegistroAsistencia.trabajador_id == self.trabajador.id,
+                    RegistroAsistencia.timestamp
+                    >= datetime.combine(today, datetime.min.time()),
+                )
+                .order_by(RegistroAsistencia.timestamp.desc())
+                .first()
+            )
+            tipo = "salida" if last and last.tipo == "entrada" else "entrada"
             reg = RegistroAsistencia(
-                trabajador_id=self.trabajador.id, tipo=tipo,
-                reconocimiento_facial=True, confianza=confianza,
-                ubicacion=self.trabajador.sucursal or "N/A"
+                trabajador_id=self.trabajador.id,
+                tipo=tipo,
+                reconocimiento_facial=True,
+                confianza=confianza,
+                ubicacion=self.trabajador.sucursal or "N/A",
             )
             db.add(reg)
             db.commit()
             self.attendance_registered = True
             nombre = f"{self.trabajador.nombre} {self.trabajador.apellido}"
             dlg = AttendanceDialog(
-                tipo, nombre,
+                tipo,
+                nombre,
                 f"{confianza*100:.0f}",
-                datetime.now().strftime('%H:%M:%S'),
-                parent=self
+                datetime.now().strftime("%H:%M:%S"),
+                parent=self,
             )
             dlg.show()
-            self._set_status(f"{tipo.upper()} registrada - Cerrando en 5s...", "success")
-            
+            self._set_status(
+                f"{tipo.upper()} registrada - Cerrando en 5s...", "success"
+            )
+
             # --- INTEGRACIÓN SUPABASE ---
             try:
                 sb = get_supabase_client()
                 if sb:
-                    emp_data = sb.table("empleados").select("id").eq("employee_id", self.trabajador.employee_id).execute()
+                    emp_data = (
+                        sb.table("empleados")
+                        .select("id")
+                        .eq("employee_id", self.trabajador.employee_id)
+                        .execute()
+                    )
                     if emp_data.data:
-                        supabase_emp_id = emp_data.data[0]['id']
-                        sb.table("asistencias").insert({
-                            "empleado_id": supabase_emp_id,
-                            "tipo": tipo,
-                            "confianza": float(confianza),
-                            "ubicacion": self.trabajador.sucursal or "N/A"
-                        }).execute()
+                        supabase_emp_id = emp_data.data[0]["id"]
+                        sb.table("asistencias").insert(
+                            {
+                                "empleado_id": supabase_emp_id,
+                                "tipo": tipo,
+                                "confianza": float(confianza),
+                                "ubicacion": self.trabajador.sucursal or "N/A",
+                            }
+                        ).execute()
                         logger.info(f"✅ Asistencia manual sincronizada con Supabase")
             except Exception as es:
                 logger.error(f"❌ Error sincronizando manual con Supabase: {es}")
             # ----------------------------
-            
+
             # Auto-Logout tras 5 segundos para el modo Check&Go
             QTimer.singleShot(5000, self.logout)
         except Exception as e:
@@ -1234,11 +1435,12 @@ class DashboardWindow(QMainWindow):
         self.stop_camera()
         self.close()
         from windows.login_window import LoginWindow
+
         login_window = LoginWindow()
         login_window.show()
 
     def closeEvent(self, event):
         self.stop_camera()
-        if hasattr(self, 'recognition_thread'):
+        if hasattr(self, "recognition_thread"):
             self.recognition_thread.stop()
         event.accept()

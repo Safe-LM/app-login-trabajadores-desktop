@@ -8,6 +8,7 @@ Reporta accuracy global e identifica fallos.
 Uso:
     python main_codes/test_accuracy.py
 """
+
 import cv2
 import json
 import pickle
@@ -156,7 +157,9 @@ def main():
         name = employees.get(real_id, {}).get("nombre", f"Emp-{real_id}")
         pred_name = employees.get(pred_id, {}).get("nombre", f"Emp-{pred_id}")
         mark = "OK" if status == "OK" else "XX"
-        print(f"  {mark} [{real_id:3d}] {name:<25s} -> pred={pred_id:3d} ({pred_name}) score={best_score:.4f}")
+        print(
+            f"  {mark} [{real_id:3d}] {name:<25s} -> pred={pred_id:3d} ({pred_name}) score={best_score:.4f}"
+        )
 
     total = correct + wrong + no_face
     accuracy = correct / max(correct + wrong, 1) * 100
@@ -178,7 +181,9 @@ def main():
             if status == "FALLO":
                 rn = employees.get(real_id, {}).get("nombre", "?")
                 pn = employees.get(pred_id, {}).get("nombre", "?")
-                print(f"    ID {real_id} ({rn}) -> confundido con ID {pred_id} ({pn}) score={score:.4f}")
+                print(
+                    f"    ID {real_id} ({rn}) -> confundido con ID {pred_id} ({pn}) score={score:.4f}"
+                )
 
 
 if __name__ == "__main__":

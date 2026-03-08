@@ -1,6 +1,7 @@
 """
 Pantalla de carga profesional con animación de progreso.
 """
+
 from PyQt5.QtWidgets import QSplashScreen, QApplication
 from PyQt5.QtCore import Qt, QRect, QTimer
 from PyQt5.QtGui import QPixmap, QFont, QPainter, QColor, QLinearGradient, QBrush, QPen
@@ -19,7 +20,9 @@ class SplashScreen(QSplashScreen):
         self._draw(pixmap)
 
         super().__init__(pixmap)
-        self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.SplashScreen | Qt.FramelessWindowHint)
+        self.setWindowFlags(
+            Qt.WindowStaysOnTopHint | Qt.SplashScreen | Qt.FramelessWindowHint
+        )
 
         # Auto-animate progress smoothly
         self._anim_timer.start(40)
@@ -63,6 +66,7 @@ class SplashScreen(QSplashScreen):
         ]
         from PyQt5.QtCore import QPoint
         from PyQt5.QtGui import QPolygon
+
         p.drawPolygon(QPolygon([QPoint(int(x), int(y)) for x, y in pts]))
 
         # Title
@@ -76,7 +80,9 @@ class SplashScreen(QSplashScreen):
         font_sub = QFont("Segoe UI", 14)
         p.setFont(font_sub)
         p.setPen(QColor(148, 163, 184))
-        p.drawText(QRect(0, 325, w, 30), Qt.AlignCenter, "Sistema de Control de Asistencia")
+        p.drawText(
+            QRect(0, 325, w, 30), Qt.AlignCenter, "Sistema de Control de Asistencia"
+        )
 
         # Progress bar track
         bar_x, bar_y, bar_w, bar_h = 180, 400, w - 360, 6

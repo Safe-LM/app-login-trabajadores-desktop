@@ -2,6 +2,7 @@
 Aplicación de escritorio para reconocimiento facial de trabajadores.
 Usa PyQt5 para la interfaz gráfica y OpenCV para la cámara.
 """
+
 import sys
 import os
 from pathlib import Path
@@ -19,9 +20,10 @@ from PyQt5.QtCore import Qt, QTimer
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-    datefmt='%H:%M:%S',
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%H:%M:%S",
 )
+
 
 def main():
     """Función principal de la aplicación."""
@@ -30,10 +32,10 @@ def main():
     app.setApplicationName("Safe Link Monitoring - Control de Asistencia")
     app.setOrganizationName("Safe Link Monitoring")
     app.setApplicationVersion("2.0.4")
-    
+
     # Configurar estilo de la aplicación
-    app.setStyle('Fusion')
-    
+    app.setStyle("Fusion")
+
     # Estilo global premium para toda la aplicación
     app.setStyleSheet("""
         QToolTip {
@@ -56,41 +58,42 @@ def main():
             border-radius: 5px;
         }
     """)
-    
+
     # Mostrar splash screen
     from windows.splash_window import SplashScreen
+
     splash = SplashScreen()
     splash.show()
     app.processEvents()
-    
+
     # Cargar módulos de forma perezosa
     splash.update_message("Cargando interfaz de usuario...")
     app.processEvents()
-    
+
     # Importar ventana de login (ligera)
     from windows.login_window import LoginWindow
-    
+
     splash.update_message("Preparando sistema de autenticación...")
     app.processEvents()
-    
+
     # Crear ventana de login (sin inicializar reconocimiento facial aún)
     login_window = LoginWindow()
-    
+
     splash.update_message("Inicializando aplicación...")
     app.processEvents()
-    
+
     # Cerrar splash y mostrar login con fade
     def _show_login():
-        if hasattr(splash, 'finish_loading'):
+        if hasattr(splash, "finish_loading"):
             splash.finish_loading()
         splash.finish(login_window)
         login_window.show()
 
     QTimer.singleShot(600, _show_login)
-    
+
     # Ejecutar aplicación
     sys.exit(app.exec_())
 
+
 if __name__ == "__main__":
     main()
-

@@ -2,20 +2,43 @@
 Ventana de login – Safe Link Monitoring.
 Diseño oscuro profesional de nivel empresarial.
 """
+
 import sys
 from pathlib import Path
 from PyQt5.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QLineEdit, QPushButton, QFrame, QGraphicsDropShadowEffect,
-    QSizePolicy, QAbstractButton,
+    QMainWindow,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QFrame,
+    QGraphicsDropShadowEffect,
+    QSizePolicy,
+    QAbstractButton,
 )
 from PyQt5.QtCore import (
-    Qt, QTimer, QPropertyAnimation, QEasingCurve,
-    QRect, QSize, QRectF,
+    Qt,
+    QTimer,
+    QPropertyAnimation,
+    QEasingCurve,
+    QRect,
+    QSize,
+    QRectF,
 )
 from PyQt5.QtGui import (
-    QFont, QPalette, QColor, QPixmap, QPainter, QLinearGradient,
-    QRadialGradient, QBrush, QPen, QPainterPath, QFontMetrics,
+    QFont,
+    QPalette,
+    QColor,
+    QPixmap,
+    QPainter,
+    QLinearGradient,
+    QRadialGradient,
+    QBrush,
+    QPen,
+    QPainterPath,
+    QFontMetrics,
 )
 from utils.auth import authenticate_user
 
@@ -23,26 +46,26 @@ _BASE_DIR = Path(__file__).resolve().parent.parent
 
 # ── Design tokens ────────────────────────────────────────────────────
 _C = {
-    'bg':         '#0a0f1a',
-    'panel':      '#0f1525',
-    'card':       '#111827',
-    'card_alt':   '#161e2e',
-    'input_bg':   '#0f172a',
-    'border':     '#1e293b',
-    'border_hl':  '#334155',
-    'accent':     '#6366f1',
-    'accent_dk':  '#4f46e5',
-    'accent_lt':  '#818cf8',
-    'accent_glow': '#6366f140',
-    'success':    '#22c55e',
-    'error':      '#ef4444',
-    'error_bg':   '#1a0a0a',
-    'error_brd':  '#7f1d1d',
-    'text':       '#f1f5f9',
-    'text2':      '#e2e8f0',
-    'dim':        '#94a3b8',
-    'muted':      '#64748b',
-    'faint':      '#475569',
+    "bg": "#0a0f1a",
+    "panel": "#0f1525",
+    "card": "#111827",
+    "card_alt": "#161e2e",
+    "input_bg": "#0f172a",
+    "border": "#1e293b",
+    "border_hl": "#334155",
+    "accent": "#6366f1",
+    "accent_dk": "#4f46e5",
+    "accent_lt": "#818cf8",
+    "accent_glow": "#6366f140",
+    "success": "#22c55e",
+    "error": "#ef4444",
+    "error_bg": "#1a0a0a",
+    "error_brd": "#7f1d1d",
+    "text": "#f1f5f9",
+    "text2": "#e2e8f0",
+    "dim": "#94a3b8",
+    "muted": "#64748b",
+    "faint": "#475569",
 }
 _FF = "Segoe UI"
 
@@ -82,8 +105,8 @@ class LoginWindow(QMainWindow):
         self.setStyleSheet(f"QMainWindow{{background:{_C['bg']}}}")
 
         pal = QPalette()
-        pal.setColor(QPalette.Window, QColor(_C['bg']))
-        pal.setColor(QPalette.WindowText, QColor(_C['text']))
+        pal.setColor(QPalette.Window, QColor(_C["bg"]))
+        pal.setColor(QPalette.WindowText, QColor(_C["text"]))
         self.setPalette(pal)
 
         root = QWidget()
@@ -164,7 +187,7 @@ class LoginWindow(QMainWindow):
         self.login_btn.setCursor(Qt.PointingHandCursor)
         self.login_btn.setFixedHeight(50)
         self.login_btn.setStyleSheet(self._btn_css())
-        self.login_btn.setGraphicsEffect(_glow(_C['accent_glow'], 30, 0, 6))
+        self.login_btn.setGraphicsEffect(_glow(_C["accent_glow"], 30, 0, 6))
         self.login_btn.clicked.connect(self._on_login)
         cl.addWidget(self.login_btn)
 
@@ -212,7 +235,9 @@ class LoginWindow(QMainWindow):
         footer = QLabel("© 2026 Safe Link Monitoring — Todos los derechos reservados")
         footer.setFont(_f(8))
         footer.setAlignment(Qt.AlignCenter)
-        footer.setStyleSheet(f"color:{_C['faint']};background:transparent;padding:12px;")
+        footer.setStyleSheet(
+            f"color:{_C['faint']};background:transparent;padding:12px;"
+        )
         rv.addWidget(footer)
 
         rl.addWidget(right, 2)
@@ -254,13 +279,13 @@ class LoginWindow(QMainWindow):
         px.fill(Qt.transparent)
         p = QPainter(px)
         p.setRenderHint(QPainter.Antialiasing)
-        p.setPen(QPen(QColor(_C['error']), 1.6, Qt.SolidLine, Qt.RoundCap))
+        p.setPen(QPen(QColor(_C["error"]), 1.6, Qt.SolidLine, Qt.RoundCap))
         p.setBrush(Qt.NoBrush)
         m = 1.5
         p.drawEllipse(QRectF(m, m, sz - m * 2, sz - m * 2))
         cx = sz / 2
         p.drawLine(int(cx), int(sz * 0.25), int(cx), int(sz * 0.55))
-        p.setBrush(QColor(_C['error']))
+        p.setBrush(QColor(_C["error"]))
         p.setPen(Qt.NoPen)
         p.drawEllipse(QRectF(cx - 1.5, sz * 0.66, 3, 3))
         p.end()
@@ -310,13 +335,17 @@ class LoginWindow(QMainWindow):
 
         path = self._shield_path(cx, cy, s)
         g = QLinearGradient(cx, cy - s, cx, cy + s)
-        g.setColorAt(0, QColor(_C['accent_lt']))
-        g.setColorAt(1, QColor(_C['accent_dk']))
+        g.setColorAt(0, QColor(_C["accent_lt"]))
+        g.setColorAt(1, QColor(_C["accent_dk"]))
         p.setBrush(QBrush(g))
         p.setPen(QPen(QColor(165, 180, 252, 100), 1))
         p.drawPath(path)
 
-        p.setPen(QPen(QColor(255, 255, 255, 220), 2.6, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        p.setPen(
+            QPen(
+                QColor(255, 255, 255, 220), 2.6, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin
+            )
+        )
         p.setBrush(Qt.NoBrush)
         ck = QPainterPath()
         ck.moveTo(cx - s * 0.28, cy + s * 0.05)
@@ -330,10 +359,17 @@ class LoginWindow(QMainWindow):
     def _shield_path(cx, cy, s):
         p = QPainterPath()
         p.moveTo(cx, cy - s)
-        p.cubicTo(cx - s * .7, cy - s * .8, cx - s * .95, cy - s * .3, cx - s * .85, cy + s * .3)
-        p.quadTo(cx - s * .3, cy + s * .95, cx, cy + s * 1.05)
-        p.quadTo(cx + s * .3, cy + s * .95, cx + s * .85, cy + s * .3)
-        p.cubicTo(cx + s * .95, cy - s * .3, cx + s * .7, cy - s * .8, cx, cy - s)
+        p.cubicTo(
+            cx - s * 0.7,
+            cy - s * 0.8,
+            cx - s * 0.95,
+            cy - s * 0.3,
+            cx - s * 0.85,
+            cy + s * 0.3,
+        )
+        p.quadTo(cx - s * 0.3, cy + s * 0.95, cx, cy + s * 1.05)
+        p.quadTo(cx + s * 0.3, cy + s * 0.95, cx + s * 0.85, cy + s * 0.3)
+        p.cubicTo(cx + s * 0.95, cy - s * 0.3, cx + s * 0.7, cy - s * 0.8, cx, cy - s)
         return p
 
     # ── Animations ────────────────────────────────────────────────────
@@ -393,6 +429,7 @@ class LoginWindow(QMainWindow):
 
     def _go_dashboard(self, t):
         from windows.dashboard_window import DashboardWindow
+
         self.dashboard = DashboardWindow(t)
         self.dashboard.show()
         self.hide()
@@ -439,8 +476,10 @@ class _IconInput(QLineEdit):
         pad = 40 if icon else 14
         css = self._INPUT_CSS.replace("{pad}", str(pad))
         if right_cut:
-            css = css.replace("border-radius: 8px;",
-                              "border-radius: 8px; border-top-right-radius:0; border-bottom-right-radius:0;")
+            css = css.replace(
+                "border-radius: 8px;",
+                "border-radius: 8px; border-top-right-radius:0; border-bottom-right-radius:0;",
+            )
         self.setStyleSheet(css)
 
     def paintEvent(self, ev):
@@ -449,7 +488,7 @@ class _IconInput(QLineEdit):
             return
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
-        c = QColor(_C['accent_lt'] if self.hasFocus() else _C['muted'])
+        c = QColor(_C["accent_lt"] if self.hasFocus() else _C["muted"])
         p.setPen(QPen(c, 1.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
         p.setBrush(Qt.NoBrush)
         y = self.height() / 2
@@ -520,8 +559,8 @@ class _EyeToggle(QAbstractButton):
         p.setRenderHint(QPainter.Antialiasing)
         w, h = self.width(), self.height()
 
-        bg = QColor(_C['card_alt'] if self._hovered else _C['input_bg'])
-        p.setPen(QPen(QColor(_C['border_hl'] if self._hovered else _C['border']), 1))
+        bg = QColor(_C["card_alt"] if self._hovered else _C["input_bg"])
+        p.setPen(QPen(QColor(_C["border_hl"] if self._hovered else _C["border"]), 1))
         path_bg = QPainterPath()
         path_bg.moveTo(0, 0)
         path_bg.lineTo(w - 8, 0)
@@ -534,7 +573,7 @@ class _EyeToggle(QAbstractButton):
         p.drawPath(path_bg)
 
         cx, cy = w / 2, h / 2
-        color = QColor(_C['accent_lt'] if self._hovered else _C['muted'])
+        color = QColor(_C["accent_lt"] if self._hovered else _C["muted"])
         p.setPen(QPen(color, 1.5, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
         p.setBrush(Qt.NoBrush)
 
@@ -584,7 +623,10 @@ class _BrandPanel(QWidget):
         if not self._bg.isNull():
             if (w, h) != self._last_size:
                 self._scaled = self._bg.scaled(
-                    w, h, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation,
+                    w,
+                    h,
+                    Qt.KeepAspectRatioByExpanding,
+                    Qt.SmoothTransformation,
                 )
                 self._last_size = (w, h)
             sx = (self._scaled.width() - w) // 2
@@ -622,17 +664,21 @@ class _BrandPanel(QWidget):
         p.setFont(QFont(_FF, 10))
         p.setPen(QColor(148, 163, 184, 200))
         yd = yb + 74
-        for ln in ["Sistema de seguridad empresarial con",
-                    "reconocimiento facial en tiempo real."]:
+        for ln in [
+            "Sistema de seguridad empresarial con",
+            "reconocimiento facial en tiempo real.",
+        ]:
             p.drawText(48, yd, ln)
             yd += 21
 
         # Features
         yf = int(h * 0.78)
-        for feat in ["Reconocimiento facial con IA",
-                      "Registro automático de asistencia",
-                      "Protección contra suplantación"]:
-            p.setPen(QColor(_C['success']))
+        for feat in [
+            "Reconocimiento facial con IA",
+            "Registro automático de asistencia",
+            "Protección contra suplantación",
+        ]:
+            p.setPen(QColor(_C["success"]))
             p.setFont(QFont(_FF, 11))
             p.drawText(48, yf, "✓")
             p.setFont(QFont(_FF, 10))
@@ -655,8 +701,8 @@ class _BrandPanel(QWidget):
         # Right-edge separator
         gs = QLinearGradient(w - 1, 0, w - 1, h)
         gs.setColorAt(0, QColor(99, 102, 241, 0))
-        gs.setColorAt(.25, QColor(99, 102, 241, 35))
-        gs.setColorAt(.75, QColor(99, 102, 241, 35))
+        gs.setColorAt(0.25, QColor(99, 102, 241, 35))
+        gs.setColorAt(0.75, QColor(99, 102, 241, 35))
         gs.setColorAt(1, QColor(99, 102, 241, 0))
         p.setPen(QPen(QBrush(gs), 1))
         p.drawLine(w - 1, 0, w - 1, h)

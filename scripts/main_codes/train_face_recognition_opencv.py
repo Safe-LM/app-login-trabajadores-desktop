@@ -10,6 +10,7 @@ Genera augmentaciones de cada foto para mayor robustez.
 Uso:
     python train_face_recognition_opencv.py
 """
+
 import cv2
 import json
 import pickle
@@ -20,8 +21,8 @@ from typing import List, Dict, Optional, Tuple
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    datefmt='%H:%M:%S',
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Modelos DNN
 # ---------------------------------------------------------------------------
+
 
 def load_face_detector(models_dir: Path) -> Optional[cv2.FaceDetectorYN]:
     """Cargar YuNet para detección de rostros."""
@@ -56,7 +58,10 @@ def load_face_recognizer(models_dir: Path) -> Optional[cv2.FaceRecognizerSF]:
 # Detección y alineación
 # ---------------------------------------------------------------------------
 
-def detect_face(image: np.ndarray, detector: cv2.FaceDetectorYN) -> Optional[np.ndarray]:
+
+def detect_face(
+    image: np.ndarray, detector: cv2.FaceDetectorYN
+) -> Optional[np.ndarray]:
     """Detectar rostro con YuNet. Retorna la fila de detección (15 valores)."""
     h, w = image.shape[:2]
     detector.setInputSize((w, h))
@@ -68,14 +73,16 @@ def detect_face(image: np.ndarray, detector: cv2.FaceDetectorYN) -> Optional[np.
     return faces[best_idx]
 
 
-def get_aligned_face(image: np.ndarray, face_info: np.ndarray,
-                     recognizer: cv2.FaceRecognizerSF) -> np.ndarray:
+def get_aligned_face(
+    image: np.ndarray, face_info: np.ndarray, recognizer: cv2.FaceRecognizerSF
+) -> np.ndarray:
     """Alinear rostro usando landmarks (SFace espera rostro alineado)."""
     return recognizer.alignCrop(image, face_info)
 
 
-def get_embedding(aligned_face: np.ndarray,
-                  recognizer: cv2.FaceRecognizerSF) -> np.ndarray:
+def get_embedding(
+    aligned_face: np.ndarray, recognizer: cv2.FaceRecognizerSF
+) -> np.ndarray:
     """Obtener embedding de 128 dimensiones del rostro alineado."""
     return recognizer.feature(aligned_face)
 
@@ -83,6 +90,7 @@ def get_embedding(aligned_face: np.ndarray,
 # ---------------------------------------------------------------------------
 # Data augmentation
 # ---------------------------------------------------------------------------
+
 
 def augment_image(image: np.ndarray) -> List[np.ndarray]:
     """Generar variaciones de la imagen para robustez."""
@@ -99,7 +107,9 @@ def augment_image(image: np.ndarray) -> List[np.ndarray]:
     # Rotaciones leves
     for angle in [-8, 8]:
         M = cv2.getRotationMatrix2D((w // 2, h // 2), angle, 1.0)
-        augmented.append(cv2.warpAffine(image, M, (w, h), borderMode=cv2.BORDER_REFLECT))
+        augmented.append(
+            cv2.warpAffine(image, M, (w, h), borderMode=cv2.BORDER_REFLECT)
+        )
 
     # Ruido leve
     noise = np.random.normal(0, 5, image.shape).astype(np.int16)
@@ -114,6 +124,7 @@ def augment_image(image: np.ndarray) -> List[np.ndarray]:
 # ---------------------------------------------------------------------------
 # Entrenamiento
 # ---------------------------------------------------------------------------
+
 
 def main():
     logger.info("=" * 55)
@@ -140,13 +151,15 @@ def main():
     # Cargar DB de empleados
     employee_data: Dict[int, Dict] = {}
     if json_path.exists():
-        with open(json_path, 'r', encoding='utf-8') as f:
+        with open(json_path, "r", encoding="utf-8") as f:
             for emp in json.load(f):
-                employee_data[emp['employee_id']] = emp
+                employee_data[emp["employee_id"]] = emp
     logger.info(f"Empleados en DB: {len(employee_data)}")
 
-    image_exts = {'.jpg', '.jpeg', '.png', '.bmp'}
-    image_files = sorted(f for f in photos_dir.iterdir() if f.suffix.lower() in image_exts)
+    image_exts = {".jpg", ".jpeg", ".png", ".bmp"}
+    image_files = sorted(
+        f for f in photos_dir.iterdir() if f.suffix.lower() in image_exts
+    )
     logger.info(f"Fotos encontradas: {len(image_files)}")
     logger.info("")
 
@@ -156,18 +169,20 @@ def main():
     fail = 0
 
     # Cascade como fallback para detección
-    cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    cascade = cv2.CascadeClassifier(
+        cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+    )
 
     for img_file in image_files:
         # Resolver employee_id
         emp_id = None
         for eid, info in employee_data.items():
-            pf = info.get('photo_file', '')
+            pf = info.get("photo_file", "")
             if img_file.name in pf or pf.endswith(img_file.name):
                 emp_id = eid
                 break
         if emp_id is None:
-            for p in img_file.stem.split('_'):
+            for p in img_file.stem.split("_"):
                 if p.isdigit():
                     emp_id = int(p)
                     break
@@ -214,7 +229,7 @@ def main():
 
         if emb_count > 0:
             ok += 1
-            name = employee_data.get(emp_id, {}).get('nombre', f'Emp-{emp_id}')
+            name = employee_data.get(emp_id, {}).get("nombre", f"Emp-{emp_id}")
             logger.info(f"  [{ok:3d}] {name} -> {emb_count} embeddings")
         else:
             fail += 1
@@ -225,7 +240,9 @@ def main():
     logger.info(f"Empleados procesados: {ok}")
     logger.info(f"Fallidos:             {fail}")
     logger.info(f"Total embeddings:     {len(all_embeddings)}")
-    logger.info(f"Dimension embedding:  {len(all_embeddings[0]) if all_embeddings else 0}")
+    logger.info(
+        f"Dimension embedding:  {len(all_embeddings[0]) if all_embeddings else 0}"
+    )
     logger.info(f"Embeddings/empleado:  ~{len(all_embeddings) // max(ok, 1)}")
     logger.info("=" * 55)
 
@@ -234,13 +251,13 @@ def main():
         return
 
     data = {
-        'encodings': all_embeddings,
-        'employee_ids': all_ids,
-        'version': 3,
-        'augmented': True,
-        'features': 'sface_128d',
+        "encodings": all_embeddings,
+        "employee_ids": all_ids,
+        "version": 3,
+        "augmented": True,
+        "features": "sface_128d",
     }
-    with open(output_file, 'wb') as f:
+    with open(output_file, "wb") as f:
         pickle.dump(data, f)
 
     logger.info(f"Guardado en: {output_file}")

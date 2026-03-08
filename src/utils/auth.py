@@ -1,6 +1,7 @@
 """
 Utilidades de autenticación con protección contra fuerza bruta.
 """
+
 import time
 import logging
 import bcrypt
@@ -33,8 +34,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         return False
     try:
         return bcrypt.checkpw(
-            plain_password.encode('utf-8'),
-            hashed_password.encode('utf-8')
+            plain_password.encode("utf-8"), hashed_password.encode("utf-8")
         )
     except (ValueError, TypeError):
         return False
@@ -43,7 +43,9 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def authenticate_user(username: str, password: str) -> Trabajador | None:
     """Autenticar usuario con protección contra fuerza bruta."""
     if _is_locked_out(username):
-        logger.warning(f"Usuario '{username}' bloqueado temporalmente por intentos fallidos")
+        logger.warning(
+            f"Usuario '{username}' bloqueado temporalmente por intentos fallidos"
+        )
         return None
 
     db = get_db_session()
@@ -59,4 +61,3 @@ def authenticate_user(username: str, password: str) -> Trabajador | None:
         return trabajador
     finally:
         db.close()
-

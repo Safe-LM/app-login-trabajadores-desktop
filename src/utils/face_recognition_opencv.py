@@ -5,6 +5,7 @@ Usa modelos neuronales pre-entrenados del OpenCV Zoo para generar
 embeddings faciales de 128 dimensiones, comparando con coseno.
 Compatible con encodings v3 (SFace).
 """
+
 import cv2
 import numpy as np
 from pathlib import Path
@@ -42,7 +43,7 @@ class OpenCVFaceRecognizer:
         self._cascade = None
         try:
             self._cascade = cv2.CascadeClassifier(
-                cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+                cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
             )
         except Exception:
             pass
@@ -55,7 +56,9 @@ class OpenCVFaceRecognizer:
         sface_path = self.models_dir / "face_recognition_sface_2021dec.onnx"
 
         if not yunet_path.exists() or not sface_path.exists():
-            logger.warning("Modelos DNN no encontrados en 'models/'. Ejecuta train_face_recognition_opencv.py")
+            logger.warning(
+                "Modelos DNN no encontrados en 'models/'. Ejecuta train_face_recognition_opencv.py"
+            )
             return
 
         try:
@@ -71,33 +74,35 @@ class OpenCVFaceRecognizer:
         """Cargar encodings y metadatos."""
         if self.metadata_file.exists():
             try:
-                with open(self.metadata_file, 'r', encoding='utf-8') as f:
+                with open(self.metadata_file, "r", encoding="utf-8") as f:
                     for emp in json.load(f):
-                        nombre_completo = emp.get('nombre', '').strip()
+                        nombre_completo = emp.get("nombre", "").strip()
                         parts = nombre_completo.split()
                         if len(parts) >= 3:
-                            emp['apellido'] = f"{parts[0]} {parts[1]}"
-                            emp['nombre'] = " ".join(parts[2:])
+                            emp["apellido"] = f"{parts[0]} {parts[1]}"
+                            emp["nombre"] = " ".join(parts[2:])
                         elif len(parts) == 2:
-                            emp['apellido'] = parts[0]
-                            emp['nombre'] = parts[1]
+                            emp["apellido"] = parts[0]
+                            emp["nombre"] = parts[1]
                         else:
-                            emp['apellido'] = ""
-                        self.employee_info[emp['employee_id']] = emp
+                            emp["apellido"] = ""
+                        self.employee_info[emp["employee_id"]] = emp
             except Exception as e:
                 logger.warning(f"Error cargando metadatos: {e}")
 
         if not self.encodings_file.exists():
-            logger.warning("No se encontraron encodings. Ejecuta train_face_recognition_opencv.py")
+            logger.warning(
+                "No se encontraron encodings. Ejecuta train_face_recognition_opencv.py"
+            )
             return False
 
         try:
-            with open(self.encodings_file, 'rb') as f:
+            with open(self.encodings_file, "rb") as f:
                 data = pickle.load(f)  # nosec
-            self.encodings = data.get('encodings', [])
-            self.employee_ids = data.get('employee_ids', [])
-            self._is_augmented = data.get('augmented', False)
-            self._version = data.get('version', 1)
+            self.encodings = data.get("encodings", [])
+            self.employee_ids = data.get("employee_ids", [])
+            self._is_augmented = data.get("augmented", False)
+            self._version = data.get("version", 1)
 
             unique = len(set(self.employee_ids))
             ratio = len(self.encodings) / max(unique, 1)
@@ -122,7 +127,9 @@ class OpenCVFaceRecognizer:
             return None
         return faces[np.argmax(faces[:, -1])]
 
-    def _detect_face_cascade(self, frame: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
+    def _detect_face_cascade(
+        self, frame: np.ndarray
+    ) -> Optional[Tuple[int, int, int, int]]:
         """Fallback: Haar Cascade."""
         if self._cascade is None:
             return None
@@ -164,7 +171,7 @@ class OpenCVFaceRecognizer:
 
     def recognize(self, frame: np.ndarray) -> Tuple[bool, float, Optional[Dict]]:
         """Reconocer empleado.
-        
+
         Para v3 (SFace): usa cosine similarity del propio OpenCV.
         Con augmentation: voting top-K por empleado.
         """
@@ -186,7 +193,7 @@ class OpenCVFaceRecognizer:
                     score = self._recognizer.match(
                         query_emb.reshape(1, -1),
                         stored.reshape(1, -1),
-                        cv2.FaceRecognizerSF_FR_COSINE
+                        cv2.FaceRecognizerSF_FR_COSINE,
                     )
                 else:
                     dot = np.dot(query_emb, stored)
@@ -224,11 +231,16 @@ class OpenCVFaceRecognizer:
 
             if best_score >= threshold and gap >= min_gap:
                 display_conf = min(0.99, 0.70 + best_score * 0.50)
-                info = self.employee_info.get(best_eid, {
-                    'employee_id': best_eid,
-                    'nombre': f'Empleado {best_eid}',
-                    'zona': 'N/A', 'sucursal': 'N/A', 'puesto': 'N/A'
-                })
+                info = self.employee_info.get(
+                    best_eid,
+                    {
+                        "employee_id": best_eid,
+                        "nombre": f"Empleado {best_eid}",
+                        "zona": "N/A",
+                        "sucursal": "N/A",
+                        "puesto": "N/A",
+                    },
+                )
                 return True, display_conf, info
 
             return False, 0.0, None
@@ -241,7 +253,12 @@ class OpenCVFaceRecognizer:
         """Detectar rostro (compatible con interfaz existente)."""
         face_info = self._detect_face_dnn(frame)
         if face_info is not None:
-            x, y, w, h = int(face_info[0]), int(face_info[1]), int(face_info[2]), int(face_info[3])
+            x, y, w, h = (
+                int(face_info[0]),
+                int(face_info[1]),
+                int(face_info[2]),
+                int(face_info[3]),
+            )
             return (x, y, x + w, y + h)
         return self._detect_face_cascade(frame)
 
@@ -250,7 +267,9 @@ class OpenCVFaceRecognizer:
 _opencv_recognizer = None
 
 
-def get_opencv_recognizer(database_dir: Optional[Path] = None) -> Optional[OpenCVFaceRecognizer]:
+def get_opencv_recognizer(
+    database_dir: Optional[Path] = None,
+) -> Optional[OpenCVFaceRecognizer]:
     global _opencv_recognizer
     if _opencv_recognizer is None:
         if database_dir is None:

@@ -2,6 +2,7 @@
 Script standalone para registrar fotos en el sistema de reconocimiento.
 Ejecuta este script ANTES de usar la aplicación para registrar las fotos.
 """
+
 import sys
 from pathlib import Path
 
@@ -19,9 +20,9 @@ if __name__ == "__main__":
     print("Este script registra las fotos de database_fotos/ como embeddings")
     print("para que el sistema pueda reconocer a los trabajadores.")
     print()
-    
+
     success = register_photos_from_database()
-    
+
     print()
     print("=" * 60)
     if success:
@@ -34,4 +35,3 @@ if __name__ == "__main__":
         print()
         print("Revisa los mensajes de error arriba para más detalles.")
     print("=" * 60)
-

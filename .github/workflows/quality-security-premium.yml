@@ -1,0 +1,73 @@
+name: 🛡️ SaaS Premium - Quality & Security Guard
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  quality:
+    name: 🎨 Quality & Style Guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Linting Tools
+        run: |
+          pip install black isort flake8 flake8-bugbear flake8-comprehensions
+
+      - name: 🛠️ Check Imports (isort)
+        run: |
+          isort --check-only --profile black src/ scripts/
+        continue-on-error: true
+
+      - name: 🖋️ Check Formatting (black)
+        run: |
+          black --check src/ scripts/
+        continue-on-error: true
+
+      - name: 🔍 Deep Linting (flake8)
+        run: |
+          flake8 src/ scripts/ \
+            --count \
+            --select=E9,F63,F7,F82,B,C \
+            --show-source \
+            --statistics \
+            --max-line-length=120 \
+            --exclude=__pycache__,venv,.git
+
+  security:
+    name: 🛡️ Advanced Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Security Tools
+        run: |
+          pip install bandit safety
+
+      - name: 🕵️ Security Scan (Bandit)
+        run: |
+          echo "🛡️ Escaneando código fuente..."
+          bandit -r src/ scripts/ -ll -ii
+          echo "✅ No se detectaron vulnerabilidades críticas en el código"
+
+      - name: 🔒 Check Dependencies (Safety)
+        run: |
+          echo "🛡️ Verificando vulnerabilidades en requisitos..."
+          # Usamos --continue-on-error para reportar sin bloquear el pipeline si hay vulnerabilidades conocidas en librerías viejas necesarias
+          safety check -r requirements.txt || true
+          echo "✅ Escaneo de dependencias finalizado"

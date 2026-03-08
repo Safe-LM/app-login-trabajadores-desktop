@@ -81,7 +81,7 @@ def extract_images_from_pdf_pymupdf(pdf_path: Path) -> List[Tuple]:
                                             images.append((page_num, img_pil, width, height))
                                             total_images_found += 1
                                             print(f"    [OK] Imagen {total_images_found} (XObject): {width}x{height} (pagina {page_num+1})")
-                        except:
+                        except Exception:
                             pass
             except Exception as e:
                 print(f"    [INFO] No se pudieron extraer XObjects de pagina {page_num+1}: {e}")

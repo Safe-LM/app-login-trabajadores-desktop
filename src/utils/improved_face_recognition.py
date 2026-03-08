@@ -71,7 +71,7 @@ def extraer_embedding_mejorado(img, bbox):
     # Intentar usar OSNet primero (más preciso)
     if ds.modelo_osnet is not None:
         try:
-            if hasattr(ds.modelo_osnet, '__call__'):
+            if callable(ds.modelo_osnet):
                 # FeatureExtractor de torchreid
                 embedding = ds.modelo_osnet(persona_img)
                 if isinstance(embedding, list):

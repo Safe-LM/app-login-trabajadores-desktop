@@ -48,7 +48,7 @@ def extract_images_from_pdf_pypdf2(pdf_path: Path) -> list:
                                         try:
                                             img = Image.open(io.BytesIO(data))
                                             images.append((page_num, img))
-                                        except:
+                                        except Exception:
                                             pass
                             except Exception as e:
                                 print(f"  [WARNING] Error extrayendo imagen de pagina {page_num}: {e}")
@@ -118,7 +118,7 @@ def filter_face_images(images: list) -> list:
         from ultralytics import YOLO
         base_dir = Path(__file__).parent
         yolo_model = YOLO(str(base_dir / 'yolo11s.pt'))
-    except:
+    except Exception:
         print("  [WARNING] YOLO no disponible, guardando todas las imagenes")
         return images
     

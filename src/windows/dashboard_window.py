@@ -56,19 +56,20 @@ def _lazy_load_face_recognition():
 # ---------------------------------------------------------------------------
 
 _COLORS = {
-    'bg_dark': '#05070a',         # Negro profundo
-    'bg_card': 'rgba(17, 24, 39, 0.7)', # Cristal oscuro
-    'bg_card_alt': 'rgba(31, 41, 55, 0.4)',
-    'border': 'rgba(55, 65, 81, 0.5)',
-    'border_accent': 'rgba(99, 102, 241, 0.6)',
-    'text': '#f8fafc',
-    'text_dim': '#cbd5e1',
-    'text_muted': '#64748b',
-    'accent': '#818cf8',         # Indigo brillante
-    'accent_dark': '#4f46e5',
-    'success': '#10b981',        # Esmeralda Neón
-    'warning': '#f59e0b',
-    'danger': '#f43f5e',
+    'bg_dark': '#010409',         # Negro OLED (Estilo GitHub/Linear)
+    'bg_card': 'rgba(22, 27, 34, 0.8)', # Cristal moderno
+    'bg_card_alt': 'rgba(33, 38, 45, 0.5)',
+    'border': 'rgba(240, 246, 252, 0.1)', # Borde ultra fino
+    'border_accent': '#58a6ff',
+    'text': '#f0f6fc',
+    'text_dim': '#8b949e',
+    'text_muted': '#484f58',
+    'accent': '#00d2ff',         # Electric Blue
+    'accent_dark': '#3a86ff',
+    'success': '#39D353',        # Spring Green (Web style)
+    'warning': '#f0883e',        # Naranja vivo
+    'danger': '#ff4b5c',         # Coral vibrante
+    'gradient_main': 'qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #00d2ff, stop:1 #3a86ff)',
 }
 
 def _glass_style(extra=""):
@@ -76,26 +77,33 @@ def _glass_style(extra=""):
         QFrame {{
             background: {_COLORS['bg_card']};
             border: 1px solid {_COLORS['border']};
-            border-radius: 20px;
+            border-radius: 24px;
             {extra}
         }}
     """
 
 def _btn_style(color, hover, pressed=None):
     pressed = pressed or hover
+    bg = color if color.startswith('qlineargradient') else color
     return f"""
         QPushButton {{
-            background: {color};
+            background: {bg};
             color: white;
-            border: none;
-            border-radius: 10px;
-            padding: 12px 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 14px 24px;
             font-size: 13px;
-            font-weight: 600;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }}
-        QPushButton:hover {{ background: {hover}; }}
-        QPushButton:pressed {{ background: {pressed}; }}
-        QPushButton:disabled {{ background: #374151; color: #6b7280; }}
+        QPushButton:hover {{ 
+            background: {hover};
+            border: 1px solid rgba(255,255,255,0.3);
+            margin-top: -2px; /* Efecto levitación */
+        }}
+        QPushButton:pressed {{ background: {pressed}; margin-top: 0px; }}
+        QPushButton:disabled {{ background: #161b22; color: #484f58; border: 1px solid #30363d; }}
     """
 
 
@@ -122,10 +130,10 @@ class AttendanceDialog(QWidget):
         card = QFrame()
         card.setStyleSheet(f"""
             QFrame {{
-                background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
-                    stop:0 #111827, stop:1 #0f172a);
-                border: 1px solid #2d3748;
-                border-radius: 20px;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, 
+                    stop:0 rgba(22, 27, 34, 0.95), stop:1 rgba(13, 17, 23, 0.95));
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 30px;
             }}
         """)
         shadow = QGraphicsDropShadowEffect()
@@ -470,11 +478,10 @@ class DashboardWindow(QMainWindow):
 
         # ---------- Header ----------
         header = QFrame()
-        header.setFixedHeight(56)
+        header.setFixedHeight(64)
         header.setStyleSheet(f"""
             QFrame {{
-                background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
-                    stop:0 {_COLORS['bg_dark']}, stop:1 {_COLORS['bg_card']});
+                background: {_COLORS['bg_dark']};
                 border-bottom: 1px solid {_COLORS['border']};
             }}
         """)
@@ -557,14 +564,14 @@ class DashboardWindow(QMainWindow):
         btn_row.setSpacing(10)
 
         self.start_button = QPushButton("ACTIVAR")
-        self.start_button.setStyleSheet(_btn_style(_COLORS['success'], '#059669', '#047857'))
+        self.start_button.setStyleSheet(_btn_style(_COLORS['gradient_main'], '#00d2ff', '#3a86ff'))
         self.start_button.setCursor(Qt.PointingHandCursor)
         self.start_button.clicked.connect(self.start_camera)
         btn_row.addWidget(self.start_button)
 
         self.stop_button = QPushButton("DETENER")
         self.stop_button.setEnabled(False)
-        self.stop_button.setStyleSheet(_btn_style(_COLORS['danger'], '#dc2626', '#b91c1c'))
+        self.stop_button.setStyleSheet(_btn_style(_COLORS['bg_card_alt'], 'rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)'))
         self.stop_button.setCursor(Qt.PointingHandCursor)
         self.stop_button.clicked.connect(self.stop_camera)
         btn_row.addWidget(self.stop_button)
@@ -574,8 +581,8 @@ class DashboardWindow(QMainWindow):
         self.recognize_button = QPushButton("REGISTRAR ASISTENCIA")
         self.recognize_button.setEnabled(False)
         self.recognize_button.setStyleSheet(_btn_style(
-            'qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #6366f1, stop:1 #4f46e5)',
-            '#4f46e5', '#4338ca'
+            'qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #10b981, stop:1 #059669)',
+            '#059669', '#047857'
         ))
         self.recognize_button.setCursor(Qt.PointingHandCursor)
         self.recognize_button.clicked.connect(self.register_attendance)
@@ -591,114 +598,100 @@ class DashboardWindow(QMainWindow):
         i_lay.setContentsMargins(16, 16, 16, 16)
         i_lay.setSpacing(14)
 
-        # Status badge
-        self._status_frame = QFrame()
-        self._status_frame.setStyleSheet(f"""
-            QFrame {{
-                background: {_COLORS['bg_card_alt']};
-                border: 1px solid {_COLORS['border']};
-                border-radius: 10px;
-                padding: 10px;
+        # ========== STATUS HERO ==========
+        self.status_hero = QFrame()
+        self.status_hero.setObjectName("statusHero")
+        self.status_hero.setStyleSheet(f"""
+            QFrame#statusHero {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 rgba(0, 210, 255, 0.1), stop:1 rgba(58, 134, 255, 0.05));
+                border: 1px solid rgba(0, 210, 255, 0.2);
+                border-radius: 20px;
             }}
         """)
-        sf_lay = QVBoxLayout(self._status_frame)
-        sf_lay.setContentsMargins(12, 10, 12, 10)
-        sf_lay.setSpacing(6)
+        sh_lay = QVBoxLayout(self.status_hero)
+        sh_lay.setContentsMargins(20, 24, 20, 24)
+        sh_lay.setSpacing(4)
 
-        self.status_label = QLabel("Esperando camara...")
-        self.status_label.setFont(self._font(11))
+        self.status_label = QLabel("MODO ESCANEO")
+        self.status_label.setFont(self._font(8, True))
         self.status_label.setAlignment(Qt.AlignCenter)
-        self.status_label.setWordWrap(True)
-        self.status_label.setStyleSheet(f"color: {_COLORS['text_dim']}; background: transparent;")
-        sf_lay.addWidget(self.status_label)
+        self.status_label.setStyleSheet(f"color: {_COLORS['accent']}; background: transparent; letter-spacing: 2.5px;")
+        sh_lay.addWidget(self.status_label)
 
         self.confidence_label = QLabel("--")
-        self.confidence_label.setFont(self._font(28, True))
+        self.confidence_label.setFont(self._font(42, True))
         self.confidence_label.setAlignment(Qt.AlignCenter)
-        self.confidence_label.setStyleSheet(f"color: {_COLORS['text_muted']}; background: transparent;")
-        sf_lay.addWidget(self.confidence_label)
+        self.confidence_label.setStyleSheet(f"color: {_COLORS['text']}; background: transparent;")
+        sh_lay.addWidget(self.confidence_label)
 
         conf_hint = QLabel("CONFIANZA")
         conf_hint.setFont(self._font(8, True))
         conf_hint.setAlignment(Qt.AlignCenter)
-        conf_hint.setStyleSheet(f"color: {_COLORS['text_muted']}; background: transparent; letter-spacing: 2px;")
-        sf_lay.addWidget(conf_hint)
+        conf_hint.setStyleSheet(f"color: {_COLORS['text_muted']}; background: transparent; letter-spacing: 3px;")
+        sh_lay.addWidget(conf_hint)
 
-        i_lay.addWidget(self._status_frame)
+        i_lay.addWidget(self.status_hero)
 
-        # Photo with Ring
-        photo_ring = QFrame()
-        photo_ring.setFixedSize(200, 200)
-        self._photo_ring_style = f"""
-            QFrame {{
-                background: qradialgradient(cx:0.5, cy:0.5, radius:0.5, fx:0.5, fy:0.5, 
-                    stop:0.45 transparent, stop:0.48 {_COLORS['border']}, stop:0.5 transparent);
-                border: none;
-            }}
-        """
-        photo_ring.setStyleSheet(self._photo_ring_style)
-        pr_lay = QVBoxLayout(photo_ring)
-        pr_lay.setContentsMargins(10, 10, 10, 10)
+        # ========== AVATAR AREA ==========
+        avatar_area = QWidget()
+        avatar_area.setFixedHeight(180)
+        aa_lay = QVBoxLayout(avatar_area)
+        aa_lay.setContentsMargins(0, 10, 0, 10)
 
         self.recognized_photo_label = QLabel()
-        self.recognized_photo_label.setFixedSize(170, 170)
+        self.recognized_photo_label.setFixedSize(140, 140)
         self.recognized_photo_label.setAlignment(Qt.AlignCenter)
         self.recognized_photo_label.setStyleSheet(f"""
             QLabel {{
-                background: {_COLORS['bg_dark']};
-                border-radius: 85px; /* Circular */
-                border: 1px solid {_COLORS['border']};
+                background: rgba(30, 41, 59, 0.4);
+                border-radius: 16px;
+                border: 2px dashed {_COLORS['border']};
             }}
         """)
-        pr_lay.addWidget(self.recognized_photo_label, 0, Qt.AlignCenter)
-        i_lay.addWidget(photo_ring, 0, Qt.AlignCenter)
+        aa_lay.addWidget(self.recognized_photo_label, 0, Qt.AlignCenter)
+        i_lay.addWidget(avatar_area)
 
-        # Info fields with accent bars
-        self.recognized_name_label = self._add_info_row(i_lay, "NOMBRE(S)", "--", _COLORS['accent'])
-        self.recognized_apellido_label = self._add_info_row(i_lay, "APELLIDOS", "--", '#6366f1')
-        self.recognized_zona_label = self._add_info_row(i_lay, "ZONA", "--", _COLORS['warning'])
-        self.recognized_sucursal_label = self._add_info_row(i_lay, "SUCURSAL", "--", _COLORS['success'])
-        self.recognized_puesto_label = self._add_info_row(i_lay, "PUESTO", "--", '#a78bfa')
-
-        i_lay.addSpacing(6)
-
-        # Stats bar
-        stats_frame = QFrame()
-        stats_frame.setStyleSheet(f"""
+        # ========== INFO GRID ==========
+        info_grid = QFrame()
+        info_grid.setStyleSheet(f"""
             QFrame {{
-                background: {_COLORS['bg_card_alt']};
+                background: rgba(22, 27, 34, 0.4);
                 border: 1px solid {_COLORS['border']};
-                border-radius: 8px;
+                border-radius: 16px;
             }}
         """)
-        stats_lay = QHBoxLayout(stats_frame)
-        stats_lay.setContentsMargins(10, 6, 10, 6)
-        stats_lay.setSpacing(0)
-        stats_text = QLabel("56 Empleados  ·  560 Embeddings  ·  OpenCV SFace")
-        stats_text.setFont(self._font(8))
-        stats_text.setAlignment(Qt.AlignCenter)
-        stats_text.setStyleSheet(f"color: {_COLORS['text_muted']}; background:transparent;")
-        stats_lay.addWidget(stats_text)
-        i_lay.addWidget(stats_frame)
+        ig_lay = QVBoxLayout(info_grid)
+        ig_lay.setContentsMargins(14, 14, 14, 14)
+        ig_lay.setSpacing(8)
+
+        self.recognized_name_label = self._add_info_row(ig_lay, "👤", "NOMBRE", "--", _COLORS['accent'])
+        self.recognized_apellido_label = self._add_info_row(ig_lay, "📋", "APELLIDOS", "--", '#58a6ff')
+        self.recognized_zona_label = self._add_info_row(ig_lay, "🗺️", "ZONA", "--", _COLORS['warning'])
+        self.recognized_sucursal_label = self._add_info_row(ig_lay, "🏢", "SUCURSAL", "--", _COLORS['success'])
+        self.recognized_puesto_label = self._add_info_row(ig_lay, "💼", "PUESTO", "--", '#bc8cff')
+
+        i_lay.addWidget(info_grid)
 
         i_lay.addStretch()
 
-        # Logout
-        logout_btn = QPushButton("CERRAR SESIÓN")
+        # ========== LOGOUT ==========
+        logout_btn = QPushButton("Cerrar Sesión")
         logout_btn.setCursor(Qt.PointingHandCursor)
         logout_btn.setStyleSheet(f"""
             QPushButton {{
-                background: transparent;
+                background: rgba(255, 75, 92, 0.08);
                 color: {_COLORS['danger']};
-                border: 1px solid {_COLORS['danger']};
-                border-radius: 10px;
+                border: 1px solid rgba(255, 75, 92, 0.2);
+                border-radius: 12px;
                 padding: 12px;
-                font-size: 12px;
+                font-size: 11px;
                 font-weight: 600;
+                letter-spacing: 0.5px;
             }}
             QPushButton:hover {{
-                background: rgba(239,68,68,0.15);
-                border: 1px solid #f87171;
+                background: rgba(255, 75, 92, 0.18);
+                border: 1px solid rgba(255, 75, 92, 0.4);
             }}
         """)
         logout_btn.clicked.connect(self.logout)
@@ -728,31 +721,50 @@ class DashboardWindow(QMainWindow):
             font-size: 9px; font-weight: 700; letter-spacing: 1px;
         """
 
-    def _add_info_row(self, parent_layout, label_text, default="--", accent_color=None):
+    def _add_info_row(self, parent_layout, icon, label_text, default="--", accent_color=None):
         row = QFrame()
         accent = accent_color or _COLORS['accent']
         row.setStyleSheet(f"""
             QFrame {{
-                background: {_COLORS['bg_card_alt']};
-                border: 1px solid {_COLORS['border']};
-                border-radius: 8px;
-                border-left: 3px solid {accent};
+                background: rgba(240, 246, 252, 0.03);
+                border: none;
+                border-radius: 10px;
             }}
         """)
-        rl = QVBoxLayout(row)
+        rl = QHBoxLayout(row)
         rl.setContentsMargins(12, 8, 12, 8)
-        rl.setSpacing(2)
+        rl.setSpacing(10)
+
+        # Accent dot
+        dot = QLabel()
+        dot.setFixedSize(4, 28)
+        dot.setStyleSheet(f"background: {accent}; border-radius: 2px;")
+        rl.addWidget(dot)
+
+        # Icon
+        icon_lbl = QLabel(icon)
+        icon_lbl.setFont(self._font(11))
+        icon_lbl.setFixedWidth(24)
+        icon_lbl.setStyleSheet("background: transparent; border: none;")
+        rl.addWidget(icon_lbl)
+
+        # Text column
+        text_col = QVBoxLayout()
+        text_col.setSpacing(0)
 
         lbl = QLabel(label_text)
-        lbl.setFont(self._font(8, True))
+        lbl.setFont(self._font(7, True))
         lbl.setStyleSheet(f"color: {_COLORS['text_muted']}; background: transparent; letter-spacing: 1px;")
-        rl.addWidget(lbl)
+        text_col.addWidget(lbl)
 
         val = QLabel(default)
-        val.setFont(self._font(12, True))
+        val.setFont(self._font(11, True))
         val.setStyleSheet(f"color: {_COLORS['text']}; background: transparent;")
         val.setWordWrap(True)
-        rl.addWidget(val)
+        text_col.addWidget(val)
+
+        rl.addLayout(text_col)
+        rl.addStretch()
 
         parent_layout.addWidget(row)
         return val
@@ -913,22 +925,24 @@ class DashboardWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _set_status(self, text, level="neutral"):
-        colors = {
-            'success': (_COLORS['success'], 'rgba(16,185,129,0.12)'),
-            'warning': (_COLORS['warning'], 'rgba(245,158,11,0.12)'),
-            'danger':  (_COLORS['danger'],  'rgba(239,68,68,0.12)'),
-            'neutral': (_COLORS['text_dim'], 'transparent'),
+        lvl_colors = {
+            'success': ('#10b981', 'rgba(16, 185, 129, 0.15)', 'rgba(16, 185, 129, 0.3)'),
+            'warning': ('#f59e0b', 'rgba(245, 158, 11, 0.1)', 'rgba(245, 158, 11, 0.2)'),
+            'danger':  ('#ef4444', 'rgba(239, 68, 68, 0.1)', 'rgba(239, 68, 68, 0.2)'),
+            'neutral': (_COLORS['accent'], 'rgba(0, 210, 255, 0.1)', 'rgba(0, 210, 255, 0.2)'),
         }
-        fg, bg = colors.get(level, colors['neutral'])
-        self.status_label.setText(text)
-        self.status_label.setStyleSheet(f"color: {fg}; background: transparent;")
-        self._status_frame.setStyleSheet(f"""
-            QFrame {{
-                background: {bg};
-                border: 1px solid {_COLORS['border']};
-                border-radius: 10px;
-            }}
-        """)
+        fg, bg, bc = lvl_colors.get(level, lvl_colors['neutral'])
+        self.status_label.setText(text.upper())
+        self.status_label.setStyleSheet(f"color: {fg}; background: transparent; letter-spacing: 2px;")
+        
+        if hasattr(self, 'status_hero'):
+            self.status_hero.setStyleSheet(f"""
+                QFrame#statusHero {{
+                    background: {bg};
+                    border: 1.5px solid {bc};
+                    border-radius: 20px;
+                }}
+            """)
 
     # ------------------------------------------------------------------
     # Recognition results
@@ -960,19 +974,11 @@ class DashboardWindow(QMainWindow):
                     self.recognized_photo_label.setPixmap(
                         px.scaled(t, t, Qt.KeepAspectRatio, Qt.SmoothTransformation)
                     )
-                    # HUD: Anillo brillante
-                    self.recognized_photo_label.parent().setStyleSheet(f"""
-                        QFrame {{
-                            background: qradialgradient(cx:0.5, cy:0.5, radius:0.5, fx:0.5, fy:0.5, 
-                                stop:0.45 transparent, stop:0.48 {_COLORS['success']}, stop:0.5 transparent);
-                            border: none;
-                        }}
-                    """)
                     self.recognized_photo_label.setStyleSheet(f"""
                         QLabel {{
-                            background: {_COLORS['bg_dark']};
-                            border: 2px solid {_COLORS['success']};
-                            border-radius: 85px;
+                            background: rgba(30, 41, 59, 0.6);
+                            border: 3px solid {_COLORS['success']};
+                            border-radius: 16px;
                         }}
                     """)
 
@@ -1008,11 +1014,17 @@ class DashboardWindow(QMainWindow):
             QTimer.singleShot(500, lambda: process_photos_folder(photos_old, database_fotos_dir))
 
     def init_face_recognition(self):
-        self._set_status("Cargando reconocimiento facial...", "warning")
+        self._set_status("Analizando entorno...", "warning")
         _lazy_load_face_recognition()
-        base_dir = Path(__file__).parent.parent
-        model_path = base_dir / 'models' / 'face_recognition_model.pt'
-        metadata_path = base_dir / 'models' / 'employee_metadata.json'
+        root_dir = Path(__file__).resolve().parent.parent.parent
+        model_path = root_dir / 'data' / 'models' / 'models' / 'face_recognition_model.pt'
+        metadata_path = root_dir / 'data' / 'models' / 'models' / 'employee_metadata.json'
+        # Fallback a ubicación alternativa si no existe
+        if not model_path.exists():
+            base_dir = Path(__file__).parent.parent
+            model_path = base_dir / 'models' / 'face_recognition_model.pt'
+            metadata_path = base_dir / 'models' / 'employee_metadata.json'
+
         self.model_available = model_path.exists() and metadata_path.exists()
         QTimer.singleShot(100, self._init_face_recognition_async)
 
@@ -1129,14 +1141,14 @@ class DashboardWindow(QMainWindow):
                 except Exception as es:
                     logger.error(f"❌ Error sincronizando con Supabase: {es}")
                 
-                # Feedback visual y Auto-Logout (Modo Kiosco)
-                msg = "ASISTENCIA REGISTRADA" if ok_cloud else "REGISTRADO (LOCAL)"
-                self._set_status(f"¡{msg}! Cerrando en 5s...", "success")
+                # Feedback visual y Auto-Logout (Modo SaaS Web)
+                msg = "REGISTRO SAAS EXITOSO" if ok_cloud else "IDENTIDAD VERIFICADA (LOCAL)"
+                self._set_status(f"✨ {msg} ✨", "success")
                 
-                self._cam_badge.setText("COMPLETADO")
+                self._cam_badge.setText("SINCRO OK")
                 self._cam_badge.setStyleSheet(self._badge_style('#ffffff', _COLORS['success']))
                 
-                # Cerrar sesión automáticamente tras 5 segundos (sincronizado con el diálogo)
+                # Cerrar sesión automáticamente tras 5 segundos
                 QTimer.singleShot(5000, self.logout)
                 # ----------------------------
             except Exception as e:

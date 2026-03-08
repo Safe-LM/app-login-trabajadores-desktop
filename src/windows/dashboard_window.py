@@ -184,24 +184,30 @@ class AttendanceDialog(QWidget):
 
         cl.addSpacing(20)
 
-        # OK button
-        ok_btn = QPushButton("Aceptar")
-        ok_btn.setFont(QFont("Segoe UI", 11, QFont.Bold))
-        ok_btn.setCursor(Qt.PointingHandCursor)
-        ok_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: {accent};
-                color: white;
-                border: none;
-                border-radius: 10px;
-                padding: 12px;
-            }}
-            QPushButton:hover {{ background: {_COLORS['accent_dark']}; }}
-        """)
-        ok_btn.clicked.connect(self.close)
-        cl.addWidget(ok_btn)
+        cl.addSpacing(24)
+
+        # Countdown info
+        self.countdown_label = QLabel("La sesion se cerrara en 5s...")
+        self.countdown_label.setFont(QFont("Segoe UI", 10, QFont.Bold))
+        self.countdown_label.setAlignment(Qt.AlignCenter)
+        self.countdown_label.setStyleSheet(f"color: {accent}; background:transparent;")
+        cl.addWidget(self.countdown_label)
+        
+        # Timer para actualizar el texto del countdown
+        self._secs_left = 5
+        self._count_timer = QTimer(self)
+        self._count_timer.timeout.connect(self._update_countdown)
+        self._count_timer.start(1000)
 
         outer.addWidget(card)
+
+    def _update_countdown(self):
+        self._secs_left -= 1
+        if self._secs_left > 0:
+            self.countdown_label.setText(f"La sesion se cerrara en {self._secs_left}s...")
+        else:
+            self._count_timer.stop()
+            self.close()
 
     def paintEvent(self, event):
         """Fondo semi-transparente."""
@@ -1084,13 +1090,13 @@ class DashboardWindow(QMainWindow):
                 
                 # Feedback visual y Auto-Logout (Modo Kiosco)
                 msg = "ASISTENCIA REGISTRADA" if ok_cloud else "REGISTRADO (LOCAL)"
-                self._set_status(f"¡{msg}! Cerrando en 3s...", "success")
+                self._set_status(f"¡{msg}! Cerrando en 5s...", "success")
                 
                 self._cam_badge.setText("COMPLETADO")
                 self._cam_badge.setStyleSheet(self._badge_style('#ffffff', _COLORS['success']))
                 
-                # Cerrar sesión automáticamente tras 3 segundos
-                QTimer.singleShot(3000, self.logout)
+                # Cerrar sesión automáticamente tras 5 segundos (sincronizado con el diálogo)
+                QTimer.singleShot(5000, self.logout)
                 # ----------------------------
             except Exception as e:
                 db.rollback()
@@ -1143,7 +1149,7 @@ class DashboardWindow(QMainWindow):
                 parent=self
             )
             dlg.show()
-            self._set_status(f"{tipo.upper()} registrada - Cerrando en 3s...", "success")
+            self._set_status(f"{tipo.upper()} registrada - Cerrando en 5s...", "success")
             
             # --- INTEGRACIÓN SUPABASE ---
             try:
@@ -1163,8 +1169,8 @@ class DashboardWindow(QMainWindow):
                 logger.error(f"❌ Error sincronizando manual con Supabase: {es}")
             # ----------------------------
             
-            # Auto-Logout tras 3 segundos para el modo Check&Go
-            QTimer.singleShot(3000, self.logout)
+            # Auto-Logout tras 5 segundos para el modo Check&Go
+            QTimer.singleShot(5000, self.logout)
         except Exception as e:
             db.rollback()
             QMessageBox.critical(self, "Error", f"Error al registrar:\n{e}")

@@ -429,8 +429,11 @@ class DashboardWindow(QMainWindow):
 
         self.recognition_thread = RecognitionThread(self)
         self.recognition_thread.results_ready.connect(self.on_recognition_results)
-        QTimer.singleShot(500, lambda: self.recognition_thread.start())
-        QTimer.singleShot(300, self.init_face_recognition)
+        
+        # Flujo Kiosco: Iniciar reconocimiento y cámara de inmediato
+        QTimer.singleShot(500, self.start_camera)
+        QTimer.singleShot(800, lambda: self.recognition_thread.start())
+        QTimer.singleShot(1000, self.init_face_recognition)
 
     # ------------------------------------------------------------------
     # UI
@@ -1045,10 +1048,11 @@ class DashboardWindow(QMainWindow):
                 dlg.show()
 
                 # --- INTEGRACIÓN SUPABASE ---
+                ok_cloud = False
                 try:
                     sb = get_supabase_client()
                     if sb:
-                        # Buscamos el ID único del empleado en Supabase usando su employee_id único
+                        # Buscamos el ID único del empleado en Supabase
                         emp_data = sb.table("empleados").select("id").eq("employee_id", trabajador.employee_id).execute()
                         if emp_data.data:
                             supabase_emp_id = emp_data.data[0]['id']
@@ -1059,8 +1063,19 @@ class DashboardWindow(QMainWindow):
                                 "ubicacion": info_empleado.get('sucursal', 'N/A') if info_empleado else 'N/A'
                             }).execute()
                             logger.info(f"✅ Asistencia sincronizada con Supabase para {trabajador.nombre}")
+                            ok_cloud = True
                 except Exception as es:
                     logger.error(f"❌ Error sincronizando con Supabase: {es}")
+                
+                # Feedback visual y Auto-Logout (Modo Kiosco)
+                msg = "ASISTENCIA REGISTRADA" if ok_cloud else "REGISTRADO (LOCAL)"
+                self._set_status(f"¡{msg}! Cerrando en 3s...", "success")
+                
+                self._cam_badge.setText("COMPLETADO")
+                self._cam_badge.setStyleSheet(self._badge_style('#ffffff', _COLORS['success']))
+                
+                # Cerrar sesión automáticamente tras 3 segundos
+                QTimer.singleShot(3000, self.logout)
                 # ----------------------------
             except Exception as e:
                 db.rollback()

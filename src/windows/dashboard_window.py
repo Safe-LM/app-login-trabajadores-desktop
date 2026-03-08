@@ -647,7 +647,8 @@ class DashboardWindow(QMainWindow):
         i_lay.addWidget(photo_frame)
 
         # Info fields with accent bars
-        self.recognized_name_label = self._add_info_row(i_lay, "NOMBRE", "--", _COLORS['accent'])
+        self.recognized_name_label = self._add_info_row(i_lay, "NOMBRE(S)", "--", _COLORS['accent'])
+        self.recognized_apellido_label = self._add_info_row(i_lay, "APELLIDOS", "--", '#6366f1')
         self.recognized_zona_label = self._add_info_row(i_lay, "ZONA", "--", _COLORS['warning'])
         self.recognized_sucursal_label = self._add_info_row(i_lay, "SUCURSAL", "--", _COLORS['success'])
         self.recognized_puesto_label = self._add_info_row(i_lay, "PUESTO", "--", '#a78bfa')
@@ -887,6 +888,7 @@ class DashboardWindow(QMainWindow):
             self._set_status(f"Identificado via {metodo}", "success")
 
             self.recognized_name_label.setText(info_empleado.get('nombre', 'N/A'))
+            self.recognized_apellido_label.setText(info_empleado.get('apellido', ''))
             self.recognized_zona_label.setText(info_empleado.get('zona', 'N/A'))
             self.recognized_sucursal_label.setText(info_empleado.get('sucursal', 'N/A'))
             self.recognized_puesto_label.setText(info_empleado.get('puesto', 'N/A'))
@@ -917,6 +919,8 @@ class DashboardWindow(QMainWindow):
                 self._last_recognition_result = False
                 self._set_status("Buscando rostro...", "warning")
                 self.confidence_label.setText("--")
+                self.recognized_name_label.setText("--")
+                self.recognized_apellido_label.setText("--")
                 self.confidence_label.setStyleSheet(f"color: {_COLORS['text_muted']}; background: transparent;")
 
     # ------------------------------------------------------------------

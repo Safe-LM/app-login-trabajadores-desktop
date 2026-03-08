@@ -73,6 +73,16 @@ class OpenCVFaceRecognizer:
             try:
                 with open(self.metadata_file, 'r', encoding='utf-8') as f:
                     for emp in json.load(f):
+                        nombre_completo = emp.get('nombre', '').strip()
+                        parts = nombre_completo.split()
+                        if len(parts) >= 3:
+                            emp['apellido'] = f"{parts[0]} {parts[1]}"
+                            emp['nombre'] = " ".join(parts[2:])
+                        elif len(parts) == 2:
+                            emp['apellido'] = parts[0]
+                            emp['nombre'] = parts[1]
+                        else:
+                            emp['apellido'] = ""
                         self.employee_info[emp['employee_id']] = emp
             except Exception as e:
                 logger.warning(f"Error cargando metadatos: {e}")

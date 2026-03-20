@@ -1560,7 +1560,7 @@ class DashboardWindow(QMainWindow):
                                         else "N/A"
                                     ),
                                     "reconocimiento_facial": True,
-                                    "metodo": metodo,
+                                    "metodo": metodo.lower().replace(" ", "_"),
                                     "dispositivo": socket.gethostname(),
                                 }
                             ).execute()

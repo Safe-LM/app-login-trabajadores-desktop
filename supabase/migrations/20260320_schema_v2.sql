@@ -100,6 +100,10 @@ CREATE INDEX IF NOT EXISTS idx_asistencias_reconocimiento
 -- SECCIÓN 3: VISTAS MEJORADAS
 -- =============================================================================
 
+-- Eliminar vista legado primero para evitar conflicto de tipos de columna
+-- (v_asistencias_con_nombre v1 tenía confianza FLOAT; la v2 usa NUMERIC)
+DROP VIEW IF EXISTS public.v_asistencias_con_nombre;
+
 -- 3.1 Vista completa de asistencias (reemplaza la anterior)
 CREATE OR REPLACE VIEW public.v_asistencias_detalle AS
 SELECT

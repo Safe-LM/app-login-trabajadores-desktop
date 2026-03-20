@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Safe Link — Dashboard de Asistencias</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    * { font-family: 'Inter', sans-serif; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .glass {
+      background: rgba(22, 27, 34, 0.8);
+      border: 1px solid rgba(240, 246, 252, 0.08);
+      backdrop-filter: blur(12px);
+    }
+    .glass-hover:hover {
+      border-color: rgba(240, 246, 252, 0.18);
+      transition: border-color 0.2s;
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0a0f1a; }
+    ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+    .fade-in { animation: fadeIn 0.4s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .badge { display:inline-flex; align-items:center; padding: 2px 10px; border-radius:9999px; font-size:11px; font-weight:700; letter-spacing:.5px; }
+    select, input { background: rgba(22,27,34,0.9) !important; color: #f0f6fc !important; border: 1px solid rgba(240,246,252,0.12) !important; }
+    select option { background: #161b22; }
+    th { position: sticky; top: 0; z-index: 10; }
+    .pulse-dot { width:8px;height:8px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .skeleton { background: linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.08) 50%,rgba(255,255,255,.04) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+    .export-btn:hover svg { transform: translateY(2px); transition: transform .15s; }
+  </style>
+</head>
+<body class="bg-[#010409] text-[#f0f6fc] min-h-screen">
+
+<!-- ═══════════════════════════ HEADER ═══════════════════════════ -->
+<header class="sticky top-0 z-50 border-b border-white/[0.08]" style="background:rgba(1,4,9,0.92);backdrop-filter:blur(16px)">
+  <div class="max-w-[1440px] mx-auto px-6 h-16 flex items-center gap-4">
+    <!-- Brand -->
+    <div class="flex items-center gap-3 mr-6">
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,#00d2ff,#3a86ff)">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div>
+        <p class="text-[13px] font-bold text-white leading-none">SAFE LINK</p>
+        <p class="text-[10px] text-[#8b949e] leading-none mt-0.5">Asistencias</p>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="flex items-center gap-3 flex-1 flex-wrap">
+      <div class="flex items-center gap-2">
+        <label class="text-[11px] text-[#8b949e] font-medium whitespace-nowrap">Desde</label>
+        <input type="date" id="f-desde" class="rounded-lg px-3 py-1.5 text-[12px] outline-none h-8" />
+      </div>
+      <div class="flex items-center gap-2">
+        <label class="text-[11px] text-[#8b949e] font-medium whitespace-nowrap">Hasta</label>
+        <input type="date" id="f-hasta" class="rounded-lg px-3 py-1.5 text-[12px] outline-none h-8" />
+      </div>
+      <select id="f-sucursal" class="rounded-lg px-3 py-1.5 text-[12px] outline-none h-8 min-w-[140px]">
+        <option value="">Todas las sucursales</option>
+      </select>
+      <select id="f-tipo" class="rounded-lg px-3 py-1.5 text-[12px] outline-none h-8">
+        <option value="">Entrada y Salida</option>
+        <option value="entrada">Solo Entrada</option>
+        <option value="salida">Solo Salida</option>
+      </select>
+      <button onclick="loadAll()" class="h-8 px-4 rounded-lg text-[12px] font-semibold transition-all" style="background:linear-gradient(135deg,#00d2ff,#3a86ff)">
+        Aplicar
+      </button>
+    </div>
+
+    <!-- Right side -->
+    <div class="flex items-center gap-4 ml-auto">
+      <div class="flex items-center gap-2">
+        <div class="pulse-dot" id="conn-dot" style="background:#484f58"></div>
+        <span id="conn-lbl" class="text-[11px] text-[#8b949e]">Conectando...</span>
+      </div>
+      <button onclick="exportCSV()" class="export-btn flex items-center gap-2 h-8 px-4 rounded-lg text-[12px] font-semibold border border-white/10 hover:border-white/25 transition-all">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 15V3m0 12l-4-4m4 4l4-4M2 17l.621 2.485A2 2 0 004.561 21h14.878a2 2 0 001.94-1.515L22 17"/></svg>
+        Exportar CSV
+      </button>
+      <span class="mono text-[12px] text-[#8b949e]" id="clock"></span>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-[1440px] mx-auto px-6 py-6 space-y-6">
+
+  <!-- ═══════════════════════════ KPI CARDS ═══════════════════════════ -->
+  <section class="grid grid-cols-2 lg:grid-cols-4 gap-4 fade-in">
+    <!-- Empleados presentes hoy -->
+    <div class="glass rounded-2xl p-5 glass-hover">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-[11px] font-semibold text-[#8b949e] tracking-widest uppercase">Presentes Hoy</span>
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(34,197,94,.12)">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#22c55e" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+        </div>
+      </div>
+      <p class="mono text-4xl font-bold text-[#22c55e]" id="kpi-presentes">--</p>
+      <p class="text-[11px] text-[#484f58] mt-1">empleados con entrada registrada</p>
+    </div>
+    <!-- Total entradas período -->
+    <div class="glass rounded-2xl p-5 glass-hover">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-[11px] font-semibold text-[#8b949e] tracking-widest uppercase">Entradas</span>
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(0,210,255,.12)">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#00d2ff" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
+        </div>
+      </div>
+      <p class="mono text-4xl font-bold text-[#00d2ff]" id="kpi-entradas">--</p>
+      <p class="text-[11px] text-[#484f58] mt-1">registros en el período</p>
+    </div>
+    <!-- Salidas período -->
+    <div class="glass rounded-2xl p-5 glass-hover">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-[11px] font-semibold text-[#8b949e] tracking-widest uppercase">Salidas</span>
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(58,134,255,.12)">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#3a86ff" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+        </div>
+      </div>
+      <p class="mono text-4xl font-bold text-[#3a86ff]" id="kpi-salidas">--</p>
+      <p class="text-[11px] text-[#484f58] mt-1">registros en el período</p>
+    </div>
+    <!-- Confianza promedio -->
+    <div class="glass rounded-2xl p-5 glass-hover">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-[11px] font-semibold text-[#8b949e] tracking-widest uppercase">Confianza IA</span>
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(245,158,11,.12)">
+          <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#f59e0b" stroke-width="2"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+        </div>
+      </div>
+      <p class="mono text-4xl font-bold text-[#f59e0b]" id="kpi-confianza">--%</p>
+      <p class="text-[11px] text-[#484f58] mt-1">promedio reconocimiento facial</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════ CHARTS ROW 1 ═══════════════════════════ -->
+  <section class="grid grid-cols-1 lg:grid-cols-3 gap-4 fade-in">
+    <!-- Tendencia 7 días -->
+    <div class="glass rounded-2xl p-5 lg:col-span-2">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h3 class="text-[13px] font-semibold">Tendencia de Asistencias</h3>
+          <p class="text-[11px] text-[#8b949e]">Entradas y salidas por día</p>
+        </div>
+        <span class="badge" style="background:rgba(0,210,255,.1);color:#00d2ff;">Últimos 7 días</span>
+      </div>
+      <div class="h-52">
+        <canvas id="chart-tendencia"></canvas>
+      </div>
+    </div>
+    <!-- Por método -->
+    <div class="glass rounded-2xl p-5">
+      <div class="mb-4">
+        <h3 class="text-[13px] font-semibold">Método de Reconocimiento</h3>
+        <p class="text-[11px] text-[#8b949e]">Distribución por tecnología IA</p>
+      </div>
+      <div class="h-52 flex items-center justify-center">
+        <canvas id="chart-metodo"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════ CHARTS ROW 2 ═══════════════════════════ -->
+  <section class="grid grid-cols-1 lg:grid-cols-2 gap-4 fade-in">
+    <!-- Por sucursal -->
+    <div class="glass rounded-2xl p-5">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h3 class="text-[13px] font-semibold">Asistencias por Sucursal</h3>
+          <p class="text-[11px] text-[#8b949e]">Total entradas en el período</p>
+        </div>
+      </div>
+      <div class="h-56">
+        <canvas id="chart-sucursal"></canvas>
+      </div>
+    </div>
+    <!-- Retardos -->
+    <div class="glass rounded-2xl p-5">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h3 class="text-[13px] font-semibold">Clasificación de Puntualidad</h3>
+          <p class="text-[11px] text-[#8b949e]">Distribución de registros por retardo</p>
+        </div>
+      </div>
+      <div class="h-56 flex items-center justify-center">
+        <canvas id="chart-retardo"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════ TABLE ═══════════════════════════ -->
+  <section class="glass rounded-2xl fade-in">
+    <div class="flex items-center justify-between px-5 pt-5 pb-4 border-b border-white/[0.06]">
+      <div>
+        <h3 class="text-[13px] font-semibold">Detalle de Registros</h3>
+        <p class="text-[11px] text-[#8b949e] mt-0.5" id="table-count">Cargando...</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <input type="text" id="search-input" placeholder="Buscar empleado, sucursal..." oninput="filterTable()"
+          class="rounded-lg px-3 py-1.5 text-[12px] outline-none h-8 w-64" />
+      </div>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-[12px]">
+        <thead>
+          <tr class="border-b border-white/[0.06]" style="background:rgba(22,27,34,0.6)">
+            <th class="px-4 py-3 text-left text-[10px] font-semibold text-[#8b949e] tracking-widest uppercase">Empleado</th>
+            <th class="px-4 py-3 text-left text-[10px] font-semibold text-[#8b949e] tracking-widest uppercase">Tipo</th>
+            <th class="px-4 py-3 text-left text-[10px] font-semibold text-[#8b949e] tracking-widest uppercase">Fecha</th>
+            <th class="px-4 py-3 text-left text-[10px] font-semibold text-[#8b949e] tracking-widest uppercase">Hora Local</th>
+            <th class="px-4 py-3 text-left text-[10px] font-semibold text-[#8b949e] tracking-widest uppercase">Confianza</th>
+            <th class="px-4 py-3 text-left text-[10px] font-semibold text-[#8b949e] tracking-widest uppercase">Sucursal</th>
+            <th class="px-4 py-3 text-left text-[10px] font-semibold text-[#8b949e] tracking-widest uppercase">Puesto</th>
+            <th class="px-4 py-3 text-left text-[10px] font-semibold text-[#8b949e] tracking-widest uppercase">Método</th>
+            <th class="px-4 py-3 text-left text-[10px] font-semibold text-[#8b949e] tracking-widest uppercase">Puntualidad</th>
+            <th class="px-4 py-3 text-left text-[10px] font-semibold text-[#8b949e] tracking-widest uppercase">Dispositivo</th>
+          </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+      </table>
+      <div id="table-empty" class="hidden py-16 text-center text-[#484f58] text-[13px]">
+        Sin registros para los filtros seleccionados.
+      </div>
+    </div>
+    <!-- Pagination -->
+    <div class="flex items-center justify-between px-5 py-3 border-t border-white/[0.06]">
+      <span class="text-[11px] text-[#8b949e]" id="pag-info"></span>
+      <div class="flex gap-2">
+        <button onclick="prevPage()" id="btn-prev" class="px-3 py-1 rounded-lg text-[11px] border border-white/10 hover:border-white/25 disabled:opacity-30 transition-all">← Anterior</button>
+        <button onclick="nextPage()" id="btn-next" class="px-3 py-1 rounded-lg text-[11px] border border-white/10 hover:border-white/25 disabled:opacity-30 transition-all">Siguiente →</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ═══════════════════════════ SCRIPT ═══════════════════════════ -->
+<script>
+// ─── CONFIG — Pon aquí tus credenciales ────────────────────────
+const SUPABASE_URL  = 'TU_SUPABASE_URL';   // ej: https://xxxx.supabase.co
+const SUPABASE_ANON = 'TU_SUPABASE_ANON_KEY';
+// ──────────────────────────────────────────────────────────────
+
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// Estado global
+let allRows = [];
+let filtered = [];
+let page = 0;
+const PAGE_SIZE = 25;
+let chartTend, chartMetodo, chartSuc, chartRetardo;
+
+// ─── Init ──────────────────────────────────────────────────────
+window.onload = async () => {
+  setDefaultDates();
+  clock();
+  setInterval(clock, 1000);
+  await testConn();
+  await loadAll();
+  setInterval(loadAll, 60000); // auto-refresh 1 min
+};
+
+function setDefaultDates() {
+  const hoy = new Date();
+  const hace7 = new Date(); hace7.setDate(hoy.getDate() - 6);
+  document.getElementById('f-hasta').value = fmt(hoy);
+  document.getElementById('f-desde').value = fmt(hace7);
+}
+function fmt(d) { return d.toISOString().split('T')[0]; }
+
+function clock() {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('es-MX', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+async function testConn() {
+  try {
+    await sb.from('asistencias').select('id').limit(1);
+    document.getElementById('conn-dot').style.background = '#22c55e';
+    document.getElementById('conn-lbl').textContent = 'Conectado';
+  } catch {
+    document.getElementById('conn-dot').style.background = '#ef4444';
+    document.getElementById('conn-lbl').textContent = 'Sin conexión';
+  }
+}
+
+// ─── Load All ──────────────────────────────────────────────────
+async function loadAll() {
+  const desde    = document.getElementById('f-desde').value;
+  const hasta    = document.getElementById('f-hasta').value;
+  const sucursal = document.getElementById('f-sucursal').value;
+  const tipo     = document.getElementById('f-tipo').value;
+
+  // timestamp UTC: desde inicio del día hasta fin del día
+  const tsDesde = desde + 'T00:00:00.000Z';
+  const tsHasta = hasta + 'T23:59:59.999Z';
+
+  try {
+    let q = sb.from('v_asistencias_detalle')
+      .select('*')
+      .gte('registrado_en', tsDesde)
+      .lte('registrado_en', tsHasta)
+      .order('registrado_en', { ascending: false });
+
+    if (sucursal) q = q.eq('sucursal', sucursal);
+    if (tipo)     q = q.eq('tipo', tipo);
+
+    const { data, error } = await q;
+    if (error) throw error;
+
+    allRows = data || [];
+    filtered = [...allRows];
+    page = 0;
+
+    await loadSucursales(allRows);
+    buildKPIs(allRows, desde, hasta);
+    buildChartTendencia(allRows);
+    buildChartMetodo(allRows);
+    buildChartSucursal(allRows);
+    buildChartRetardo(allRows);
+    renderTable();
+    filterTable();
+  } catch(e) {
+    console.error(e);
+    document.getElementById('conn-lbl').textContent = 'Error: ' + e.message;
+  }
+}
+
+// ─── Sucursales dropdown ───────────────────────────────────────
+async function loadSucursales(rows) {
+  const sel = document.getElementById('f-sucursal');
+  const cur = sel.value;
+  const sucs = [...new Set(rows.map(r => r.sucursal).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Todas las sucursales</option>' +
+    sucs.map(s => `<option value="${s}" ${s===cur?'selected':''}>${s}</option>`).join('');
+}
+
+// ─── KPIs ──────────────────────────────────────────────────────
+function buildKPIs(rows, desde, hasta) {
+  const entradas = rows.filter(r => r.tipo === 'entrada');
+  const salidas  = rows.filter(r => r.tipo === 'salida');
+  const hoy      = fmt(new Date());
+
+  const presentesHoy = desde <= hoy && hoy <= hasta
+    ? new Set(rows.filter(r => r.fecha_local === hoy && r.tipo === 'entrada').map(r => r.empleado_id)).size
+    : new Set(entradas.map(r => r.empleado_id)).size;
+
+  const confProm = rows.length
+    ? (rows.reduce((s,r) => s + (r.confianza_pct||0), 0) / rows.length).toFixed(1)
+    : 0;
+
+  animNum('kpi-presentes', presentesHoy);
+  animNum('kpi-entradas',  entradas.length);
+  animNum('kpi-salidas',   salidas.length);
+  document.getElementById('kpi-confianza').textContent = confProm + '%';
+}
+
+function animNum(id, target) {
+  const el = document.getElementById(id);
+  const start = parseInt(el.textContent) || 0;
+  const step = (target - start) / 20;
+  let cur = start; let i = 0;
+  const iv = setInterval(() => {
+    cur += step; i++;
+    el.textContent = Math.round(cur);
+    if (i >= 20) { el.textContent = target; clearInterval(iv); }
+  }, 20);
+}
+
+// ─── Chart helpers ─────────────────────────────────────────────
+const CHART_DEFAULTS = {
+  color: '#f0f6fc',
+  plugins: { legend: { labels: { color: '#8b949e', font: { size: 11 } } } },
+  scales: {
+    x: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,.04)' } },
+    y: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,.06)' }, beginAtZero: true }
+  }
+};
+
+function destroyChart(ref) { if (ref) ref.destroy(); }
+
+// ─── Tendencia 7 días ──────────────────────────────────────────
+function buildChartTendencia(rows) {
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    days.push(fmt(d));
+  }
+  const entradas = days.map(d => rows.filter(r => r.fecha_local === d && r.tipo === 'entrada').length);
+  const salidas  = days.map(d => rows.filter(r => r.fecha_local === d && r.tipo === 'salida').length);
+  const labels   = days.map(d => new Date(d + 'T12:00:00').toLocaleDateString('es-MX', {weekday:'short', day:'numeric'}));
+
+  destroyChart(chartTend);
+  const ctx = document.getElementById('chart-tendencia').getContext('2d');
+  chartTend = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Entradas', data: entradas, borderColor: '#22c55e', backgroundColor: 'rgba(34,197,94,.08)', tension: 0.4, pointBackgroundColor: '#22c55e', pointRadius: 4, fill: true },
+        { label: 'Salidas',  data: salidas,  borderColor: '#3a86ff', backgroundColor: 'rgba(58,134,255,.08)', tension: 0.4, pointBackgroundColor: '#3a86ff', pointRadius: 4, fill: true },
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, ...CHART_DEFAULTS }
+  });
+}
+
+// ─── Método ────────────────────────────────────────────────────
+function buildChartMetodo(rows) {
+  const counts = {};
+  rows.forEach(r => { const m = r.metodo || 'desconocido'; counts[m] = (counts[m]||0) + 1; });
+  const labels = Object.keys(counts);
+  const data   = Object.values(counts);
+  const colors = ['#00d2ff','#22c55e','#f59e0b','#ef4444','#8b5cf6','#ec4899'];
+
+  destroyChart(chartMetodo);
+  const ctx = document.getElementById('chart-metodo').getContext('2d');
+  chartMetodo = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: colors.slice(0, labels.length), borderWidth: 0, hoverOffset: 6 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '68%',
+      plugins: { legend: { position: 'bottom', labels: { color: '#8b949e', font: { size: 11 }, padding: 12 } } }
+    }
+  });
+}
+
+// ─── Por Sucursal ──────────────────────────────────────────────
+function buildChartSucursal(rows) {
+  const entradas = rows.filter(r => r.tipo === 'entrada');
+  const sucs = {};
+  entradas.forEach(r => { const s = r.sucursal || 'N/A'; sucs[s] = (sucs[s]||0) + 1; });
+  const sorted = Object.entries(sucs).sort((a,b) => b[1]-a[1]);
+  const labels = sorted.map(x => x[0]);
+  const data   = sorted.map(x => x[1]);
+
+  destroyChart(chartSuc);
+  const ctx = document.getElementById('chart-sucursal').getContext('2d');
+  chartSuc = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Entradas',
+        data,
+        backgroundColor: 'rgba(0,210,255,.7)',
+        borderColor: '#00d2ff',
+        borderWidth: 1,
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#8b949e', font:{size:10} }, grid: { color: 'rgba(255,255,255,.06)' }, beginAtZero: true },
+        y: { ticks: { color: '#f0f6fc', font:{size:10} }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+// ─── Retardos ──────────────────────────────────────────────────
+function buildChartRetardo(rows) {
+  const cats = { 'A tiempo': 0, 'Retardo leve': 0, 'Retardo moderado': 0, 'Retardo grave': 0, 'N/A': 0 };
+  rows.filter(r => r.tipo === 'entrada').forEach(r => {
+    const c = r.clasificacion_retardo || 'N/A';
+    if (cats[c] !== undefined) cats[c]++;
+  });
+  const labels = Object.keys(cats).filter(k => cats[k] > 0);
+  const data   = labels.map(k => cats[k]);
+  const colors = { 'A tiempo': '#22c55e', 'Retardo leve': '#f59e0b', 'Retardo moderado': '#f97316', 'Retardo grave': '#ef4444', 'N/A': '#484f58' };
+
+  destroyChart(chartRetardo);
+  const ctx = document.getElementById('chart-retardo').getContext('2d');
+  chartRetardo = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: labels.map(l => colors[l]), borderWidth: 0, hoverOffset: 6 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '68%',
+      plugins: { legend: { position: 'bottom', labels: { color: '#8b949e', font:{size:11}, padding: 12 } } }
+    }
+  });
+}
+
+// ─── Table ─────────────────────────────────────────────────────
+function filterTable() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  filtered = allRows.filter(r =>
+    !q ||
+    (r.nombre_empleado||'').toLowerCase().includes(q) ||
+    (r.sucursal||'').toLowerCase().includes(q) ||
+    (r.puesto||'').toLowerCase().includes(q) ||
+    (r.metodo||'').toLowerCase().includes(q)
+  );
+  page = 0;
+  renderTable();
+}
+
+function renderTable() {
+  const tbody = document.getElementById('table-body');
+  const total = filtered.length;
+  const start = page * PAGE_SIZE;
+  const slice = filtered.slice(start, start + PAGE_SIZE);
+
+  document.getElementById('table-count').textContent =
+    `${total.toLocaleString()} registro${total!==1?'s':''} encontrados`;
+  document.getElementById('table-empty').classList.toggle('hidden', total > 0);
+  document.getElementById('pag-info').textContent =
+    total ? `Mostrando ${start+1}–${Math.min(start+PAGE_SIZE, total)} de ${total}` : '';
+  document.getElementById('btn-prev').disabled = page === 0;
+  document.getElementById('btn-next').disabled = start + PAGE_SIZE >= total;
+
+  tbody.innerHTML = slice.map(r => {
+    const tipoColor = r.tipo === 'entrada' ? '#22c55e' : '#3a86ff';
+    const tipoBg    = r.tipo === 'entrada' ? 'rgba(34,197,94,.1)' : 'rgba(58,134,255,.1)';
+    const conf = r.confianza_pct || 0;
+    const confColor = conf >= 80 ? '#22c55e' : conf >= 60 ? '#f59e0b' : '#ef4444';
+    const retColor = {
+      'A tiempo': '#22c55e', 'Retardo leve': '#f59e0b',
+      'Retardo moderado': '#f97316', 'Retardo grave': '#ef4444', 'N/A': '#484f58'
+    }[r.clasificacion_retardo] || '#484f58';
+
+    return `<tr class="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
+      <td class="px-4 py-3 font-medium text-[#f0f6fc]">${r.nombre_empleado || '--'}</td>
+      <td class="px-4 py-3">
+        <span class="badge" style="background:${tipoBg};color:${tipoColor}">${r.tipo?.toUpperCase()}</span>
+      </td>
+      <td class="px-4 py-3 mono text-[#8b949e]">${r.fecha_local || '--'}</td>
+      <td class="px-4 py-3 mono font-bold">${r.hora_local || '--'}</td>
+      <td class="px-4 py-3 mono font-bold" style="color:${confColor}">${conf ? conf+'%' : '--'}</td>
+      <td class="px-4 py-3 text-[#8b949e]">${r.sucursal || '--'}</td>
+      <td class="px-4 py-3 text-[#8b949e] text-[11px]">${r.puesto || '--'}</td>
+      <td class="px-4 py-3">
+        <span class="badge" style="background:rgba(255,255,255,.05);color:#8b949e">${r.metodo || '--'}</span>
+      </td>
+      <td class="px-4 py-3">
+        <span class="text-[11px] font-semibold" style="color:${retColor}">${r.clasificacion_retardo || 'N/A'}</span>
+      </td>
+      <td class="px-4 py-3 mono text-[11px] text-[#484f58]">${r.dispositivo || '--'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function prevPage() { if (page > 0) { page--; renderTable(); } }
+function nextPage() { if ((page+1)*PAGE_SIZE < filtered.length) { page++; renderTable(); } }
+
+// ─── Export CSV ────────────────────────────────────────────────
+function exportCSV() {
+  if (!filtered.length) return;
+  const cols = [
+    'nombre_empleado','tipo','fecha_local','hora_local','confianza_pct',
+    'sucursal','zona','puesto','metodo','clasificacion_retardo',
+    'minutos_retardo','dispositivo','reconocimiento_facial'
+  ];
+  const headers = [
+    'Empleado','Tipo','Fecha','Hora','Confianza %',
+    'Sucursal','Zona','Puesto','Método','Puntualidad',
+    'Min. Retardo','Dispositivo','Reconoc. Facial'
+  ];
+  const csv = [
+    headers.join(','),
+    ...filtered.map(r => cols.map(c => {
+      const v = r[c] ?? '';
+      return typeof v === 'string' && v.includes(',') ? `"${v}"` : v;
+    }).join(','))
+  ].join('\n');
+
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `asistencias_${fmt(new Date())}.csv`;
+  a.click();
+}
+</script>
+</body>
+</html>

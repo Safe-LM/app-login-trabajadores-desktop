@@ -22,6 +22,7 @@ from PyQt5.QtCore import (
     Qt,
     QTimer,
     QPropertyAnimation,
+    QVariantAnimation,
     QEasingCurve,
     QRect,
     QSize,
@@ -39,6 +40,7 @@ from PyQt5.QtGui import (
     QPen,
     QPainterPath,
     QFontMetrics,
+    QIcon,
 )
 from utils.auth import authenticate_user
 
@@ -48,15 +50,16 @@ _BASE_DIR = Path(__file__).resolve().parent.parent
 _C = {
     "bg": "#0a0f1a",
     "panel": "#0f1525",
-    "card": "#111827",
-    "card_alt": "#161e2e",
-    "input_bg": "#0f172a",
+    "card": "#0f172a",        # Ligeramente más oscuro para contrastar con el panel
+    "card_alt": "#111827",
+    "input_bg": "#0c1428",
     "border": "#1e293b",
     "border_hl": "#334155",
-    "accent": "#6366f1",
-    "accent_dk": "#4f46e5",
-    "accent_lt": "#818cf8",
-    "accent_glow": "#6366f140",
+    # Enterprise blue — reemplaza indigo (anti-pattern "AI purple" según skill)
+    "accent": "#2563eb",
+    "accent_dk": "#1d4ed8",
+    "accent_lt": "#60a5fa",
+    "accent_glow": "#2563eb45",
     "success": "#22c55e",
     "error": "#ef4444",
     "error_bg": "#1a0a0a",
@@ -85,6 +88,209 @@ def _glow(color="#000", blur=24, ox=0, oy=4, parent=None):
     e.setBlurRadius(blur)
     e.setOffset(ox, oy)
     return e
+
+
+# =====================================================================
+#  Helper: lock icon pixmap (dibujado con QPainter, sin emojis)
+# =====================================================================
+
+def _make_lock_px(sz: int = 16, alpha: int = 220) -> QPixmap:
+    """Candado vectorial blanco semitransparente para el botón de login."""
+    px = QPixmap(sz, sz)
+    px.fill(Qt.transparent)
+    p = QPainter(px)
+    p.setRenderHint(QPainter.Antialiasing)
+    col = QColor(255, 255, 255, alpha)
+    p.setPen(QPen(col, 1.4, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+    p.setBrush(Qt.NoBrush)
+    # Cuerpo del candado
+    bx, by = sz * 0.18, sz * 0.46
+    bw, bh = sz * 0.64, sz * 0.47
+    p.drawRoundedRect(QRectF(bx, by, bw, bh), 2.2, 2.2)
+    # Arco superior
+    p.drawArc(QRectF(sz * 0.28, sz * 0.08, sz * 0.44, sz * 0.52), 0, 180 * 16)
+    # Punto central (cerradura)
+    p.setBrush(col)
+    p.setPen(Qt.NoPen)
+    r = sz * 0.11
+    p.drawEllipse(QRectF(sz / 2 - r, sz * 0.57, r * 2, r * 2))
+    p.end()
+    return px
+
+
+# =====================================================================
+#  Shield animado — pulse ring via QTimer + QPainter
+# =====================================================================
+
+class _ShieldWidget(QWidget):
+    """Widget que dibuja el escudo con dos anillos de pulso animados."""
+
+    def __init__(self, shield_px: QPixmap, parent=None):
+        super().__init__(parent)
+        self._px = shield_px
+        self._phase = 0.0
+        sz = shield_px.width() + 30
+        self.setFixedSize(sz, sz)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setStyleSheet("background:transparent;")
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._tick)
+        self._timer.start(42)   # ~24 fps — suave sin quemar CPU
+
+    def _tick(self):
+        self._phase = (self._phase + 0.013) % 1.0
+        self.update()
+
+    def paintEvent(self, ev):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        w, h = self.width(), self.height()
+        cx, cy = w / 2.0, h / 2.0
+
+        # Dos anillos escalonados (fase 0 y 0.5)
+        for offset in (0.0, 0.5):
+            phase = (self._phase + offset) % 1.0
+            r = phase * cx * 0.88 + cx * 0.22
+            alpha = int(max(0.0, (1.0 - phase) ** 1.6 * 85))
+            p.setPen(QPen(QColor(37, 99, 235, alpha), 1.3))
+            p.setBrush(Qt.NoBrush)
+            p.drawEllipse(QRectF(cx - r, cy - r, r * 2, r * 2))
+
+        # Escudo centrado
+        sx = int(cx - self._px.width() / 2)
+        sy = int(cy - self._px.height() / 2)
+        p.drawPixmap(sx, sy, self._px)
+        p.end()
+
+
+# =====================================================================
+#  Card Frame — con top accent stripe pintado encima
+# =====================================================================
+
+class _CardFrame(QFrame):
+    """QFrame con una franja gradient azul de 3px en la parte superior."""
+
+    def paintEvent(self, ev):
+        super().paintEvent(ev)
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        w = self.width()
+
+        # Gradient stripe: transparente → azul → celeste → transparente
+        grad = QLinearGradient(0, 0, w, 0)
+        grad.setColorAt(0.00, QColor(37, 99, 235, 0))
+        grad.setColorAt(0.20, QColor(37, 99, 235, 220))
+        grad.setColorAt(0.75, QColor(96, 165, 250, 180))
+        grad.setColorAt(1.00, QColor(37, 99, 235, 0))
+
+        # Clip a los 4px superiores respetando el border-radius del card
+        clip = QPainterPath()
+        clip.addRect(QRectF(0, 0, w, 4))
+        rounded = QPainterPath()
+        rounded.addRoundedRect(QRectF(0, 0, w, 4), 16, 16)
+        p.setClipPath(clip.intersected(rounded))
+        p.setPen(Qt.NoPen)
+        p.fillRect(0, 0, w, 4, QBrush(grad))
+        p.setClipping(False)
+        p.end()
+
+
+# =====================================================================
+#  Login Button — con lock icon + spinner animado durante auth
+# =====================================================================
+
+class _LoginButton(QPushButton):
+    """Botón con candado vectorial y spinner animado al verificar."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._spinning = False
+        self._angle = 0
+        self._lock_px = None
+        self._spin_timer = QTimer(self)
+        self._spin_timer.timeout.connect(self._tick_spin)
+
+    def set_lock_icon(self, px: QPixmap):
+        self._lock_px = px
+        self.setIcon(QIcon(px))
+        self.setIconSize(QSize(15, 15))
+
+    def start_spin(self):
+        self._spinning = True
+        self._angle = 0
+        self.setIcon(QIcon())          # ocultar lock mientras gira
+        self._spin_timer.start(22)     # ~45 fps
+        self.update()
+
+    def stop_spin(self):
+        self._spinning = False
+        self._spin_timer.stop()
+        if self._lock_px:
+            self.setIcon(QIcon(self._lock_px))
+        self.update()
+
+    def _tick_spin(self):
+        self._angle = (self._angle + 9) % 360
+        self.update()
+
+    def paintEvent(self, ev):
+        super().paintEvent(ev)
+        if not self._spinning:
+            return
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        sz = 15
+        x = self.width() - 30
+        y = (self.height() - sz) // 2
+        p.setPen(QPen(QColor(255, 255, 255, 200), 2.2, Qt.SolidLine, Qt.RoundCap))
+        p.setBrush(Qt.NoBrush)
+        p.drawArc(QRectF(x, y, sz, sz), self._angle * 16, 260 * 16)
+        p.end()
+
+
+# =====================================================================
+#  Right panel — fondo decorativo (dot grid + ambient glow)
+# =====================================================================
+class _RightPanel(QWidget):
+    """Panel derecho con dot grid sutil y radial glow detrás del card."""
+
+    def paintEvent(self, ev):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        w, h = self.width(), self.height()
+
+        # Base background
+        p.fillRect(self.rect(), QColor(_C["bg"]))
+
+        # Radial ambient glow centrado — ancla el card visualmente
+        cx, cy = w / 2, h / 2
+        radius = min(w, h) * 0.55
+        glow = QRadialGradient(cx, cy, radius)
+        glow.setColorAt(0.0, QColor(37, 99, 235, 22))   # enterprise blue suave
+        glow.setColorAt(0.55, QColor(37, 99, 235, 8))
+        glow.setColorAt(1.0, QColor(0, 0, 0, 0))
+        p.fillRect(self.rect(), QBrush(glow))
+
+        # Segundo glow en esquina inferior derecha (profundidad)
+        glow2 = QRadialGradient(w * 0.85, h * 0.9, min(w, h) * 0.35)
+        glow2.setColorAt(0.0, QColor(99, 102, 241, 12))
+        glow2.setColorAt(1.0, QColor(0, 0, 0, 0))
+        p.fillRect(self.rect(), QBrush(glow2))
+
+        # Dot grid sutil (estilo Linear / Vercel)
+        dot_spacing = 28
+        p.setPen(QPen(QColor(255, 255, 255, 16), 1.2))
+        for x in range(0, w + dot_spacing, dot_spacing):
+            for y in range(0, h + dot_spacing, dot_spacing):
+                p.drawPoint(x, y)
+
+        # Borde izquierdo con gradient para separación suave del brand panel
+        edge = QLinearGradient(0, 0, 1, 0)
+        edge.setColorAt(0.0, QColor(37, 99, 235, 30))
+        edge.setColorAt(1.0, QColor(0, 0, 0, 0))
+        p.fillRect(0, 0, 2, h, QBrush(edge))
+
+        p.end()
 
 
 # =====================================================================
@@ -117,40 +323,40 @@ class LoginWindow(QMainWindow):
 
         rl.addWidget(_BrandPanel(), 3)
 
-        # ── Right side ───────────────────────────────────────────────
-        right = QWidget()
-        right.setStyleSheet(f"background:{_C['bg']};")
-        rv = QVBoxLayout(right)
+        # ── Right side — panel decorativo ────────────────────────────
+        right = _RightPanel()
+        self._rv = QVBoxLayout(right)
+        rv = self._rv
         rv.setContentsMargins(0, 0, 0, 0)
         rv.addStretch(2)
 
-        # Card wrapper
-        card = QFrame()
+        # Card wrapper — _CardFrame pinta la stripe azul en el top
+        card = _CardFrame()
         card.setMaximumWidth(420)
         card.setStyleSheet(f"""
             QFrame#loginCard {{
-                background: {_C['card']};
-                border: 1px solid {_C['border']};
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #111827, stop:1 {_C['card']});
+                border: 1px solid rgba(37, 99, 235, 0.30);
                 border-radius: 16px;
             }}
         """)
         card.setObjectName("loginCard")
-        card.setGraphicsEffect(_glow("#000000", 40, 0, 8))
+        card.setGraphicsEffect(_glow(_C["accent_glow"], 55, 0, 10))
+        self._login_card = card
         cl = QVBoxLayout(card)
-        cl.setContentsMargins(36, 40, 36, 36)
+        cl.setContentsMargins(36, 36, 36, 32)
         cl.setSpacing(0)
 
-        # Shield
-        shield = QLabel()
-        shield.setPixmap(self._shield(52))
-        shield.setAlignment(Qt.AlignCenter)
-        shield.setStyleSheet("background:transparent;")
-        cl.addWidget(shield)
-        cl.addSpacing(18)
+        # Shield animado con pulse ring
+        shield_w = _ShieldWidget(self._shield(60))
+        shield_w.setStyleSheet("background:transparent;")
+        cl.addWidget(shield_w, 0, Qt.AlignCenter)
+        cl.addSpacing(14)
 
-        # Title
+        # Title — ExtraBold (80) para presencia enterprise
         t = QLabel("Bienvenido de nuevo")
-        t.setFont(_f(24, weight=75))
+        t.setFont(_f(24, weight=80))
         t.setAlignment(Qt.AlignCenter)
         t.setStyleSheet(f"color:{_C['text']};background:transparent;")
         cl.addWidget(t)
@@ -181,13 +387,15 @@ class LoginWindow(QMainWindow):
         cl.addWidget(self._pw_row)
         cl.addSpacing(24)
 
-        # Button
-        self.login_btn = QPushButton("INICIAR SESIÓN")
+        # Botón con lock icon vectorial + spinner durante auth
+        self.login_btn = _LoginButton()
+        self.login_btn.setText("INICIAR SESIÓN")
         self.login_btn.setFont(_f(12, True))
         self.login_btn.setCursor(Qt.PointingHandCursor)
         self.login_btn.setFixedHeight(50)
         self.login_btn.setStyleSheet(self._btn_css())
         self.login_btn.setGraphicsEffect(_glow(_C["accent_glow"], 30, 0, 6))
+        self.login_btn.set_lock_icon(_make_lock_px(15))
         self.login_btn.clicked.connect(self._on_login)
         cl.addWidget(self.login_btn)
 
@@ -196,38 +404,46 @@ class LoginWindow(QMainWindow):
 
         cl.addSpacing(20)
 
-        # Hint
+        # Separador con tinte accent
         sep = QFrame()
         sep.setFixedHeight(1)
-        sep.setStyleSheet(f"background:{_C['border']};")
+        sep.setStyleSheet("background: rgba(37, 99, 235, 0.20);")
         cl.addWidget(sep)
-        cl.addSpacing(16)
+        cl.addSpacing(14)
 
-        hint_row = QHBoxLayout()
-        hint_row.setSpacing(8)
-        dot = QLabel()
-        dot.setFixedSize(6, 6)
-        dot.setStyleSheet(f"background:{_C['accent']};border-radius:3px;")
-        hint_row.addWidget(dot, 0, Qt.AlignVCenter)
-        hl = QLabel("Credenciales de prueba")
-        hl.setFont(_f(9, True))
-        hl.setStyleSheet(f"color:{_C['accent_lt']};background:transparent;")
-        hint_row.addWidget(hl)
-        hint_row.addStretch()
-        cl.addLayout(hint_row)
-        cl.addSpacing(6)
+        # Pill badge DEV + credenciales en una sola línea limpia
+        creds_row = QHBoxLayout()
+        creds_row.setSpacing(10)
 
-        creds = QLabel(
-            f'<span style="color:{_C["dim"]}">Usuario: </span>'
-            f'<span style="color:{_C["text2"]}">admin</span>'
-            f'<span style="color:{_C["faint"]}">  ·  </span>'
-            f'<span style="color:{_C["dim"]}">Contraseña: </span>'
-            f'<span style="color:{_C["text2"]}">admin123</span>'
-        )
+        dev_badge = QLabel("DEV")
+        dev_badge.setFont(_f(7, True))
+        dev_badge.setAlignment(Qt.AlignCenter)
+        dev_badge.setStyleSheet(f"""
+            color: {_C['accent_lt']};
+            background: rgba(37, 99, 235, 0.12);
+            border: 1px solid rgba(37, 99, 235, 0.28);
+            border-radius: 4px;
+            padding: 2px 7px;
+        """)
+        creds_row.addWidget(dev_badge, 0, Qt.AlignVCenter)
+
+        creds = QLabel("admin  ·  admin123")
         creds.setFont(_f(10))
-        creds.setStyleSheet("background:transparent;")
+        creds.setStyleSheet(f"color:{_C['text2']};background:transparent;")
         creds.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        cl.addWidget(creds)
+        creds_row.addWidget(creds)
+        creds_row.addStretch()
+        cl.addLayout(creds_row)
+
+        # Version badge — bottom-right del card
+        ver_row = QHBoxLayout()
+        ver_row.addStretch()
+        ver_lbl = QLabel("v2.0.4")
+        ver_lbl.setFont(_f(7))
+        ver_lbl.setStyleSheet(f"color:{_C['faint']};background:transparent;")
+        ver_row.addWidget(ver_lbl)
+        cl.addSpacing(6)
+        cl.addLayout(ver_row)
 
         rv.addWidget(card, 0, Qt.AlignCenter)
         rv.addStretch(3)
@@ -236,7 +452,7 @@ class LoginWindow(QMainWindow):
         footer.setFont(_f(8))
         footer.setAlignment(Qt.AlignCenter)
         footer.setStyleSheet(
-            f"color:{_C['faint']};background:transparent;padding:12px;"
+            "color:#64748b;background:transparent;padding:12px;"  # contraste 4.5:1+
         )
         rv.addWidget(footer)
 
@@ -311,7 +527,7 @@ class LoginWindow(QMainWindow):
                 background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
                     stop:0 {_C['accent_lt']}, stop:1 {_C['accent']});
             }}
-            QPushButton:pressed {{ background: #3730a3; }}
+            QPushButton:pressed {{ background: #1e40af; }}
             QPushButton:disabled {{
                 background: {_C['border']}; color: {_C['muted']};
             }}
@@ -327,7 +543,7 @@ class LoginWindow(QMainWindow):
         cx, cy, s = sz / 2, sz / 2, sz * 0.42
 
         gl = QRadialGradient(cx, cy, sz * 0.48)
-        gl.setColorAt(0, QColor(99, 102, 241, 35))
+        gl.setColorAt(0, QColor(37, 99, 235, 40))   # enterprise blue glow
         gl.setColorAt(1, QColor(0, 0, 0, 0))
         p.setBrush(QBrush(gl))
         p.setPen(Qt.NoPen)
@@ -338,7 +554,7 @@ class LoginWindow(QMainWindow):
         g.setColorAt(0, QColor(_C["accent_lt"]))
         g.setColorAt(1, QColor(_C["accent_dk"]))
         p.setBrush(QBrush(g))
-        p.setPen(QPen(QColor(165, 180, 252, 100), 1))
+        p.setPen(QPen(QColor(147, 197, 253, 110), 1))  # blue-300 tint
         p.drawPath(path)
 
         p.setPen(
@@ -377,12 +593,27 @@ class LoginWindow(QMainWindow):
     def show(self):
         self.setWindowOpacity(0)
         super().show()
+
+        # Fade-in de la ventana completa
         self._fade = QPropertyAnimation(self, b"windowOpacity")
-        self._fade.setDuration(450)
+        self._fade.setDuration(420)
         self._fade.setStartValue(0.0)
         self._fade.setEndValue(1.0)
         self._fade.setEasingCurve(QEasingCurve.OutCubic)
         self._fade.start()
+
+        # Slide-up del card: margen superior animado 28px → 0
+        # QVariantAnimation sobre los margins del layout evita conflictos con el layout manager
+        self._rv.setContentsMargins(0, 28, 0, 0)
+        self._slide = QVariantAnimation(self)
+        self._slide.setStartValue(28)
+        self._slide.setEndValue(0)
+        self._slide.setDuration(520)
+        self._slide.setEasingCurve(QEasingCurve.OutCubic)
+        self._slide.valueChanged.connect(
+            lambda v: self._rv.setContentsMargins(0, int(v), 0, 0)
+        )
+        self._slide.start()
 
     # ── Auth ──────────────────────────────────────────────────────────
 
@@ -398,6 +629,7 @@ class LoginWindow(QMainWindow):
         self._hide_err()
         self.login_btn.setText("Verificando…")
         self.login_btn.setEnabled(False)
+        self.login_btn.start_spin()   # spinner animado durante auth
         self.login_btn.repaint()
         QTimer.singleShot(400, lambda: self._auth(user, pw))
 
@@ -408,7 +640,8 @@ class LoginWindow(QMainWindow):
             t = None
         if t:
             self.current_user = t
-            self.login_btn.setText("✓  Acceso concedido")
+            self.login_btn.stop_spin()
+            self.login_btn.setText("Acceso concedido")
             self.login_btn.setStyleSheet(f"""
                 QPushButton{{background:{_C['success']};color:white;
                 border:none;border-radius:10px;padding:12px 0;}}
@@ -423,6 +656,7 @@ class LoginWindow(QMainWindow):
 
     def _reset_btn(self):
         self._busy = False
+        self.login_btn.stop_spin()
         self.login_btn.setText("INICIAR SESIÓN")
         self.login_btn.setEnabled(True)
         self.login_btn.setStyleSheet(self._btn_css())
@@ -481,6 +715,19 @@ class _IconInput(QLineEdit):
                 "border-radius: 8px; border-top-right-radius:0; border-bottom-right-radius:0;",
             )
         self.setStyleSheet(css)
+
+    def focusInEvent(self, ev):
+        super().focusInEvent(ev)
+        # Glow azul suave al hacer focus (enterprise blue, alpha 70)
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(18)
+        shadow.setColor(QColor(37, 99, 235, 70))
+        shadow.setOffset(0, 0)
+        self.setGraphicsEffect(shadow)
+
+    def focusOutEvent(self, ev):
+        super().focusOutEvent(ev)
+        self.setGraphicsEffect(None)
 
     def paintEvent(self, ev):
         super().paintEvent(ev)
@@ -671,16 +918,24 @@ class _BrandPanel(QWidget):
             p.drawText(48, yd, ln)
             yd += 21
 
-        # Features
+        # Features — checkmarks dibujados con QPainterPath (sin Unicode)
         yf = int(h * 0.78)
+        ck_pen = QPen(QColor(_C["success"]), 1.8, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
         for feat in [
             "Reconocimiento facial con IA",
             "Registro automático de asistencia",
             "Protección contra suplantación",
         ]:
-            p.setPen(QColor(_C["success"]))
-            p.setFont(QFont(_FF, 11))
-            p.drawText(48, yf, "✓")
+            # Checkmark vectorial: V corta centrada en (54, yf-4)
+            cx_ck, cy_ck, s_ck = 54.0, float(yf) - 4.0, 5.0
+            ck = QPainterPath()
+            ck.moveTo(cx_ck - s_ck * 0.8, cy_ck + s_ck * 0.1)
+            ck.lineTo(cx_ck - s_ck * 0.05, cy_ck + s_ck * 0.85)
+            ck.lineTo(cx_ck + s_ck * 0.85, cy_ck - s_ck * 0.55)
+            p.setPen(ck_pen)
+            p.setBrush(Qt.NoBrush)
+            p.drawPath(ck)
+
             p.setFont(QFont(_FF, 10))
             p.setPen(QColor(220, 228, 240))
             p.drawText(68, yf, feat)

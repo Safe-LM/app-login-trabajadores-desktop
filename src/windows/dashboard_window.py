@@ -18,7 +18,7 @@ from PyQt5.QtWidgets import (
     QGraphicsDropShadowEffect,
     QSizePolicy,
 )
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QThread, QSize
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QThread, QSize, QVariantAnimation, QEasingCurve
 from PyQt5.QtGui import (
     QImage,
     QPixmap,
@@ -28,6 +28,9 @@ from PyQt5.QtGui import (
     QPainter,
     QLinearGradient,
     QBrush,
+    QPainterPath,
+    QPen,
+    QIcon,
 )
 import cv2
 import numpy as np
@@ -41,6 +44,11 @@ from pathlib import Path
 from utils.supabase_client import get_supabase_client
 
 logger = logging.getLogger(__name__)
+
+try:
+    from utils.design_tokens import SHARED as _SHARED
+except ImportError:
+    _SHARED = {}
 
 FACE_RECOGNITION_AVAILABLE = False
 reconocer_desde_frame = None
@@ -79,19 +87,25 @@ def _lazy_load_face_recognition():
 # ---------------------------------------------------------------------------
 
 _COLORS = {
-    "bg_dark": "#010409",  # Negro OLED (Estilo GitHub/Linear)
-    "bg_card": "rgba(22, 27, 34, 0.8)",  # Cristal moderno
-    "bg_card_alt": "rgba(33, 38, 45, 0.5)",
-    "border": "rgba(240, 246, 252, 0.1)",  # Borde ultra fino
+    # Fondos — alineados con design_tokens SHARED
+    "bg_dark":    _SHARED.get("bg_oled",   "#010409"),
+    "bg_card":    "rgba(22, 27, 34, 0.8)",
+    "bg_card_alt":"rgba(33, 38, 45, 0.5)",
+    # Bordes
+    "border":        _SHARED.get("border",        "rgba(240, 246, 252, 0.18)"),
+    "border_strong": _SHARED.get("border_strong", "rgba(240, 246, 252, 0.28)"),
     "border_accent": "#58a6ff",
-    "text": "#f0f6fc",
-    "text_dim": "#8b949e",
-    "text_muted": "#484f58",
-    "accent": "#00d2ff",  # Electric Blue
+    # Texto — alineados con design_tokens SHARED
+    "text":      _SHARED.get("text_primary", "#f0f6fc"),
+    "text_dim":  _SHARED.get("text_dim",     "#8b949e"),
+    "text_muted":_SHARED.get("text_muted",   "#484f58"),
+    # Semánticos — alineados con design_tokens SHARED
+    "success": _SHARED.get("success", "#22c55e"),
+    "warning": _SHARED.get("warning", "#f59e0b"),
+    "danger":  _SHARED.get("danger",  "#ef4444"),
+    # Acento dashboard (Electric Blue — diferente del Enterprise Blue del login)
+    "accent":      "#00d2ff",
     "accent_dark": "#3a86ff",
-    "success": "#39D353",  # Spring Green (Web style)
-    "warning": "#f0883e",  # Naranja vivo
-    "danger": "#ff4b5c",  # Coral vibrante
     "gradient_main": "qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #00d2ff, stop:1 #3a86ff)",
 }
 
@@ -122,14 +136,113 @@ def _btn_style(color, hover, pressed=None):
             text-transform: uppercase;
             letter-spacing: 1px;
         }}
-        QPushButton:hover {{ 
+        QPushButton:hover {{
             background: {hover};
-            border: 1px solid rgba(255,255,255,0.3);
-            margin-top: -2px; /* Efecto levitación */
+            border: 1.5px solid rgba(255,255,255,0.35);
         }}
-        QPushButton:pressed {{ background: {pressed}; margin-top: 0px; }}
+        QPushButton:pressed {{ background: {pressed}; }}
         QPushButton:disabled {{ background: #161b22; color: #484f58; border: 1px solid #30363d; }}
     """
+
+
+# ---------------------------------------------------------------------------
+# Helper: ícono vectorial dibujado con QPainter (sin emojis ni Unicode)
+# ---------------------------------------------------------------------------
+
+def _make_dialog_icon(color_hex: str, is_check: bool, size: int = 56) -> QPixmap:
+    """Dibuja un círculo con checkmark (entrada) o flecha salida (salida)."""
+    px = QPixmap(size, size)
+    px.fill(Qt.transparent)
+    p = QPainter(px)
+    p.setRenderHint(QPainter.Antialiasing)
+
+    # Círculo de fondo
+    p.setPen(Qt.NoPen)
+    p.setBrush(QColor(color_hex))
+    p.drawEllipse(0, 0, size, size)
+
+    # Ícono blanco encima
+    pen = QPen(QColor(255, 255, 255, 230), 2.8, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin)
+    p.setPen(pen)
+    p.setBrush(Qt.NoBrush)
+    cx, cy, s = size / 2.0, size / 2.0, size * 0.22
+
+    if is_check:
+        path = QPainterPath()
+        path.moveTo(cx - s * 0.9, cy + s * 0.1)
+        path.lineTo(cx - s * 0.1, cy + s * 0.85)
+        path.lineTo(cx + s * 0.9, cy - s * 0.6)
+        p.drawPath(path)
+    else:
+        # Flecha de salida →
+        path = QPainterPath()
+        path.moveTo(cx - s * 0.7, cy)
+        path.lineTo(cx + s * 0.5, cy)
+        path2 = QPainterPath()
+        path2.moveTo(cx + s * 0.5, cy)
+        path2.lineTo(cx + s * 0.1, cy - s * 0.5)
+        path2.moveTo(cx + s * 0.5, cy)
+        path2.lineTo(cx + s * 0.1, cy + s * 0.5)
+        p.drawPath(path)
+        p.drawPath(path2)
+
+    p.end()
+    return px
+
+
+# ---------------------------------------------------------------------------
+# Widget: arco circular de confianza
+# ---------------------------------------------------------------------------
+
+
+class _ConfidenceArc(QWidget):
+    """Muestra el % de confianza como arco circular + valor numérico central."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._pct = -1.0
+        self._color = QColor(_COLORS["text_muted"])
+        self.setFixedSize(140, 140)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.setStyleSheet("background: transparent;")
+
+    def set_value(self, pct: float, color_hex: str):
+        self._pct = max(0.0, min(100.0, pct))
+        self._color = QColor(color_hex)
+        self.update()
+
+    def reset(self):
+        self._pct = -1.0
+        self._color = QColor(_COLORS["text_muted"])
+        self.update()
+
+    def paintEvent(self, _ev):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        W, H = self.width(), self.height()
+        margin = 12
+        r = min(W, H) // 2 - margin
+        cx, cy = W // 2, H // 2
+
+        # Track ring (fondo del arco)
+        p.setPen(QPen(QColor(255, 255, 255, 18), 7, Qt.SolidLine, Qt.RoundCap))
+        p.setBrush(Qt.NoBrush)
+        p.drawEllipse(cx - r, cy - r, 2 * r, 2 * r)
+
+        # Arco de valor (sentido horario desde las 12)
+        if self._pct >= 0:
+            arc_pen = QPen(self._color, 7, Qt.SolidLine, Qt.RoundCap)
+            p.setPen(arc_pen)
+            span = int(self._pct / 100.0 * 360 * 16)
+            p.drawArc(cx - r, cy - r, 2 * r, 2 * r, 90 * 16, -span)
+
+        # Texto central
+        txt = f"{self._pct:.0f}%" if self._pct >= 0 else "--"
+        p.setPen(QPen(self._color))
+        font_sz = 24 if self._pct >= 0 else 28
+        p.setFont(QFont("Consolas", font_sz, QFont.Bold))
+        p.drawText(self.rect(), Qt.AlignCenter, txt)
+        p.end()
 
 
 # ---------------------------------------------------------------------------
@@ -176,18 +289,13 @@ class AttendanceDialog(QWidget):
 
         is_entrada = tipo.upper() == "ENTRADA"
         accent = _COLORS["success"] if is_entrada else _COLORS["accent"]
-        icon_text = "✓" if is_entrada else "↩"
 
-        # Icon circle
-        icon_lbl = QLabel(icon_text)
+        # Icon circle — dibujado con QPainter (sin emojis ni Unicode)
+        icon_lbl = QLabel()
         icon_lbl.setFixedSize(56, 56)
         icon_lbl.setAlignment(Qt.AlignCenter)
-        icon_lbl.setFont(QFont("Segoe UI", 22, QFont.Bold))
-        icon_lbl.setStyleSheet(f"""
-            background: {accent};
-            color: white;
-            border-radius: 28px;
-        """)
+        icon_lbl.setStyleSheet("background: transparent;")
+        icon_lbl.setPixmap(_make_dialog_icon(accent, is_check=is_entrada, size=56))
         cl.addWidget(icon_lbl, 0, Qt.AlignCenter)
         cl.addSpacing(14)
 
@@ -199,7 +307,8 @@ class AttendanceDialog(QWidget):
         cl.addWidget(title)
         cl.addSpacing(16)
 
-        # Info rows
+        # Info rows — Confianza y Hora usan Consolas (font monoespaciada para datos)
+        _mono = {"Confianza", "Hora"}
         for label, value, color in [
             ("Empleado", nombre, _COLORS["text"]),
             ("Confianza", f"{confianza}%", accent),
@@ -213,7 +322,8 @@ class AttendanceDialog(QWidget):
             row.addWidget(lk)
             row.addStretch()
             vk = QLabel(value)
-            vk.setFont(QFont("Segoe UI", 11, QFont.Bold))
+            font_family = "Consolas" if label in _mono else "Segoe UI"
+            vk.setFont(QFont(font_family, 11, QFont.Bold))
             vk.setStyleSheet(f"color: {color}; background:transparent;")
             row.addWidget(vk)
             cl.addLayout(row)
@@ -222,15 +332,17 @@ class AttendanceDialog(QWidget):
 
         cl.addSpacing(24)
 
-        # Countdown info
-        self.countdown_label = QLabel("La sesion se cerrara en 5s...")
-        self.countdown_label.setFont(QFont("Segoe UI", 10, QFont.Bold))
+        # Countdown info — número prominente + texto
+        self._secs_left = 5
+        self.countdown_label = QLabel(f"Cerrando en  {self._secs_left}s")
+        self.countdown_label.setFont(QFont("Consolas", 11, QFont.Bold))
         self.countdown_label.setAlignment(Qt.AlignCenter)
-        self.countdown_label.setStyleSheet(f"color: {accent}; background:transparent;")
+        self.countdown_label.setStyleSheet(
+            f"color: {accent}; background: rgba(255,255,255,0.05);"
+            f"border-radius: 8px; padding: 6px 12px;"
+        )
         cl.addWidget(self.countdown_label)
 
-        # Timer para actualizar el texto del countdown
-        self._secs_left = 5
         self._count_timer = QTimer(self)
         self._count_timer.timeout.connect(self._update_countdown)
         self._count_timer.start(1000)
@@ -240,9 +352,7 @@ class AttendanceDialog(QWidget):
     def _update_countdown(self):
         self._secs_left -= 1
         if self._secs_left > 0:
-            self.countdown_label.setText(
-                f"La sesion se cerrara en {self._secs_left}s..."
-            )
+            self.countdown_label.setText(f"Cerrando en  {self._secs_left}s")
         else:
             self._count_timer.stop()
             self.close()
@@ -485,9 +595,11 @@ class DashboardWindow(QMainWindow):
         self.professional_model_available = None
         self.yolo11_available = None
         self.models_checked = False
+        self._active_dialog = None  # Guard anti-dialog duplicado
 
         self.init_ui()
         self.setup_photos_database()
+        self._load_last_registration()
 
         self.recognition_thread = RecognitionThread(self)
         self.recognition_thread.results_ready.connect(self.on_recognition_results)
@@ -568,6 +680,26 @@ class DashboardWindow(QMainWindow):
         )
         h_lay.addWidget(user_lbl)
 
+        # Separador visual
+        sep2 = QLabel("|")
+        sep2.setStyleSheet(
+            f"color: {_COLORS['border']}; background: transparent; font-size: 16px; margin: 0 8px;"
+        )
+        h_lay.addWidget(sep2)
+
+        # Reloj en vivo — Consolas para datos numéricos/tiempo
+        self._clock_lbl = QLabel()
+        self._clock_lbl.setFont(QFont("Consolas", 11))
+        self._clock_lbl.setStyleSheet(
+            f"color: {_COLORS['text_dim']}; background: transparent;"
+        )
+        h_lay.addWidget(self._clock_lbl)
+
+        self._clock_timer = QTimer(self)
+        self._clock_timer.timeout.connect(self._update_clock)
+        self._clock_timer.start(1000)
+        self._update_clock()
+
         root_lay.addWidget(header)
 
         # ---------- Body ----------
@@ -591,6 +723,16 @@ class DashboardWindow(QMainWindow):
         cam_header.addWidget(cam_title)
         cam_header.addStretch()
 
+        # Dot pulsante — visible solo cuando cámara está EN VIVO
+        self._live_dot = QLabel()
+        self._live_dot.setFixedSize(7, 7)
+        self._live_dot.setStyleSheet(
+            f"background: {_COLORS['success']}; border-radius: 3px;"
+        )
+        self._live_dot.hide()
+        cam_header.addWidget(self._live_dot)
+        cam_header.addSpacing(4)
+
         self._cam_badge = QLabel("OFFLINE")
         self._cam_badge.setFont(self._font(9, True))
         self._cam_badge.setStyleSheet(
@@ -598,6 +740,11 @@ class DashboardWindow(QMainWindow):
         )
         cam_header.addWidget(self._cam_badge)
         cam_lay.addLayout(cam_header)
+
+        # Timer del dot pulsante
+        self._dot_timer = QTimer(self)
+        self._dot_timer.setInterval(800)
+        self._dot_timer.timeout.connect(self._pulse_dot)
 
         # Video
         self.video_label = QLabel("Presiona ACTIVAR para iniciar la camara")
@@ -627,23 +774,31 @@ class DashboardWindow(QMainWindow):
         self.start_button.clicked.connect(self.start_camera)
         btn_row.addWidget(self.start_button)
 
-        self.stop_button = QPushButton("DETENER")
-        self.stop_button.setEnabled(False)
+        self.stop_button = QPushButton("DETENER CAMARA")
         self.stop_button.setStyleSheet(
             _btn_style(
-                _COLORS["bg_card_alt"],
-                "rgba(255,255,255,0.1)",
-                "rgba(255,255,255,0.05)",
+                "rgba(239, 68, 68, 0.10)",
+                "rgba(239, 68, 68, 0.20)",
+                "rgba(239, 68, 68, 0.30)",
             )
         )
+        self.stop_button.setStyleSheet(self.stop_button.styleSheet().replace(
+            "color: white;", f"color: {_COLORS['danger']};"
+        ))
         self.stop_button.setCursor(Qt.PointingHandCursor)
         self.stop_button.clicked.connect(self.stop_camera)
+        self.stop_button.hide()  # Toggle: solo visible cuando cámara activa
         btn_row.addWidget(self.stop_button)
 
         cam_lay.addLayout(btn_row)
 
-        self.recognize_button = QPushButton("REGISTRAR ASISTENCIA")
+        # REGISTRAR ASISTENCIA — botón protagonista con ícono QPainter
+        reg_icon = QIcon(_make_dialog_icon(_COLORS["success"], is_check=True, size=22))
+        self.recognize_button = QPushButton("  REGISTRAR ASISTENCIA")
+        self.recognize_button.setIcon(reg_icon)
+        self.recognize_button.setIconSize(QSize(20, 20))
         self.recognize_button.setEnabled(False)
+        self.recognize_button.setFixedHeight(52)
         self.recognize_button.setStyleSheet(
             _btn_style(
                 "qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #10b981, stop:1 #059669)",
@@ -688,13 +843,9 @@ class DashboardWindow(QMainWindow):
         )
         sh_lay.addWidget(self.status_label)
 
-        self.confidence_label = QLabel("--")
-        self.confidence_label.setFont(self._font(42, True))
-        self.confidence_label.setAlignment(Qt.AlignCenter)
-        self.confidence_label.setStyleSheet(
-            f"color: {_COLORS['text']}; background: transparent;"
-        )
-        sh_lay.addWidget(self.confidence_label)
+        # Arco circular de confianza (reemplaza el label plano)
+        self.confidence_arc = _ConfidenceArc()
+        sh_lay.addWidget(self.confidence_arc, 0, Qt.AlignCenter)
 
         conf_hint = QLabel("CONFIANZA")
         conf_hint.setFont(self._font(8, True))
@@ -712,14 +863,16 @@ class DashboardWindow(QMainWindow):
         aa_lay = QVBoxLayout(avatar_area)
         aa_lay.setContentsMargins(0, 10, 0, 10)
 
-        self.recognized_photo_label = QLabel()
+        self.recognized_photo_label = QLabel("Coloca tu\nrostro\naquí")
         self.recognized_photo_label.setFixedSize(140, 140)
         self.recognized_photo_label.setAlignment(Qt.AlignCenter)
+        self.recognized_photo_label.setFont(QFont("Segoe UI", 9))
         self.recognized_photo_label.setStyleSheet(f"""
             QLabel {{
                 background: rgba(30, 41, 59, 0.4);
                 border-radius: 16px;
                 border: 2px dashed {_COLORS['border']};
+                color: {_COLORS['text_muted']};
             }}
         """)
         aa_lay.addWidget(self.recognized_photo_label, 0, Qt.AlignCenter)
@@ -738,23 +891,60 @@ class DashboardWindow(QMainWindow):
         ig_lay.setContentsMargins(14, 14, 14, 14)
         ig_lay.setSpacing(8)
 
+        # Símbolos geométricos Unicode (no emojis) como indicadores de fila
         self.recognized_name_label = self._add_info_row(
-            ig_lay, "👤", "NOMBRE", "--", _COLORS["accent"]
+            ig_lay, "◉", "NOMBRE", "--", _COLORS["accent"]
         )
         self.recognized_apellido_label = self._add_info_row(
-            ig_lay, "📋", "APELLIDOS", "--", "#58a6ff"
+            ig_lay, "≡", "APELLIDOS", "--", "#58a6ff"
         )
         self.recognized_zona_label = self._add_info_row(
-            ig_lay, "🗺️", "ZONA", "--", _COLORS["warning"]
+            ig_lay, "◎", "ZONA", "--", _COLORS["warning"]
         )
         self.recognized_sucursal_label = self._add_info_row(
-            ig_lay, "🏢", "SUCURSAL", "--", _COLORS["success"]
+            ig_lay, "▪", "SUCURSAL", "--", _COLORS["success"]
         )
         self.recognized_puesto_label = self._add_info_row(
-            ig_lay, "💼", "PUESTO", "--", "#bc8cff"
+            ig_lay, "◈", "PUESTO", "--", "#bc8cff"
         )
 
         i_lay.addWidget(info_grid)
+
+        # Guardar referencias para skeleton animation
+        self._info_value_labels = [
+            self.recognized_name_label,
+            self.recognized_apellido_label,
+            self.recognized_zona_label,
+            self.recognized_sucursal_label,
+            self.recognized_puesto_label,
+        ]
+        self._skeleton_active = False
+
+        # ========== ÚLTIMO REGISTRO ==========
+        last_reg_frame = QFrame()
+        last_reg_frame.setStyleSheet(f"""
+            QFrame {{
+                background: rgba(240, 246, 252, 0.03);
+                border: 1px solid {_COLORS['border']};
+                border-radius: 10px;
+            }}
+        """)
+        lr_lay = QHBoxLayout(last_reg_frame)
+        lr_lay.setContentsMargins(14, 8, 14, 8)
+
+        lr_icon = QLabel("◷")
+        lr_icon.setFont(self._font(11))
+        lr_icon.setStyleSheet(f"color: {_COLORS['text_muted']}; background: transparent;")
+        lr_lay.addWidget(lr_icon)
+
+        self._last_reg_lbl = QLabel("Sin registros hoy")
+        self._last_reg_lbl.setFont(QFont("Consolas", 9))
+        self._last_reg_lbl.setStyleSheet(
+            f"color: {_COLORS['text_dim']}; background: transparent;"
+        )
+        lr_lay.addWidget(self._last_reg_lbl)
+        lr_lay.addStretch()
+        i_lay.addWidget(last_reg_frame)
 
         i_lay.addStretch()
 
@@ -874,11 +1064,12 @@ class DashboardWindow(QMainWindow):
             self.camera_thread.frame_ready.connect(self.on_frame_received)
             self.camera_thread.camera_started.connect(self.on_camera_started)
             QTimer.singleShot(50, self.camera_thread.start_camera)
+            # Toggle visual: mostrar DETENER, ocultar ACTIVAR
+            self.start_button.hide()
+            self.stop_button.show()
 
     def on_camera_started(self, success):
         if success:
-            self.stop_button.setEnabled(True)
-            self.start_button.setText("LISTO")
 
             # Cuenta regresiva de 5 segundos para acomodarse
             self._preparacion_count = 5
@@ -898,6 +1089,9 @@ class DashboardWindow(QMainWindow):
             )
             self.camera_thread = None
             self.start_button.setEnabled(True)
+            # Toggle visual: restaurar ACTIVAR
+            self.stop_button.hide()
+            self.start_button.show()
 
     def _update_preparation_countdown(self):
         if self._preparacion_count > 0:
@@ -913,6 +1107,11 @@ class DashboardWindow(QMainWindow):
             self._cam_badge.setText("EN VIVO")
             self._cam_badge.setStyleSheet(self._badge_style("#fff", _COLORS["success"]))
             self.recognize_button.setEnabled(True)
+            # Dot pulsante: indicar cámara activa
+            self._live_dot.show()
+            self._dot_timer.start()
+            # Skeleton en info panel mientras no hay reconocimiento
+            self._set_info_skeleton(True)
             # Iniciar el hilo de reconocimiento después de la espera
             if not self.recognition_thread.isRunning():
                 self.recognition_thread.start()
@@ -922,13 +1121,20 @@ class DashboardWindow(QMainWindow):
             self.camera_thread.stop()
             self.camera_thread = None
             self.start_button.setEnabled(True)
-            self.stop_button.setEnabled(False)
             self.recognize_button.setEnabled(False)
             self._set_status("Camara detenida", "neutral")
             self._cam_badge.setText("OFFLINE")
             self._cam_badge.setStyleSheet(
                 self._badge_style(_COLORS["text_muted"], "#1f2937")
             )
+            # Toggle visual: restaurar ACTIVAR, ocultar DETENER
+            self.stop_button.hide()
+            self.start_button.show()
+            # Dot pulsante: apagar y ocultar
+            self._dot_timer.stop()
+            self._live_dot.hide()
+            # Desactivar skeleton
+            self._set_info_skeleton(False)
             self.video_label.clear()
             self.video_label.setText("Presiona ACTIVAR para iniciar la camara")
             self.current_frame = None
@@ -1021,6 +1227,28 @@ class DashboardWindow(QMainWindow):
             self.update_video_display(self.current_frame)
 
     # ------------------------------------------------------------------
+    # Loading animation (dots animados durante inicialización)
+    # ------------------------------------------------------------------
+
+    def _start_loading_animation(self, base_text: str):
+        """Anima puntos suspensivos en el status label para indicar carga."""
+        self._loading_base = base_text
+        self._loading_dots = 0
+        if not hasattr(self, "_loading_timer"):
+            self._loading_timer = QTimer(self)
+            self._loading_timer.timeout.connect(self._tick_loading_anim)
+        self._loading_timer.start(380)
+
+    def _stop_loading_animation(self):
+        if hasattr(self, "_loading_timer"):
+            self._loading_timer.stop()
+
+    def _tick_loading_anim(self):
+        self._loading_dots = (self._loading_dots + 1) % 4
+        dots = "." * self._loading_dots
+        self._set_status(self._loading_base + dots, "warning")
+
+    # ------------------------------------------------------------------
     # Status helpers
     # ------------------------------------------------------------------
 
@@ -1067,11 +1295,14 @@ class DashboardWindow(QMainWindow):
             self._last_recognition_result = True
             self.last_recognition_time = datetime.now().timestamp() * 1000
 
-            pct = f"{confianza * 100:.0f}%"
-            self.confidence_label.setText(pct)
-            self.confidence_label.setStyleSheet(
-                f"color: {_COLORS['success']}; background: transparent;"
+            pct_val = confianza * 100
+            arc_color = (
+                _COLORS["success"] if pct_val >= 80
+                else _COLORS["warning"] if pct_val >= 60
+                else _COLORS["danger"]
             )
+            self.confidence_arc.set_value(pct_val, arc_color)
+            self._set_info_skeleton(False)
             self._set_status(f"Identificado via {metodo}", "success")
 
             self.recognized_name_label.setText(info_empleado.get("nombre", "N/A"))
@@ -1109,12 +1340,26 @@ class DashboardWindow(QMainWindow):
             if t - self.last_recognition_time > 3000:
                 self._last_recognition_result = False
                 self._set_status("Buscando rostro...", "warning")
-                self.confidence_label.setText("--")
-                self.recognized_name_label.setText("--")
-                self.recognized_apellido_label.setText("--")
-                self.confidence_label.setStyleSheet(
-                    f"color: {_COLORS['text_muted']}; background: transparent;"
-                )
+                self.confidence_arc.reset()
+                # Reset completo del panel — empty state
+                for lbl in (
+                    self.recognized_name_label,
+                    self.recognized_apellido_label,
+                    self.recognized_zona_label,
+                    self.recognized_sucursal_label,
+                    self.recognized_puesto_label,
+                ):
+                    lbl.setText("--")
+                self.recognized_photo_label.clear()
+                self.recognized_photo_label.setText("Coloca tu\nrostro\naquí")
+                self.recognized_photo_label.setStyleSheet(f"""
+                    QLabel {{
+                        background: rgba(30, 41, 59, 0.4);
+                        border-radius: 16px;
+                        border: 2px dashed {_COLORS['border']};
+                        color: {_COLORS['text_muted']};
+                    }}
+                """)
 
     # ------------------------------------------------------------------
     # Setup & init
@@ -1162,7 +1407,8 @@ class DashboardWindow(QMainWindow):
             _lazy_load_face_recognition()
         if FACE_RECOGNITION_AVAILABLE and inicializar_sistema_facial:
             try:
-                self._set_status("Registrando fotos...", "warning")
+                # Spinner animado durante carga de fotos (operación >300ms)
+                self._start_loading_animation("REGISTRANDO FOTOS")
                 QApplication.processEvents()
                 try:
                     from utils.register_photos import register_photos_from_database
@@ -1170,14 +1416,17 @@ class DashboardWindow(QMainWindow):
                     register_photos_from_database()
                 except Exception as e:
                     logger.warning(f"Error registrando fotos: {e}")
-                self._set_status("Inicializando modelos...", "warning")
+                # Spinner animado durante carga de modelos ONNX
+                self._start_loading_animation("INICIALIZANDO MODELOS")
                 QApplication.processEvents()
                 result = inicializar_sistema_facial()
+                self._stop_loading_animation()
                 if result:
                     self._set_status("Sistema listo", "success")
                 else:
                     self._set_status("Sistema parcialmente listo", "warning")
             except Exception as e:
+                self._stop_loading_animation()
                 logger.error(f"Error init reconocimiento: {e}", exc_info=True)
                 self._set_status("Error en reconocimiento", "danger")
         else:
@@ -1263,19 +1512,27 @@ class DashboardWindow(QMainWindow):
                 db.add(reg)
                 db.commit()
                 self.attendance_registered = True
+                self._update_last_reg(tipo, datetime.now())
                 nombre = (
                     info_empleado.get("nombre", "Trabajador")
                     if info_empleado
                     else "Trabajador"
                 )
-                dlg = AttendanceDialog(
-                    tipo,
-                    nombre,
-                    f"{confianza*100:.0f}",
-                    datetime.now().strftime("%H:%M:%S"),
-                    parent=self,
+                # Guard anti-dialog duplicado: no mostrar si ya hay uno activo
+                dialog_bloqueado = (
+                    self._active_dialog is not None
+                    and self._active_dialog.isVisible()
                 )
-                dlg.show()
+                if not dialog_bloqueado:
+                    dlg = AttendanceDialog(
+                        tipo,
+                        nombre,
+                        f"{confianza*100:.0f}",
+                        datetime.now().strftime("%H:%M:%S"),
+                        parent=self,
+                    )
+                    self._active_dialog = dlg
+                    dlg.show()
 
                 # --- INTEGRACIÓN SUPABASE ---
                 ok_cloud = False
@@ -1316,7 +1573,7 @@ class DashboardWindow(QMainWindow):
                     if ok_cloud
                     else "IDENTIDAD VERIFICADA (LOCAL)"
                 )
-                self._set_status(f"✨ {msg} ✨", "success")
+                self._set_status(msg, "success")
 
                 self._cam_badge.setText("SINCRO OK")
                 self._cam_badge.setStyleSheet(
@@ -1385,15 +1642,19 @@ class DashboardWindow(QMainWindow):
             db.add(reg)
             db.commit()
             self.attendance_registered = True
+            self._update_last_reg(tipo, datetime.now())
             nombre = f"{self.trabajador.nombre} {self.trabajador.apellido}"
-            dlg = AttendanceDialog(
-                tipo,
-                nombre,
-                f"{confianza*100:.0f}",
-                datetime.now().strftime("%H:%M:%S"),
-                parent=self,
-            )
-            dlg.show()
+            # Guard anti-dialog duplicado
+            if not (self._active_dialog is not None and self._active_dialog.isVisible()):
+                dlg = AttendanceDialog(
+                    tipo,
+                    nombre,
+                    f"{confianza*100:.0f}",
+                    datetime.now().strftime("%H:%M:%S"),
+                    parent=self,
+                )
+                self._active_dialog = dlg
+                dlg.show()
             self._set_status(
                 f"{tipo.upper()} registrada - Cerrando en 5s...", "success"
             )
@@ -1430,6 +1691,91 @@ class DashboardWindow(QMainWindow):
             QMessageBox.critical(self, "Error", f"Error al registrar:\n{e}")
         finally:
             db.close()
+
+    # ------------------------------------------------------------------
+    # Reloj en vivo
+    # ------------------------------------------------------------------
+
+    def _update_clock(self):
+        self._clock_lbl.setText(datetime.now().strftime("%H:%M:%S"))
+
+    # ------------------------------------------------------------------
+    # Dot pulsante de cámara
+    # ------------------------------------------------------------------
+
+    def _pulse_dot(self):
+        self._live_dot.setVisible(not self._live_dot.isVisible())
+
+    # ------------------------------------------------------------------
+    # Skeleton animation en info grid
+    # ------------------------------------------------------------------
+
+    def _set_info_skeleton(self, active: bool):
+        self._skeleton_active = active
+        if active:
+            if not hasattr(self, "_skel_timer"):
+                self._skel_timer = QTimer(self)
+                self._skel_timer.setInterval(550)
+                self._skel_timer.timeout.connect(self._pulse_skeleton)
+                self._skel_phase = False
+            for lbl in self._info_value_labels:
+                if lbl.text() in ("--", "· · ·"):
+                    lbl.setText("· · ·")
+            self._skel_timer.start()
+        else:
+            if hasattr(self, "_skel_timer"):
+                self._skel_timer.stop()
+            for lbl in self._info_value_labels:
+                if lbl.text() == "· · ·":
+                    lbl.setText("--")
+                    lbl.setStyleSheet(
+                        f"color: {_COLORS['text']}; background: transparent;"
+                    )
+
+    def _pulse_skeleton(self):
+        self._skel_phase = not self._skel_phase
+        color = _COLORS["text_dim"] if self._skel_phase else _COLORS["text_muted"]
+        for lbl in self._info_value_labels:
+            if lbl.text() == "· · ·":
+                lbl.setStyleSheet(f"color: {color}; background: transparent;")
+
+    # ------------------------------------------------------------------
+    # Último registro del día
+    # ------------------------------------------------------------------
+
+    def _load_last_registration(self):
+        """Carga el último registro de hoy para el trabajador logueado."""
+        try:
+            db = get_db_session()
+            hoy = datetime.now().date()
+            last = (
+                db.query(RegistroAsistencia)
+                .filter(
+                    RegistroAsistencia.trabajador_id == self.trabajador.id,
+                    func.date(RegistroAsistencia.timestamp) == hoy,
+                )
+                .order_by(RegistroAsistencia.timestamp.desc())
+                .first()
+            )
+            db.close()
+            if last:
+                self._update_last_reg(last.tipo, last.timestamp)
+            else:
+                self._last_reg_lbl.setText("Sin registros hoy")
+        except Exception:
+            self._last_reg_lbl.setText("Sin registros hoy")
+
+    def _update_last_reg(self, tipo: str, ts):
+        """Actualiza el label de último registro con tipo y hora."""
+        hora = ts.strftime("%H:%M:%S") if hasattr(ts, "strftime") else str(ts)
+        tipo_fmt = tipo.upper()
+        self._last_reg_lbl.setText(f"{tipo_fmt}  {hora}")
+        color = _COLORS["success"] if tipo_fmt == "ENTRADA" else _COLORS["accent"]
+        self._last_reg_lbl.setStyleSheet(
+            f"color: {color}; background: transparent; font-weight: 700;"
+        )
+
+    # ------------------------------------------------------------------
 
     def logout(self):
         self.stop_camera()

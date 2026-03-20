@@ -4,6 +4,7 @@ Ventana principal del dashboard con cámara y reconocimiento facial.
 
 import logging
 import threading
+import socket
 
 from PyQt5.QtWidgets import (
     QMainWindow,
@@ -1334,7 +1335,7 @@ class DashboardWindow(QMainWindow):
                 and self.auto_register_enabled
                 and not self.attendance_registered
             ):
-                self.auto_register_attendance_with_model(info_empleado, confianza)
+                self.auto_register_attendance_with_model(info_empleado, confianza, metodo)
         else:
             t = datetime.now().timestamp() * 1000
             if t - self.last_recognition_time > 3000:
@@ -1437,7 +1438,7 @@ class DashboardWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def auto_register_attendance_with_model(
-        self, info_empleado: Dict, confianza: float
+        self, info_empleado: Dict, confianza: float, metodo: str = "hybrid"
     ):
         if self.attendance_registered:
             return
@@ -1473,11 +1474,11 @@ class DashboardWindow(QMainWindow):
                 db.close()
             if trab:
                 self.recognized_worker = trab
-                self._register_attendance_silent(confianza, trab, info_empleado)
+                self._register_attendance_silent(confianza, trab, info_empleado, metodo)
         except Exception as e:
             logger.error(f"Error auto-registro: {e}")
 
-    def _register_attendance_silent(self, confianza, trabajador, info_empleado=None):
+    def _register_attendance_silent(self, confianza, trabajador, info_empleado=None, metodo="hybrid"):
         try:
             db = get_db_session()
             try:
@@ -1558,6 +1559,9 @@ class DashboardWindow(QMainWindow):
                                         if info_empleado
                                         else "N/A"
                                     ),
+                                    "reconocimiento_facial": True,
+                                    "metodo": metodo,
+                                    "dispositivo": socket.gethostname(),
                                 }
                             ).execute()
                             logger.info(
@@ -1677,6 +1681,9 @@ class DashboardWindow(QMainWindow):
                                 "tipo": tipo,
                                 "confianza": float(confianza),
                                 "ubicacion": self.trabajador.sucursal or "N/A",
+                                "reconocimiento_facial": True,
+                                "metodo": "opencv",
+                                "dispositivo": socket.gethostname(),
                             }
                         ).execute()
                         logger.info(f"✅ Asistencia manual sincronizada con Supabase")

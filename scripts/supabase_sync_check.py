@@ -17,12 +17,15 @@ from pathlib import Path
 
 try:
     from supabase import create_client, Client
-except ImportError:
-    print("❌ supabase-py no instalado. pip install supabase")
+    from dotenv import load_dotenv
+except ImportError as _e:
+    print(f"Dependencia faltante: {_e}. pip install supabase python-dotenv")
     sys.exit(1)
 
 root_dir = Path(__file__).resolve().parent.parent
 sys.path.append(str(root_dir / "src"))
+
+load_dotenv(root_dir / ".env")
 
 # Columnas que deben existir (verificadas con SELECT)
 EMPLEADOS_COLS = "id, employee_id, nombre, apellido, puesto, zona, sucursal, activo"

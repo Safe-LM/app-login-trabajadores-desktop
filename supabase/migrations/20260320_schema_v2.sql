@@ -203,7 +203,7 @@ SELECT
     COUNT(*) FILTER (WHERE a.tipo = 'salida')                       AS total_salidas,
     COUNT(*) FILTER (WHERE a.minutos_retardo > 0)                   AS empleados_con_retardo,
     ROUND(AVG(a.minutos_retardo) FILTER (WHERE a.minutos_retardo > 0), 1) AS promedio_minutos_retardo,
-    ROUND(AVG(a.confianza) * 100, 1)                                AS confianza_promedio_pct
+    ROUND((AVG(a.confianza) * 100)::NUMERIC, 1)                     AS confianza_promedio_pct
 FROM public.asistencias a
 LEFT JOIN public.empleados e ON e.id = a.empleado_id
 GROUP BY 1, 2, 3

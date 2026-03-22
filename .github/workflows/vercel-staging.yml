@@ -1,6 +1,7 @@
 name: Vercel — Staging (Preview)
 
 on:
+  workflow_dispatch:
   push:
     branches: [develop]
     paths:

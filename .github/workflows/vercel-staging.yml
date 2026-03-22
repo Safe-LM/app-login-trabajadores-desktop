@@ -4,12 +4,8 @@ on:
   workflow_dispatch:
   push:
     branches: [develop]
-    paths:
-      - 'dashboard_nextjs/**'
   pull_request:
     branches: [main]
-    paths:
-      - 'dashboard_nextjs/**'
 
 concurrency:
   group: staging-${{ github.ref }}

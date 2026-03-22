@@ -1,0 +1,210 @@
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
+@import "tailwindcss";
+
+/* ── Dark theme (default) — OLED-optimized ───────────────────────────────── */
+:root {
+  --bg-base:       #020617;
+  --bg-surface:    #0a0f1a;
+  --bg-card:       rgba(15, 23, 42, 0.88);
+  --bg-card-hover: rgba(22, 33, 56, 0.96);
+  --bg-input:      rgba(15, 23, 42, 0.92);
+  --bg-header:     rgba(2, 6, 23, 0.95);
+
+  --text-primary:  #f0f6fc;
+  --text-dim:      #8b949e;
+  --text-muted:    #484f58;
+
+  --border:        rgba(240, 246, 252, 0.08);
+  --border-hover:  rgba(240, 246, 252, 0.16);
+
+  --accent:        #3a86ff;
+  --accent-2:      #00d2ff;
+  --success:       #22c55e;
+  --danger:        #ef4444;
+  --warning:       #f59e0b;
+
+  --glow-accent:   rgba(58, 134, 255, 0.18);
+  --glow-success:  rgba(34, 197, 94, 0.15);
+
+  --scrollbar-track: #0a0f1a;
+  --scrollbar-thumb: #374151;
+  --scrollbar-thumb-hover: #4b5563;
+
+  --skeleton-a: rgba(255,255,255,0.04);
+  --skeleton-b: rgba(255,255,255,0.08);
+
+  --input-option-bg: #161b22;
+  --calendar-filter: invert(0.5);
+}
+
+/* ── Light theme ──────────────────────────────────────────────────────────── */
+html.light {
+  --bg-base:       #f0f4f8;
+  --bg-surface:    #e8edf3;
+  --bg-card:       rgba(255, 255, 255, 0.92);
+  --bg-card-hover: rgba(255, 255, 255, 1);
+  --bg-input:      rgba(255, 255, 255, 0.9);
+  --bg-header:     rgba(255, 255, 255, 0.95);
+
+  --text-primary:  #0f172a;
+  --text-dim:      #475569;
+  --text-muted:    #94a3b8;
+
+  --border:        rgba(15, 23, 42, 0.1);
+  --border-hover:  rgba(15, 23, 42, 0.2);
+
+  --accent:        #2563eb;
+  --accent-2:      #0891b2;
+  --success:       #16a34a;
+  --danger:        #dc2626;
+  --warning:       #d97706;
+
+  --scrollbar-track: #e8edf3;
+  --scrollbar-thumb: #cbd5e1;
+  --scrollbar-thumb-hover: #94a3b8;
+
+  --skeleton-a: rgba(0,0,0,0.06);
+  --skeleton-b: rgba(0,0,0,0.1);
+
+  --input-option-bg: #ffffff;
+  --calendar-filter: none;
+}
+
+/* ── Base ──────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: 'Open Sans', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background 0.25s, color 0.25s;
+}
+
+.mono    { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
+.heading { font-family: 'Poppins', system-ui, sans-serif; }
+
+/* Respect user motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Glass card ────────────────────────────────────────────────────────────── */
+.glass {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.25s;
+}
+
+.glass-hover:hover {
+  border-color: var(--border-hover);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track  { background: var(--scrollbar-track); }
+::-webkit-scrollbar-thumb  { background: var(--scrollbar-thumb); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+
+/* ── Animations ────────────────────────────────────────────────────────────── */
+.fade-in { animation: fadeIn 0.4s ease both; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes splashFade {
+  0%   { opacity: 1; }
+  80%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes logoRise {
+  from { opacity: 0; transform: translateY(16px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes barLoad {
+  from { width: 0%; }
+  to   { width: 100%; }
+}
+
+/* ── Skeleton ───────────────────────────────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-a) 25%,
+    var(--skeleton-b) 50%,
+    var(--skeleton-a) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ── Filter inputs ──────────────────────────────────────────────────────────── */
+.filter-input {
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  transition: border-color 0.15s, background 0.25s;
+}
+
+.filter-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.filter-input option {
+  background: var(--input-option-bg);
+  color: var(--text-primary);
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: var(--calendar-filter);
+  cursor: pointer;
+}
+
+/* ── Card utility ───────────────────────────────────────────────────────────── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  backdrop-filter: blur(12px);
+  transition: background 0.25s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+  border-color: var(--border-hover);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 0 0 1px var(--glow-accent);
+}
+
+/* Section title utility */
+.section-title {
+  font-family: 'Poppins', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}

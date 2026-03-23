@@ -48,6 +48,35 @@ function ConfidenceBar({ value }: { value: number }) {
   )
 }
 
+function HorarioCell({
+  esperada, local, minutos,
+}: { esperada: string | null; local: string | null; minutos: number | null }) {
+  if (!esperada) return <span style={{ color: 'var(--text-muted)' }} className="text-[11px]">—</span>
+
+  const color =
+    minutos === null ? 'var(--text-muted)'
+    : minutos === 0  ? 'var(--success)'
+    : minutos <= 10  ? 'var(--warning)'
+    : minutos <= 30  ? '#f97316'
+    :                  'var(--danger)'
+
+  const dot =
+    minutos === null ? '○'
+    : minutos === 0  ? '✓'
+    : '▲'
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="mono text-[10px]" style={{ color: 'var(--text-muted)' }}>
+        Esp {esperada.slice(0, 5)}
+      </span>
+      <span className="mono text-[11px] font-medium" style={{ color }}>
+        {dot} {local?.slice(0, 5) ?? '—'}
+      </span>
+    </div>
+  )
+}
+
 function PuntualidadBadge({ value }: { value: string | null }) {
   if (!value) return <span style={{ color: 'var(--text-muted)' }} className="text-[11px]">—</span>
   const v = value.toLowerCase()
@@ -73,6 +102,9 @@ function SkeletonRows() {
               <div className="skeleton h-3.5 rounded" style={{ width: `${50 + (i * 13 + c.key.length * 7) % 40}%` }} />
             </td>
           ))}
+          <td className="px-4 py-3">
+            <div className="skeleton h-3.5 rounded" style={{ width: '60%' }} />
+          </td>
         </tr>
       ))}
     </>
@@ -209,6 +241,10 @@ export default function AttendanceTable({
                   </span>
                 </th>
               ))}
+              <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-left whitespace-nowrap"
+                style={{ color: 'var(--text-dim)' }}>
+                Horario
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -216,7 +252,7 @@ export default function AttendanceTable({
               <SkeletonRows />
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={COLUMNS.length} className="py-20 text-center">
+                <td colSpan={COLUMNS.length + 1} className="py-20 text-center">
                   <div className="flex flex-col items-center gap-3">
                     <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
                       style={{ background: 'var(--border)' }}>
@@ -289,6 +325,15 @@ export default function AttendanceTable({
 
                   {/* Puntualidad */}
                   <td className="px-4 py-3"><PuntualidadBadge value={row.clasificacion_retardo} /></td>
+
+                  {/* Horario esperado vs real */}
+                  <td className="px-4 py-3">
+                    <HorarioCell
+                      esperada={row.hora_entrada_esperada ?? null}
+                      local={row.hora_local ?? null}
+                      minutos={row.minutos_retardo ?? null}
+                    />
+                  </td>
 
                   {/* Retardo */}
                   <td className="px-4 py-3 text-right mono text-[12px]">

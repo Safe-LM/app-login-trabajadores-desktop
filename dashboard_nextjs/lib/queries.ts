@@ -267,14 +267,12 @@ export async function fetchHourlyHeatmap(
 
 export async function fetchSucursalesList(): Promise<string[]> {
   const { data } = await supabase
-    .from('v_asistencias_detalle')
-    .select('sucursal')
-    .not('sucursal', 'is', null)
-    .order('sucursal')
-    .limit(500)
+    .from('sucursales')
+    .select('nombre')
+    .eq('activo', true)
+    .order('nombre')
 
-  const unique = [...new Set(data?.map((r) => r.sucursal).filter(Boolean) ?? [])]
-  return unique as string[]
+  return (data?.map((r) => r.nombre).filter(Boolean) ?? []) as string[]
 }
 
 // ─── Export CSV (chunked) ─────────────────────────────────────────────────────

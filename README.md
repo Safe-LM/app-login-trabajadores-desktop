@@ -1,477 +1,331 @@
-<p align="center">
-  <img src="https://img.shields.io/badge/Safe%20Link-Monitoring-6366f1?style=for-the-badge&labelColor=0f172a&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiM4MThjZjgiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMTIgMjJzOC00IDgtMTBWNWwtOC0zLTggM3Y3YzAgNiA4IDEwIDggMTB6Ii8+PC9zdmc+" alt="Safe Link Monitoring">
-  <br><br>
-  <img src="https://img.shields.io/badge/version-2.1.0-818cf8?style=flat-square&labelColor=1e293b" alt="Version">
-  <img src="https://img.shields.io/badge/python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white&labelColor=1e293b" alt="Python">
-  <img src="https://img.shields.io/badge/PyQt5-SaaS_UI-41CD52?style=flat-square&logo=qt&logoColor=white&labelColor=1e293b" alt="PyQt5">
-  <img src="https://img.shields.io/badge/AI-Check%26Go-10b981?style=flat-square&labelColor=1e293b" alt="AI Flow">
-  <img src="https://img.shields.io/badge/UX-Premium%20HUD-FFD700?style=flat-square&labelColor=1e293b" alt="UX Style">
-</p>
+# Safe Link Monitoring
 
-<h1 align="center">🛡️ Safe Link Monitoring</h1>
-<h3 align="center">Sistema Inteligente de Control de Asistencia por Reconocimiento Facial</h3>
-
-<p align="center">
-  <em>Aplicación de escritorio de grado empresarial que automatiza el registro de asistencia<br>mediante biometría facial con inteligencia artificial híbrida.</em>
-</p>
+Sistema SaaS B2B de control biométrico de asistencia empresarial.
+Cada empresa instala estaciones físicas (PC con cámara) que reconocen empleados con IA facial.
+El administrador gestiona todo desde un panel web sin necesidad de SQL ni configuración técnica.
 
 ---
 
-## 📋 Visión General
-
-**Safe Link Monitoring** resuelve el problema de la gestión manual de asistencia en cadenas de tiendas y oficinas, reemplazando hojas de firma, huella digital y tarjetas de proximidad por un sistema de **reconocimiento facial en tiempo real** que:
-
-- ✅ Identifica empleados en **2–3 segundos** con **99% de confianza**
-- ✅ Arquitectura **Híbrida Cloud-Edge** (SQLite + Supabase Cloud)
-- ✅ Sincronización de asistencia **en tiempo real** multiplataforma
-- ✅ Registro automático con **Geolocalización por Sucursal** y nivel de confianza
-- ✅ Protege contra suplantación de identidad (anti-spoofing)
-
-> **56 empleados registrados** · **560 embeddings faciales** · **100% de precisión en pruebas controladas**
-
----
-
-## 🧠 Arquitectura del Motor de IA
-
-El corazón del sistema es un **motor híbrido de doble capa** que garantiza precisión bajo cualquier condición:
-
-```mermaid
-flowchart TD
-    subgraph "Edge / Local App"
-        CAM["Cámara Web"] --> FRAME["Captura Frame"]
-        FRAME --> YUNET["YuNet - Detección"]
-        YUNET --> SFACE["SFace - Embeddings 128D"]
-        SFACE --> MATCH{"Matching IA"}
-        MATCH --> LOCAL_DB[("SQLite Local")]
-    end
-
-    subgraph "Cloud Backend"
-        LOCAL_DB --> SYNC["Sync Manager"]
-        SYNC -->|Realtime| SB_DB[("Supabase - PostgreSQL")]
-        SYNC -->|Backups| SB_STORAGE["Supabase Storage"]
-    end
-
-    LOCAL_DB --> REG["Panel Dashboard"]
-    SB_DB --> WEB["Panel Web Monitor"]
-```
-
-### Infraestructura de IA y Datos
-
-| Capa | Tecnología | Función | Ubicación |
-|-------|-----------|-----------|-----------|
-| **Detección** | YuNet (DNN) | Localización de rostros 360° | Edge (Local) |
-| **Identificación** | SFace (DNN) | Extracción de embeddings 128D | Edge (Local) |
-| **Base de Datos** | Supabase / Postgre | Persistencia Global y Realtime | Cloud (AWS/DigitalOcean) |
-| **Seguridad** | Bandit / bcrypt | Cifrado y Auditoría de Seguridad | CI/CD + App |
-
-> El sistema intenta primero OpenCV SFace (el más rápido y preciso). Si la confianza es baja, escala automáticamente a Gemini Vision. Si no hay internet, usa Photo Matcher como último recurso.
-
----
-
-## ✨ Características Principales
-
-<table>
-<tr>
-<td width="50%">
-
-### 🎨 Interfaz SaaS Premium
-- Estética **Glassmorphism OLED** de alta fidelidad
-- **HUD Táctico Animado** con indicadores de escaneo en vivo
-- Tarjetas de información con **jerarquía visual eléctrica**
-- Avatares **Square-Round (16px)** para integración perfecta
-- Feedback de estados dinámico (Cargando, Escaneando, Éxito)
-
-</td>
-<td width="50%">
-
-### 🔐 Seguridad Empresarial
-- Contraseñas cifradas con **bcrypt**
-- Bloqueo automático tras 5 intentos fallidos (60s)
-- Logs de auditoría de cada acceso
-- Base de datos local sin exposición a la nube
-
-</td>
-</tr>
-<tr>
-<td>
-
-### 📊 Gestión de Personal
-- 56 empleados con datos completos (zona, sucursal, puesto)
-- Fotos de perfil visibles al identificar
-- Registro automático de entrada/salida
-- Historial de asistencia por empleado
-
-</td>
-<td>
-
-### ⚡ Rendimiento Cloud-Native
-- Reconocimiento en **2–3 segundos**
-- Sincronización Supabase Realtime (< 100ms)
-- 10 augmentaciones por empleado (560 total)
-- CI/CD Automático: Linting, Security Scan y Auto-build
-- Auto-healing: deshabilita motores con errores de red
-
-</td>
-</tr>
-</table>
-
----
-
-## 🏗️ Estructura del Proyecto
+## Arquitectura general
 
 ```
-app-login-trabajadores-desktop/
-│
-├── 📂 src/                          # Código fuente principal
-│   ├── main.py                      # Punto de entrada de la aplicación
-│   ├── config_gemini.py             # Configuración de API Gemini
-│   ├── 📂 windows/                  # Interfaces gráficas (PyQt5)
-│   │   ├── splash_window.py         # Pantalla de carga animada
-│   │   ├── login_window.py          # Autenticación de usuarios
-│   │   └── dashboard_window.py      # Panel principal con cámara
-│   ├── 📂 utils/                    # Motores y utilidades
-│   │   ├── hybrid_opencv_gemini_matcher.py  # 🧠 Motor híbrido principal
-│   │   ├── face_recognition_opencv.py       # Motor OpenCV SFace/YuNet
-│   │   ├── gemini_vision_matcher.py         # Motor Google Gemini Vision
-│   │   ├── photo_to_photo_matcher.py        # Motor Photo Matcher (fallback)
-│   │   ├── database.py              # Conexión SQLAlchemy
-│   │   ├── auth.py                  # Autenticación bcrypt
-│   │   ├── models.py                # Modelos ORM (Trabajador, Asistencia)
-│   │   └── employee_mapper.py       # Mapeo de empleados desde JSON/CSV
-│   └── 📂 assets/                   # Recursos visuales (logos, fondos)
-│
-├── 📂 database_fotos/               # Base de datos facial (entrenamiento)
-│   ├── 📂 photos/                   # 56 fotografías de empleados
-│   ├── 📂 json/                     # employees_db.json (mapeo de identidades)
-│   └── face_encodings_opencv.pkl    # 560 embeddings SFace entrenados
-│
-├── 📂 data/
-│   ├── 📂 db/                       # Base de datos SQLite (trabajadores.db)
-│   └── 📂 models/                   # Modelos ONNX (YuNet + SFace)
-│
-├── 📂 scripts/                      # Herramientas de mantenimiento
-│   ├── train_face_recognition_opencv.py  # Re-entrenar embeddings faciales
-│   ├── extract_photos_from_pdf.py        # Extraer fotos de PDF de personal
-│   └── setup_fotos.py                    # Preparar dataset de fotos
-│
-├── 📂 docs/                         # Documentación y manuales
-│
-├── iniciar.ps1                      # 🚀 Instalador + Lanzador (primera vez)
-├── ejecutar.ps1                     # ⚡ Lanzador rápido
-├── requirements.txt                 # Dependencias Python
-└── .gitignore
+┌──────────────────────┐        ┌─────────────────────────┐        ┌──────────────────────┐
+│     station/         │──────▶ │       Supabase           │ ◀──────│     web-panel/        │
+│  App PyQt5           │  RPC   │  PostgreSQL + pgvector   │  SSR   │  Next.js 15 + Tailwind│
+│  (on-premise, PC)    │  REST  │  Auth + RLS + Storage    │  API   │  (admin SaaS web)     │
+└──────────────────────┘        └─────────────────────────┘        └──────────────────────┘
+         ▲                                  │
+         │ heartbeat cada 60s               │ funciones SECURITY DEFINER
+         │ api_key en .env                  ▼
+         └──────── estado online/offline visible en panel ────────────────────────────────▶
+```
+
+| Componente | Tecnología | Rol |
+|---|---|---|
+| `station/` | Python 3.10 · PyQt5 · OpenCV DNN | Cámara, IA facial YuNet+SFace, registro local |
+| `supabase/` | PostgreSQL · pgvector · RLS · Auth | Backend multi-tenant en la nube |
+| `web-panel/` | Next.js 15 · TypeScript · Tailwind CSS | Panel SaaS para empresas cliente |
+
+---
+
+## Modelo de datos (multi-tenant)
+
+```
+empresas  ──┬──▶  sucursales  ──▶  empleados  ──▶  asistencias
+            └──▶  dispositivos (estaciones físicas)
+```
+
+Cada fila lleva `empresa_id`. RLS garantiza que un admin solo vea su propia empresa.
+El campo `api_key` en `dispositivos` es un UUID v4 generado automáticamente que identifica cada estación.
+
+### Tablas principales
+
+| Tabla | Descripción |
+|---|---|
+| `empresas` | Tenant raíz. Un usuario admin pertenece a una empresa. |
+| `sucursales` | Ubicaciones físicas de la empresa. |
+| `empleados` | Personas registradas con embeddings faciales (pgvector 128D). |
+| `dispositivos` | Estaciones físicas. Tienen `api_key`, `heartbeat_at`, `ip_local`, `hostname`. |
+| `asistencias` | Registro de entrada/salida con `empleado_id`, `dispositivo_id`, timestamp. |
+
+### Vista `v_dispositivos_estado`
+
+Calcula el estado de conexión en tiempo real:
+
+| Condición | Estado |
+|---|---|
+| `heartbeat_at` NULL | `nunca` |
+| Hace ≤ 2 min | `online` |
+| Hace ≤ 10 min | `alerta` |
+| Hace > 10 min | `offline` |
+
+### Funciones SECURITY DEFINER
+
+Estas funciones bypasan RLS y se usan cuando el JWT del usuario aún no tiene `empresa_id` (onboarding / setup):
+
+| Función | Descripción |
+|---|---|
+| `crear_empresa_onboarding(p_user_id, p_nombre, p_slug, p_timezone, p_sucursal, p_ciudad)` | Crea empresa + sucursal + asigna `empresa_id` al usuario en `raw_user_meta_data` |
+| `crear_dispositivo(p_user_id, p_nombre, p_sucursal_id)` | Crea dispositivo para la empresa del usuario, retorna `api_key` |
+| `station_heartbeat(p_api_key, p_ip_local, p_hostname, p_version)` | Actualiza `heartbeat_at`, `ip_local`, `hostname`, `version_app` del dispositivo |
+
+---
+
+## Flujo de vida de una estación
+
+```
+1. Admin abre el panel web (web-panel/)
+   └──▶ /dispositivos → "Nueva estación" → llena nombre + sucursal
+        └──▶ API /api/dispositivos/create → llama crear_dispositivo()
+             └──▶ Supabase genera api_key UUID automáticamente
+                  └──▶ Panel muestra: STATION_API_KEY=sk_xxxxxxxx
+
+2. Admin copia la api_key al .env de la PC donde va la estación:
+   STATION_API_KEY=sk_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+3. Admin ejecuta .\ejecutar.ps1 en esa PC
+   └──▶ main.py lee STATION_API_KEY
+        └──▶ station.validate() → True → lanza splash + login directamente
+             └──▶ heartbeat cada 60s → panel muestra estación "online"
+
+── ALTERNATIVA: Setup automático (sin api_key previa) ──────────────────
+
+3b. Si .env no tiene STATION_API_KEY → aparece SetupWindow (wizard 3 pasos)
+    Paso 1: Email + contraseña de admin
+    Paso 2: Selecciona empresa, sucursal, nombre de la estación
+    Paso 3: Llama crear_dispositivo() → guarda api_key en .env automáticamente
+            → lanza la app principal sin reiniciar
 ```
 
 ---
 
-## 🚀 Inicio Rápido
+## Panel web — páginas implementadas
 
-### Requisitos
-- **Windows 10** o superior
-- **Python 3.10+**
-- Cámara web (integrada o USB)
+| Ruta | Estado | Descripción |
+|---|---|---|
+| `/login` | ✅ | Auth con Supabase, cookies SSR, redirect post-login |
+| `/onboarding` | ✅ | Wizard 4 pasos: crear empresa + sucursal para nuevos clientes |
+| `/dashboard` | ✅ | Estadísticas del día, tabla de asistencias recientes |
+| `/empleados` | ✅ | CRUD completo: crear, editar, eliminar empleados. Búsqueda en tiempo real. |
+| `/asistencia` | ✅ | Historial de registros de asistencia |
+| `/dispositivos` | ✅ | Estado online/offline **en tiempo real** (Supabase Realtime), crear/renombrar, ver API key |
+| `/reportes` | 🔧 | Placeholder — gráficas pendientes |
+| `/configuracion` | 🔧 | Placeholder — ajustes de empresa pendientes |
 
-### Instalación y Ejecución
+### API Routes
+
+| Endpoint | Método | Función |
+|---|---|---|
+| `/api/onboarding` | POST | Crea empresa + sucursal vía `crear_empresa_onboarding()` |
+| `/api/dispositivos/create` | POST | Crea dispositivo vía `crear_dispositivo()` |
+| `/api/dispositivos/update` | POST | Renombra un dispositivo |
+| `/api/empleados/create` | POST | Crea empleado en la empresa del usuario |
+| `/api/empleados/update` | POST | Edita nombre, puesto, sucursal, activo de un empleado |
+| `/api/empleados/delete` | POST | Elimina un empleado por ID |
+
+---
+
+## Estructura del repositorio
+
+```
+/
+├── station/                        # App de escritorio (estación física)
+│   ├── src/
+│   │   ├── main.py                 # Entry point — decide setup vs app principal
+│   │   ├── windows/
+│   │   │   ├── login_window.py     # Login de empleados con reconocimiento facial
+│   │   │   ├── splash_window.py    # Pantalla de carga con progreso
+│   │   │   ├── setup_window.py     # Wizard primera configuración (crea dispositivo)
+│   │   │   └── dashboard_window.py # Pantalla principal post-login
+│   │   └── utils/
+│   │       ├── supabase_client.py  # Singleton Supabase, carga .env por path absoluto
+│   │       ├── station_manager.py  # Identidad (api_key) + heartbeat QThread cada 60s
+│   │       ├── face_recognition.py # YuNet (detección) + SFace (embeddings 128D)
+│   │       └── auth_manager.py     # Verificación de empleado contra pgvector
+│   ├── models/                     # Modelos ONNX: face_detection_yunet, face_recognition_sface
+│   ├── data/db/                    # SQLite local (buffer offline)
+│   └── requirements.txt
+│
+├── web-panel/                      # Panel SaaS Next.js
+│   ├── src/app/
+│   │   ├── (auth)/
+│   │   │   ├── login/              # Login SSR con @supabase/ssr 0.10.2
+│   │   │   └── onboarding/         # Wizard nuevo cliente
+│   │   ├── (dashboard)/
+│   │   │   ├── layout.tsx          # Layout con SidebarNav (Client Component)
+│   │   │   ├── sidebar-nav.tsx     # Navegación lateral con usePathname()
+│   │   │   ├── dashboard/
+│   │   │   ├── empleados/
+│   │   │   ├── asistencia/
+│   │   │   ├── dispositivos/       # Lista + crear + renombrar + ver api_key + Realtime
+│   │   │   │   ├── page.tsx        # Server Component (fetch inicial)
+│   │   │   │   └── dispositivos-client.tsx  # Client Component + Supabase Realtime
+│   │   │   ├── empleados/
+│   │   │   │   ├── page.tsx        # Server Component (fetch empleados + sucursales)
+│   │   │   │   └── empleados-client.tsx     # CRUD completo con modales
+│   │   │   ├── reportes/
+│   │   │   └── configuracion/
+│   │   └── api/
+│   │       ├── onboarding/
+│   │       ├── sucursales/
+│   │       ├── dispositivos/
+│   │       │   ├── create/         # crear_dispositivo() SECURITY DEFINER
+│   │       │   └── update/         # renombrar dispositivo
+│   │       └── empleados/
+│   │           ├── create/         # INSERT empleados con empresa_id del JWT
+│   │           ├── update/         # UPDATE nombre, puesto, sucursal, activo
+│   │           └── delete/         # DELETE por ID
+│   ├── src/lib/supabase/
+│   │   ├── client.ts               # createBrowserClient
+│   │   └── server.ts               # createServerClient (cookies SSR)
+│   └── src/middleware.ts           # Auth guard + redirect a onboarding si sin empresa
+│
+├── supabase/
+│   └── migrations/
+│       ├── 20260429_multitenant_saas_v1.sql    # Schema base: empresas, sucursales, empleados, dispositivos, asistencias
+│       ├── 20260430_station_monitoring.sql      # heartbeat_at, hostname, v_dispositivos_estado, station_heartbeat()
+│       ├── 20260430_onboarding_function.sql     # crear_empresa_onboarding()
+│       └── 20260430_crear_dispositivo_fn.sql    # crear_dispositivo()
+│
+├── tools/                          # Scripts de administración offline
+│   ├── enrollment/                 # Captura y entrenamiento de embeddings
+│   ├── migration/                  # Migraciones manuales
+│   ├── diagnostics/                # Verificación y limpieza
+│   └── parsers/                    # Extracción de PDFs y Excel
+│
+├── .env                            # Variables de entorno (NO commitear)
+├── ejecutar.ps1                    # Lanzar estación rápido (venv ya configurado)
+└── iniciar.ps1                     # Setup completo + lanzar (primera vez)
+```
+
+---
+
+## Variables de entorno (.env)
+
+```env
+# Supabase
+SUPABASE_URL=https://xxxx.supabase.co
+SUPABASE_KEY=eyJhbGci...             # anon key pública
+
+# IA (opcional — mejora precisión del reconocimiento)
+GEMINI_API_KEY=AIzaSy...
+
+# Identidad de esta estación física
+# Generar desde panel web → Dispositivos → Nueva estación
+STATION_API_KEY=sk_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+El panel web usa `web-panel/.env.local`:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGci...
+```
+
+---
+
+## Inicio rápido
+
+### Estación (app de escritorio)
 
 ```powershell
-# 1. Clonar el repositorio
-git clone https://github.com/Safe-LM/app-login-trabajadores-desktop.git
-cd app-login-trabajadores-desktop
-
-# 2. Instalar dependencias + ejecutar (primera vez)
+# Primera vez — instala dependencias y configura venv
 .\iniciar.ps1
 
-# 3. Para las siguientes ejecuciones (más rápido)
+# Veces siguientes
 .\ejecutar.ps1
 ```
 
-### Credenciales de Acceso
+**Primera ejecución sin `STATION_API_KEY`:** aparece el wizard de configuración.
+Ingresa credenciales de admin, selecciona empresa y sucursal, nombra la estación.
+La API key se guarda automáticamente en `.env` y la app arranca sola.
 
-| Usuario | Contraseña | Rol |
-|---------|------------|-----|
-| `admin` | `admin123` | Administrador |
+**Con `STATION_API_KEY` en `.env`:** arranca directo al splash + login.
 
----
+### Panel web (desarrollo local)
 
-## ☁️ Integración Supabase Cloud
-
-**Safe Link Monitoring** utiliza una arquitectura **Híbrida Cloud-Edge**. Esto significa que aunque el reconocimiento facial se procesa localmente (garantizando velocidad y privacidad), los resultados se sincronizan en **tiempo real** con una base de datos segura en la nube.
-
-### 🌟 Beneficios de la Nube
-- **Monitoreo Remoto:** Visualice asistencias desde cualquier parte del mundo en el dashboard de Supabase.
-- **Sincronización Multi-App:** Conecte múltiples terminales (sucursales) a una sola base de datos central.
-- **Backups Automáticos:** Asegure la información de sus empleados y registros de acceso ante fallos de hardware.
-- **Realtime Notifications:** Posibilidad de disparar alertas (Webhooks) al momento de una detección.
-
-### 🛠️ Configuración Inicial de Supabase
-
-Para integrar su proyecto, siga estos pasos:
-
-1. **Crear Proyecto:** Regístrese en [Supabase](https://supabase.com/) y cree un nuevo proyecto.
-2. **Setup de Base de Datos:** En el **SQL Editor**, ejecute el siguiente comando para preparar las tablas optimizadas para IA:
-
-```sql
--- Tabla Maestra de Empleados
-CREATE TABLE empleados (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    employee_id INTEGER UNIQUE, -- ID único del empleado
-    nombre TEXT NOT NULL,
-    apellido TEXT,
-    puesto TEXT,
-    zona TEXT,
-    sucursal TEXT,
-    embeddings FLOAT8[], -- Vector IA de 128D (OpenCV SFace)
-    foto_url TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
--- Tabla de Asistencias (Realtime)
-CREATE TABLE asistencias (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    empleado_id UUID REFERENCES empleados(id) ON DELETE CASCADE,
-    tipo TEXT CHECK (tipo IN ('entrada', 'salida')),
-    confianza FLOAT,
-    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    ubicacion TEXT
-);
-
--- Deshabilitar RLS para desarrollo (o configurar políticas de red)
-ALTER TABLE empleados DISABLE ROW LEVEL SECURITY;
-ALTER TABLE asistencias DISABLE ROW LEVEL SECURITY;
+```bash
+cd web-panel
+cp .env.local.example .env.local   # o crea .env.local con las keys de Supabase
+npm install
+npm run dev
+# Abre http://localhost:3000
 ```
 
-3. **Variables de Entorno:** Configure su servidor local mediante el archivo `.env`:
+### Aplicar migraciones a Supabase
 
-```env
-SUPABASE_URL=https://tu-proyecto.supabase.co
-SUPABASE_KEY=tu-anon-key-de-supabase
-GEMINI_API_KEY=opcional_para_engine_hibrido
+En Supabase Dashboard → SQL Editor, ejecutar en orden:
+
 ```
-
-### 🧠 Sincronización de Datos (ETL)
-
-Si ya cuenta con datos locales (SQLite), use el motor de migración masiva incluido para subir identidades a la nube:
-
-```powershell
-python scripts/massive_cleanup.py
-```
-> Esto sincronizará automáticamente los 56 perfiles actuales con sus embeddings faciales.
-
-
----
-
-## 📖 Manual de Operación
-
-### Flujo diario de uso
-
-```mermaid
-sequenceDiagram
-    participant Admin as Administrador
-    participant App as Safe Link
-    participant Cam as Camara
-    participant AI as Motor IA
-    participant DB as Base de Datos
-
-    Admin->>App: Abre ejecutar.ps1
-    App->>Admin: Pantalla de Login
-    Admin->>App: Ingresa credenciales
-    App->>Admin: Dashboard Principal
-    Admin->>Cam: Activa la camara
-
-    loop Cada empleado
-        Cam->>AI: Frame del rostro
-        AI->>AI: YuNet detecta y SFace extrae embedding
-        AI->>DB: Busca match en 560 embeddings
-        AI-->>App: Nombre, Puesto, Zona, Confianza
-        App->>DB: Registra asistencia
-        App-->>Admin: Entrada o Salida registrada
-    end
-```
-
-### ⚡ Flujo "Check & Go" (5s Automático)
-
-El sistema está optimizado para operación "manos libres" en terminales de acceso masivo:
-
-1. **Autenticación Directa**: El empleado ingresa sus credenciales.
-2. **Fase de Preparación (5s)**: Al presionar **ACTIVAR**, el sistema otorga una cuenta regresiva de 5 segundos para que el usuario se posicione correctamente.
-3. **Escaneo Inteligente**: El HUD activa el sensor láser animado y busca el rostro con confianza ≥ 85%.
-4. **Registro Silencioso**: Una vez identificado, la asistencia se registra en **SQLite** y se sincroniza con **Supabase Cloud** inmediatamente.
-5. **Auto-Logout Protector (5s)**: Se muestra un mensaje de éxito estético y la sesión se cierra automáticamente tras 5 segundos, dejando la terminal lista para el siguiente usuario.
-
----
-
-## 👤 Agregar un Nuevo Empleado
-
-```powershell
-# 1. Copiar la foto del empleado a la carpeta de fotos
-Copy-Item foto_nuevo.jpeg database_fotos\photos\
-
-# 2. Actualizar el archivo JSON con los datos del empleado
-# (editar database_fotos\json\employees_db.json)
-
-# 3. Re-entrenar los embeddings (< 30 segundos)
-python scripts\train_face_recognition_opencv.py
-
-# 4. ¡Listo! El sistema ya reconoce al nuevo empleado
+supabase/migrations/20260429_multitenant_saas_v1.sql
+supabase/migrations/20260430_station_monitoring.sql
+supabase/migrations/20260430_onboarding_function.sql
+supabase/migrations/20260430_crear_dispositivo_fn.sql
 ```
 
 ---
 
-## 🛠️ Proceso de Desarrollo
+## Planes del producto
 
-| Paso | Descripción | Herramientas |
-|------|-------------|-------------|
-| **1. Recopilación** | Extracción de datos y fotos del PDF *PERSONAL TIENDAS BM* | `extract_photos_from_pdf.py` |
-| **2. Procesamiento** | Organización de 56 fotografías y mapeo de identidades | Python, JSON |
-| **3. Entrenamiento** | Generación de 560 embeddings faciales (10 augmentaciones × 56 empleados) | OpenCV DNN, SFace, YuNet |
-| **4. Construcción** | Interfaz de escritorio con splash, login y dashboard | PyQt5, QThread |
-| **5. Seguridad** | Cifrado bcrypt, bloqueo por intentos, logs de auditoría | bcrypt, SQLAlchemy |
+| Plan | Estaciones | Empleados | Funciones |
+|---|---|---|---|
+| Starter | 1 | hasta 50 | Asistencia básica |
+| Business | 5 | hasta 500 | Multi-sucursal, reportes |
+| Enterprise | ilimitado | ilimitado | API pública, integraciones RH, SLA |
 
 ---
 
-## 🔧 Solución de Problemas
+## Estado actual del desarrollo
 
-| Síntoma | Causa | Solución |
-|---------|-------|----------|
-| `Error 429 (Quota Exceeded)` | Límite de API Gemini alcanzado | El sistema usa OpenCV automáticamente. Verifique su cuota en Google AI Studio |
-| `DLL Load Failed` | Falta Visual C++ Redistributable | Instale [VC++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe) |
-| Cámara no detectada | En uso por Teams, Zoom, etc. | Cierre la otra aplicación y reactive la cámara |
-| `No module named 'X'` | Dependencia faltante | Ejecute `.\iniciar.ps1` para reinstalar dependencias |
-| Match con baja confianza | Embeddings desactualizados | Ejecute `python scripts\train_face_recognition_opencv.py` |
+### Completado ✅
 
----
+**Infraestructura y backend**
+- Schema multi-tenant en Supabase con RLS y pgvector
+- Auth SSR con `@supabase/ssr` 0.10.2 (login, cookies, middleware, redirect)
+- Onboarding wizard para nuevos clientes (crea empresa + sucursal sin SQL)
+- Funciones SECURITY DEFINER que bypasan RLS para onboarding y setup
+- Vista `v_dispositivos_estado` con cálculo de estado automático (online/alerta/offline/nunca)
+- Heartbeat de estación cada 60s (QThread background, RPC `station_heartbeat`)
 
-## 📊 Métricas del Sistema
+**Panel web (web-panel/)**
+- Sidebar con navegación activa (`usePathname`), todas las páginas accesibles
+- Panel de dispositivos: crear, renombrar, ver/copiar API key
+- **Dispositivos en tiempo real:** Supabase Realtime subscription — el estado online/offline se actualiza solo sin recargar (indicador verde pulsante "Tiempo real")
+- **CRUD completo de empleados:** crear, editar (nombre, puesto, sucursal, activo), eliminar con confirmación, búsqueda instantánea por nombre/apellido/código
 
-<table>
-<tr>
-<td align="center"><h3>99%</h3><sub>Confianza Promedio</sub></td>
-<td align="center"><h3>100%</h3><sub>Precisión en Pruebas</sub></td>
-<td align="center"><h3>2-3s</h3><sub>Tiempo de Respuesta</sub></td>
-<td align="center"><h3>56</h3><sub>Empleados Registrados</sub></td>
-</tr>
-</table>
+**App de escritorio (station/)**
+- SetupWindow: wizard automático que crea dispositivo y escribe `STATION_API_KEY` en `.env`
+- SplashScreen rediseñada — `QWidget` frameless + `QWebEngineView`, barra de progreso animada, auto-avance hasta 75%, fade-out al terminar
+- LoginWindow rediseñada — CSS glassmorphism, layout dos paneles (cámara | formulario), QWebChannel Python↔JS
+- DashboardWindow rediseñada — topbar minimalista, sección de cámara con HUD corners + scan line, sidebar con arco de confianza SVG animado, overlay de asistencia registrada
+- Design system OLED dark consistente: `#050810` bg, `#3B82F6` accent, `#22C55E` green, Fira Code para datos
 
----
+### Pendiente 🔧
 
-## 🤝 Contribuir al Proyecto
+**Alta prioridad**
+- **Enrollment en estación:** flujo completo de captura guiada de fotos → embedding pgvector → subida a Supabase. Actualmente el botón "Registrar empleado" no hace nada.
+- **Reportes con gráficas:** `/reportes` es placeholder — necesita gráficas de asistencia por día/semana (Recharts o Chart.js), top empleados, resumen mensual.
 
-Este proyecto sigue un flujo de trabajo profesional basado en **Issues**, **Branches** y **Pull Requests**. Todo cambio —por pequeño que sea— debe pasar por este proceso.
+**Media prioridad**
+- **Configuración de empresa:** `/configuracion` es placeholder — editar nombre, timezone, logo, sucursales.
+- **Notificaciones:** alertas en el panel cuando una estación pasa a offline, llegadas tarde, ausencias del día.
+- **Historial de asistencias mejorado:** filtros por empleado, sucursal, rango de fechas, exportar a CSV/Excel.
 
-### Flujo de trabajo
-
-```mermaid
-flowchart LR
-    A["1. Issue creado"] --> B["2. Asignarse al Issue"]
-    B --> C["3. Crear Branch"]
-    C --> D["4. Desarrollar"]
-    D --> E["5. Push + PR"]
-    E --> F["6. Code Review"]
-    F --> G["7. Merge a main"]
-```
-
-### Paso a paso
-
-#### 1. Revisar Issues y asignarse
-
-Antes de escribir código, revisa los **Issues abiertos** en el repositorio:
-
-```
-https://github.com/Safe-LM/app-login-trabajadores-desktop/issues
-```
-
-- Si ya existe un Issue para lo que quieres hacer, **asígnate** a ti mismo.
-- Si no existe, **crea uno nuevo** describiendo el problema o la mejora.
-
-#### 2. Crear una branch desde el Issue
-
-Usa esta convención de nombres para las ramas:
-
-| Tipo de cambio | Prefijo | Ejemplo |
-|----------------|---------|---------|
-| Nueva funcionalidad | `feature/` | `feature/agregar-reporte-pdf` |
-| Corrección de bug | `fix/` | `fix/login-no-responde` |
-| Documentación | `docs/` | `docs/actualizar-readme` |
-| Refactorización | `refactor/` | `refactor/reorganizar-matchers` |
-| Mejora de rendimiento | `perf/` | `perf/optimizar-embeddings` |
-
-```powershell
-# Asegúrate de estar en main actualizado
-git checkout main
-git pull origin main
-
-# Crear la nueva branch (ejemplo: Issue #12 - agregar exportar asistencia)
-git checkout -b feature/12-exportar-asistencia
-```
-
-> **Tip:** Incluye el número del Issue en el nombre de la branch para que se vincule automáticamente.
-
-#### 3. Desarrollar y hacer commits
-
-Haz commits pequeños y descriptivos siguiendo esta convención:
-
-```powershell
-# Formato: tipo: descripción corta
-git add .
-git commit -m "feat: agregar boton de exportar asistencia a CSV"
-git commit -m "fix: corregir formato de fecha en exportación"
-git commit -m "docs: documentar nueva función de exportación"
-```
-
-| Prefijo | Uso |
-|---------|-----|
-| `feat:` | Nueva funcionalidad |
-| `fix:` | Corrección de bug |
-| `docs:` | Solo documentación |
-| `refactor:` | Reestructuración sin cambiar funcionalidad |
-| `style:` | Formato, estilos CSS, etc. |
-| `perf:` | Mejoras de rendimiento |
-| `test:` | Agregar o corregir tests |
-
-#### 4. Push y crear Pull Request
-
-```powershell
-# Subir tu branch al repositorio
-git push origin feature/12-exportar-asistencia
-```
-
-Después ve a GitHub y crea un **Pull Request (PR)**:
-
-1. Ve a: `https://github.com/Safe-LM/app-login-trabajadores-desktop/pulls`
-2. Clic en **"New Pull Request"**
-3. Selecciona tu branch como **compare** y `main` como **base**
-4. Agrega un título claro y en la descripción escribe: `Closes #12` (para que cierre el Issue automáticamente)
-5. Asigna un **reviewer** para la revisión de código
-
-#### 5. Code Review y Merge
-
-- El reviewer revisa los cambios, deja comentarios si es necesario.
-- Si hay correcciones, hazlas en la misma branch y haz push de nuevo.
-- Una vez aprobado, el reviewer (o tú) hace **Merge** a `main`.
-- La branch se elimina automáticamente después del merge.
-
-### Reglas importantes
-
-> **⚠️ Nunca hagas push directo a `main`.** Todo cambio debe pasar por un PR.
-
-- Cada PR debe estar vinculado a un **Issue**.
-- Los PRs deben tener al menos **1 aprobación** antes del merge.
-- Mantén tus branches **actualizadas** con `main` antes de hacer PR:
-  ```powershell
-  git checkout feature/mi-branch
-  git pull origin main
-  ```
-- Si hay conflictos, resuélvelos **localmente** antes de hacer push.
+**Baja prioridad / futuro**
+- **Electron / PyInstaller:** empaquetar la app PyQt5 como instalador `.exe` descargable desde el panel (PyInstaller + NSIS, investigado y viable).
+- **Billing con Stripe:** planes Starter / Business / Enterprise con límites de estaciones y empleados por tenant.
+- **API pública REST:** endpoints para integración con sistemas externos de RH (Personio, BambooHR, SAP).
+- **App móvil:** consulta de asistencia y aprobaciones desde celular (React Native o PWA).
 
 ---
 
-## 📄 Licencia
+## Notas técnicas importantes
 
-Este software es **propiedad privada** de **Safe Link Monitoring**. Queda prohibida su reproducción o distribución sin autorización expresa.
+**¿Por qué SECURITY DEFINER en vez de RLS directo?**
+Al crear una empresa nueva, el JWT del usuario no tiene `empresa_id` aún (se asigna durante el onboarding). RLS bloquearía el INSERT. Las funciones SECURITY DEFINER corren como el owner del schema y leen `raw_user_meta_data` de `auth.users` directamente.
 
-<p align="center">
-  <br>
-  <img src="https://img.shields.io/badge/Built_with-Python_+_OpenCV_+_PyQt5-6366f1?style=for-the-badge&labelColor=0f172a" alt="Built with">
-  <br><br>
-  <sub>Desarrollado con ❤️ por el equipo de Ingeniería de <strong>Safe Link Monitoring</strong> · 2026</sub>
-</p>
+**¿Por qué `router.refresh()` + `router.push()` en el login?**
+`@supabase/ssr` requiere que las cookies de sesión se propaguen al Server Component antes del redirect. `window.location.replace()` no lo hace correctamente. `router.refresh()` fuerza el re-fetch del Server Component con las cookies nuevas.
+
+**¿Por qué `(supabase as any)` en algunas queries?**
+El cliente Supabase no puede inferir el tipo de retorno de JOINs complejos ni de vistas custom (`v_dispositivos_estado`). Se castea a `any` para esas queries y se usan tipos TypeScript explícitos locales.

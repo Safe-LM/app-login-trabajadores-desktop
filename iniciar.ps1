@@ -49,7 +49,7 @@ if (-not (Test-Path $venvPython)) {
 
 # Instalar dependencias usando el Python del venv
 Write-Host "Verificando dependencias..." -ForegroundColor Yellow
-& $venvPython -m pip install -q -r requirements.txt
+& $venvPython -m pip install -q -r station/requirements.txt
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ Error instalando dependencias" -ForegroundColor Red
     exit 1
@@ -76,5 +76,5 @@ Write-Host ""
 # Ejecutar aplicación usando el Python del venv
 Write-Host "Iniciando aplicación..." -ForegroundColor Yellow
 Write-Host ""
-& $venvPython src/main.py
+& $venvPython station/src/main.py
 

@@ -49,7 +49,7 @@ jobs:
             pyinstaller --noconfirm --windowed --name SafeLinkStation `
               --add-data "frontend/dist;frontend/dist" `
               --add-data "src/assets;src/assets" `
-              src/main.py
+              "src/main.py"
           }
 
       - name: Upload artifact

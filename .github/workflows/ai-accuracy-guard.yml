@@ -1,45 +1,25 @@
-name: 🎯 AI Accuracy Guard
+name: AI Accuracy Guard
+
+# Tras migrar al schema SaaS multitenant, los embeddings y la accuracy
+# se validan en runtime por la estacion (genera 10 embeddings/empleado
+# y los sube a Supabase). Este workflow queda como manual-only para
+# correr pruebas de regresion offline si en el futuro reanudamos un
+# dataset estatico de pruebas.
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   accuracy-test:
-    name: 🤖 Verificación de Modelos
+    name: Verificacion de Modelos (manual)
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout código
+      - name: Checkout codigo
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Instalar dependencias base
+      - name: Skip — placeholder
         run: |
-          pip install opencv-python-headless numpy requests pillow
-
-      - name: Ejecutar Test de Precisión
-        run: |
-          echo "🚀 Iniciando evaluación de precisión facial..."
-          # Ejecutamos el script y capturamos la salida
-          OUTPUT=$(python scripts/main_codes/test_accuracy.py)
-          echo "$OUTPUT"
-          
-          # Extraer el porcentaje de Accuracy usando grep y sed
-          ACCURACY=$(echo "$OUTPUT" | grep "ACCURACY:" | grep -oE "[0-9]+(\.[0-9]+)?")
-          echo "🎯 Precisión detectada: $ACCURACY%"
-          
-          # Umbral mínimo de calidad (95%)
-          THRESHOLD=95
-          if (( $(echo "$ACCURACY < $THRESHOLD" | bc -l) )); then
-            echo "❌ ERROR: La precisión del modelo ($ACCURACY%) es inferior al umbral aceptable ($THRESHOLD%)."
-            echo "Revisar los embeddings o la iluminación de las fotos base."
-            exit 1
-          fi
-          echo "✅ Calidad de IA aprobada"
+          echo "AI Accuracy Guard ahora corre en la estacion en vivo."
+          echo "Si necesitas un test offline, agrega tools/diagnostics/test_accuracy.py"
+          echo "y reactiva los triggers (push/pull_request) en este workflow."

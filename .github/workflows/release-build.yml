@@ -1,4 +1,8 @@
-name: 🚀 Build & Release
+name: Release - Versioning
+
+# Release-please genera el changelog y crea releases automaticas via
+# Conventional Commits. La compilacion del .exe la hace
+# station-build-windows.yml cuando se pushea un tag station-v*.
 
 on:
   push:
@@ -9,7 +13,6 @@ permissions:
   pull-requests: write
 
 jobs:
-  # TAREA 3: Generación de Changelog y Versionado Automático (Conventional Commits)
   release-please:
     runs-on: ubuntu-latest
     outputs:
@@ -20,40 +23,3 @@ jobs:
         id: release
         with:
           release-type: python
-
-  # TAREA 1: Generación Automática del Ejecutable (.exe) para Windows
-  build-windows-exe:
-    needs: release-please
-    if: ${{ needs.release-please.outputs.release_created }}
-    runs-on: windows-latest
-    steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Instalar dependencias
-        run: |
-          pip install -r requirements.txt
-
-      - name: Compilar con PyInstaller
-        run: |
-          # Compilar el archivo principal en un solo ejecutable
-          # --noconsole para ocultar la terminal de fondo
-          # --add-data para incluir los modelos y assets (Formato: origen;destino)
-          pyinstaller --noconsole --onefile `
-            --name "SafeLink-Monitoring-${{ needs.release-please.outputs.tag_name }}" `
-            --add-data "data/models/models;data/models/models" `
-            --add-data "src/assets;src/assets" `
-            src/main.py
-
-      - name: Subir EXE a la Release de GitHub
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.release-please.outputs.tag_name }}
-          files: dist/*.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

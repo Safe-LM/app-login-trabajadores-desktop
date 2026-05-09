@@ -1,4 +1,4 @@
-name: 🛡️ SaaS Premium - Quality & Security Guard
+name: SaaS Premium - Quality & Security Guard
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   quality:
-    name: 🎨 Quality & Style Guard
+    name: Quality & Style Guard
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -23,19 +23,17 @@ jobs:
         run: |
           pip install black isort flake8 flake8-bugbear flake8-comprehensions
 
-      - name: 🛠️ Check Imports (isort)
-        run: |
-          isort --check-only --profile black src/ scripts/
+      - name: Check Imports (isort)
+        run: isort --check-only --profile black station/src/ tools/
         continue-on-error: true
 
-      - name: 🖋️ Check Formatting (black)
-        run: |
-          black --check src/ scripts/
+      - name: Check Formatting (black)
+        run: black --check station/src/ tools/
         continue-on-error: true
 
-      - name: 🔍 Deep Linting (flake8)
+      - name: Deep Linting (flake8)
         run: |
-          flake8 src/ scripts/ \
+          flake8 station/src/ tools/ \
             --count \
             --select=E9,F63,F7,F82,B,C \
             --show-source \
@@ -44,7 +42,7 @@ jobs:
             --exclude=__pycache__,venv,.git
 
   security:
-    name: 🛡️ Advanced Security Scan
+    name: Advanced Security Scan
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -56,18 +54,16 @@ jobs:
           python-version: '3.10'
 
       - name: Install Security Tools
-        run: |
-          pip install bandit safety
+        run: pip install bandit safety
 
-      - name: 🕵️ Security Scan (Bandit)
+      - name: Security Scan (Bandit)
         run: |
-          echo "🛡️ Escaneando código fuente..."
-          bandit -r src/ scripts/ -ll -ii
-          echo "✅ No se detectaron vulnerabilidades críticas en el código"
+          echo "Escaneando codigo fuente..."
+          bandit -r station/src/ tools/ -ll -ii
+          echo "OK"
 
-      - name: 🔒 Check Dependencies (Safety)
+      - name: Check Dependencies (Safety)
         run: |
-          echo "🛡️ Verificando vulnerabilidades en requisitos..."
-          # Usamos --continue-on-error para reportar sin bloquear el pipeline si hay vulnerabilidades conocidas en librerías viejas necesarias
-          safety check -r requirements.txt || true
-          echo "✅ Escaneo de dependencias finalizado"
+          echo "Verificando vulnerabilidades en station/requirements.txt..."
+          safety check -r station/requirements.txt || true
+          echo "Escaneo finalizado"

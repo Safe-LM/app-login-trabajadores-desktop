@@ -9,12 +9,12 @@ export async function POST(request: NextRequest) {
   const { nombre, sucursal_id } = await request.json();
   if (!nombre?.trim()) return NextResponse.json({ error: "Nombre requerido" }, { status: 400 });
 
-  // Usar funcion SECURITY DEFINER que bypasea RLS
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any).rpc("crear_dispositivo", {
+  const { data, error } = await (supabase as any).rpc("vincular_estacion_hwid", {
     p_user_id:     user.id,
     p_nombre:      nombre.trim(),
     p_sucursal_id: sucursal_id || null,
+    p_hwid:        null,
   });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -23,8 +23,8 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     ok: true,
     dispositivo: {
-      id:      data.id,
-      nombre:  data.nombre,
+      id:      data.dispositivo_id,
+      nombre:  nombre.trim(),
       api_key: data.api_key,
     },
   });

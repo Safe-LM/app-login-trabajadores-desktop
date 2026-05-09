@@ -18,6 +18,23 @@ from collections import defaultdict
 logger = logging.getLogger(__name__)
 
 
+def _find_models_dir(start: Path) -> Path:
+    """
+    Busca la carpeta 'models' subiendo en la jerarquía desde `start`.
+    Devuelve el primer match. Si no encuentra, retorna start.parent / 'models'
+    (path "esperado" — el caller validará si existe).
+    """
+    p = start.resolve()
+    for _ in range(6):  # subir hasta 6 niveles
+        candidate = p / "models"
+        if candidate.exists():
+            return candidate
+        if p.parent == p:
+            break
+        p = p.parent
+    return start.parent / "models"
+
+
 class OpenCVFaceRecognizer:
     """Reconocedor facial con SFace embeddings y voting."""
 
@@ -25,7 +42,9 @@ class OpenCVFaceRecognizer:
         self.database_dir = database_dir
         self.encodings_file = database_dir / "face_encodings_opencv.pkl"
         self.metadata_file = database_dir / "json" / "employees_db.json"
-        self.models_dir = database_dir.parent / "models"
+        # database_dir es station/data/cache/<empresa_id>/ — modelos viven en station/models/
+        # Buscamos hacia arriba hasta encontrar la carpeta 'models'
+        self.models_dir = _find_models_dir(database_dir)
 
         self.encodings: List[np.ndarray] = []
         self.employee_ids: List[int] = []
@@ -76,25 +95,32 @@ class OpenCVFaceRecognizer:
             try:
                 with open(self.metadata_file, "r", encoding="utf-8") as f:
                     for emp in json.load(f):
-                        nombre_completo = emp.get("nombre", "").strip()
-                        parts = nombre_completo.split()
-                        if len(parts) >= 3:
-                            emp["apellido"] = f"{parts[0]} {parts[1]}"
-                            emp["nombre"] = " ".join(parts[2:])
-                        elif len(parts) == 2:
-                            emp["apellido"] = parts[0]
-                            emp["nombre"] = parts[1]
-                        else:
-                            emp["apellido"] = ""
-                        self.employee_info[emp["employee_id"]] = emp
+                        # El JSON puede usar "employee_id" (formato viejo) o "id" (formato sync_manager).
+                        # Normalizamos a employee_id.
+                        emp_id = emp.get("employee_id") or emp.get("id")
+                        if not emp_id:
+                            continue
+                        emp["employee_id"] = emp_id
+
+                        # Si el JSON ya tiene apellido separado (formato sync), no recortamos el nombre.
+                        if not emp.get("apellido"):
+                            nombre_completo = emp.get("nombre", "").strip()
+                            parts = nombre_completo.split()
+                            if len(parts) >= 3:
+                                emp["apellido"] = f"{parts[0]} {parts[1]}"
+                                emp["nombre"] = " ".join(parts[2:])
+                            elif len(parts) == 2:
+                                emp["apellido"] = parts[0]
+                                emp["nombre"] = parts[1]
+                            else:
+                                emp["apellido"] = ""
+                        self.employee_info[emp_id] = emp
             except Exception as e:
                 logger.warning(f"Error cargando metadatos: {e}")
 
         if not self.encodings_file.exists():
-            logger.warning(
-                "No se encontraron encodings. Ejecuta train_face_recognition_opencv.py"
-            )
-            return False
+            logger.info("No se encontraron encodings previos (sistema nuevo)")
+            return True
 
         try:
             with open(self.encodings_file, "rb") as f:
@@ -273,12 +299,10 @@ def get_opencv_recognizer(
     global _opencv_recognizer
     if _opencv_recognizer is None:
         if database_dir is None:
-            # Apuntar a database_fotos/ en la raíz del proyecto
-            PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+            PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
             database_dir = PROJECT_ROOT / "database_fotos"
         _opencv_recognizer = OpenCVFaceRecognizer(database_dir)
-        if not _opencv_recognizer.load_encodings():
-            return None
+        _opencv_recognizer.load_encodings()
     return _opencv_recognizer
 
 

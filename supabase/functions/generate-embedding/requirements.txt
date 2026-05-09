@@ -1,0 +1,12 @@
+# Requirements for Supabase Edge Function: generate-embedding
+# Runtime: Python 3.11
+
+# Core dependencies
+opencv-python==4.9.0.80
+numpy==1.26.4
+
+# Supabase client
+supabase==2.3.4
+
+# HTTP client (included in Python stdlib but listed for clarity)
+# urllib.request is stdlib

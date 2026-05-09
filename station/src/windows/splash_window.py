@@ -134,6 +134,25 @@ html,body{
   position:fixed;bottom:20px;
   font-size:10px;color:#1E293B;letter-spacing:.06em;
 }
+
+/* error banner */
+.error-banner{
+  display:none;
+  margin-top:20px;
+  padding:12px 16px;
+  background:rgba(239,68,68,.08);
+  border:1px solid rgba(239,68,68,.25);
+  border-radius:10px;
+  width:100%;
+  animation:fadeUp .3s ease both;
+}
+.error-banner.visible{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.error-title{
+  font-size:12px;font-weight:700;color:#f87171;
+  display:flex;align-items:center;gap:6px;margin-bottom:4px;
+}
+.error-msg{font-size:11px;color:#fca5a5;line-height:1.55}
 </style>
 </head>
 <body>
@@ -168,6 +187,17 @@ html,body{
     <div class="dot"></div>
     <div class="dot"></div>
   </div>
+
+  <!-- banner de error — solo visible cuando hay fallo -->
+  <div class="error-banner" id="errBanner">
+    <div class="error-title">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      Error de inicio
+    </div>
+    <div class="error-msg" id="errMsg">Error desconocido</div>
+  </div>
 </div>
 
 <div class="version">Safe Link Monitoring v3.0</div>
@@ -190,6 +220,26 @@ function animate() {
   } else {
     _raf = null;
   }
+}
+
+function showError(msg) {
+  // detener auto-avance
+  clearInterval(_autoTimer);
+  // barra en rojo
+  var bar = document.getElementById('bar');
+  bar.style.background = '#ef4444';
+  bar.style.boxShadow = '0 0 8px rgba(239,68,68,.5)';
+  // pct en rojo
+  document.getElementById('pct').style.color = '#f87171';
+  // dots paran
+  var dots = document.querySelectorAll('.dot');
+  dots.forEach(function(d){ d.style.animationPlayState='paused'; d.style.background='rgba(239,68,68,.3)'; });
+  // banner
+  document.getElementById('errMsg').textContent = msg;
+  document.getElementById('errBanner').classList.add('visible');
+  // mensaje
+  document.getElementById('msg').textContent = 'No se pudo iniciar';
+  document.getElementById('msg').style.color = '#f87171';
 }
 
 // auto-advance until Python takes over
@@ -250,6 +300,44 @@ class SplashScreen(QWidget):
         self._progress = 100
         self._js("setProgress(100, 'Listo');")
         QApplication.processEvents()
+
+    def show_error(self, message: str):
+        """Muestra banner de error rojo y detiene la animación de progreso."""
+        import json
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"ERROR DE INICIO: {message}")
+
+        # Intentar JS (si WebEngine cargó)
+        self._js(f"showError({json.dumps(message)});")
+        QApplication.processEvents()
+
+        # Fallback: QLabel superpuesto (siempre visible, sin depender de WebEngine)
+        if not hasattr(self, '_error_label'):
+            from PyQt5.QtWidgets import QLabel
+            from PyQt5.QtCore import Qt as QtCore
+            self._error_label = QLabel(self)
+            self._error_label.setStyleSheet("""
+                QLabel {
+                    background: rgba(127,29,29,0.95);
+                    color: #fca5a5;
+                    font-size: 13px;
+                    padding: 18px 24px;
+                    border: 1px solid rgba(239,68,68,0.4);
+                    border-radius: 10px;
+                }
+            """)
+            self._error_label.setWordWrap(True)
+            self._error_label.setAlignment(QtCore.AlignCenter)
+            self._error_label.setFixedWidth(420)
+        self._error_label.setText(message)
+        self._error_label.adjustSize()
+        self._error_label.move(
+            (self.width() - self._error_label.width()) // 2,
+            self.height() - self._error_label.height() - 30,
+        )
+        self._error_label.show()
+        self._error_label.raise_()
 
     def finish(self, main_window):
         """Compatible con QSplashScreen.finish() — fade out y cierra."""

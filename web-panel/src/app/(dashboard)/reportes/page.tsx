@@ -1,24 +1,98 @@
-﻿import { createClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import dynamic from "next/dynamic";
+import { ReportesSkeleton } from "./reportes-skeleton";
+import type { ReportesData } from "./types";
+
+const ReportesClient = dynamic(
+  () => import("./reportes-client").then(m => ({ default: m.ReportesClient })),
+  { loading: () => <ReportesSkeleton /> }
+);
+
+export const revalidate = 60;
+
+const RANGE_DAYS = 30;
 
 export default async function ReportesPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const empresaId = user.user_metadata?.empresa_id as string | undefined;
+  if (!empresaId) redirect("/onboarding");
+
+  const desde = new Date();
+  desde.setDate(desde.getDate() - RANGE_DAYS);
+  desde.setHours(0, 0, 0, 0);
+
+  const [registrosRes, empleadosRes, sucursalesRes] = await Promise.all([
+    supabase
+      .from("registros_asistencia")
+      .select("id, tipo, timestamp, confianza, empleado_id, sucursal_id, empleados(nombre, apellido), sucursales(nombre)")
+      .eq("empresa_id", empresaId)
+      .gte("timestamp", desde.toISOString())
+      .order("timestamp", { ascending: false })
+      .limit(5000),
+    supabase
+      .from("empleados")
+      .select("id, nombre, apellido, sucursal_id, activo")
+      .eq("empresa_id", empresaId),
+    supabase
+      .from("sucursales")
+      .select("id, nombre, hora_apertura, hora_cierre, tolerancia_min")
+      .eq("empresa_id", empresaId),
+  ]);
+
+  type RegistroJoined = {
+    id: string;
+    tipo: "entrada" | "salida";
+    timestamp: string;
+    confianza: number | null;
+    empleado_id: string;
+    sucursal_id: string | null;
+    empleados: { nombre: string; apellido: string } | null;
+    sucursales: { nombre: string } | null;
+  };
+
+  const registrosRaw = (registrosRes.data ?? []) as unknown as RegistroJoined[];
+
+  const data: ReportesData = {
+    desde: desde.toISOString(),
+    rangeDays: RANGE_DAYS,
+    registros: registrosRaw.map(r => ({
+      id: r.id,
+      tipo: r.tipo,
+      timestamp: r.timestamp,
+      confianza: r.confianza,
+      empleado_id: r.empleado_id,
+      sucursal_id: r.sucursal_id,
+      empleado_nombre: r.empleados ? `${r.empleados.nombre} ${r.empleados.apellido}` : null,
+      sucursal_nombre: r.sucursales?.nombre ?? null,
+    })),
+    empleados: (empleadosRes.data ?? []).map(e => ({
+      id: e.id,
+      nombre: `${e.nombre} ${e.apellido}`,
+      sucursal_id: e.sucursal_id,
+      activo: e.activo,
+    })),
+    sucursales: (sucursalesRes.data ?? []).map(s => ({
+      id: s.id,
+      nombre: s.nombre,
+      hora_apertura: s.hora_apertura,
+      hora_cierre: s.hora_cierre,
+      tolerancia_min: s.tolerancia_min ?? 10,
+    })),
+  };
+
   return (
-    <div style={{ padding: "28px 32px", maxWidth: 1200, margin: "0 auto" }} className="animate-fade-up">
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.03em", color: "var(--text-primary)", marginBottom: 2 }}>Reportes</h1>
-        <p style={{ fontSize: 12, color: "var(--text-muted)" }}>Analisis de asistencia</p>
-      </div>
-      <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 12, padding: "56px 20px", textAlign: "center" }}>
-        <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--bg-elevated)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+    <div className="page animate-fade-up">
+      <div className="page-header">
+        <div>
+          <h1 className="heading-1" style={{ marginBottom: 2 }}>Reportes</h1>
+          <p className="text-muted-sm">Análisis de asistencia, puntualidad y horas trabajadas</p>
         </div>
-        <p style={{ fontSize: 13, fontWeight: 500, color: "var(--text-muted)", marginBottom: 4 }}>Reportes en desarrollo</p>
-        <p style={{ fontSize: 12, color: "var(--text-faint)" }}>Proxima actualizacion incluira graficas y exportacion a Excel/PDF</p>
       </div>
+      <ReportesClient data={data} />
     </div>
   );
 }

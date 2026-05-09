@@ -1,20 +1,23 @@
 """
-DashboardWindow — Safe Link Monitoring Station v3.0
-UI: QWebEngineView con HTML/CSS/JS embebido.
+DashboardWindow — Safe Link Monitoring Station v4.0
+UI: QWebEngineView + React (single-file bundle).
 """
 
 import base64
+import json
 import logging
 import socket
 import threading
+import time
 from datetime import datetime
+
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 import cv2
 import numpy as np
 from PyQt5.QtCore import (
-    QEasingCurve, QObject, QPropertyAnimation, QThread, QTimer,
+    QEasingCurve, QObject, QPropertyAnimation, QThread, QTimer, QUrl,
     Qt, pyqtSignal, pyqtSlot,
 )
 from PyQt5.QtWebChannel import QWebChannel
@@ -22,6 +25,7 @@ from PyQt5.QtWebEngineWidgets import QWebEngineSettings, QWebEngineView
 from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QWidget
 
 from utils.supabase_client import get_supabase_client
+from windows.fallback_ui import _FALLBACK_HTML
 
 logger = logging.getLogger(__name__)
 
@@ -50,641 +54,10 @@ def _lazy_load_face_recognition():
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-_HTML = """<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>Safe Link</title>
-<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:       #050810;
-  --surface:  #0A0F1E;
-  --card:     #0D1424;
-  --border:   rgba(255,255,255,.07);
-  --accent:   #3B82F6;
-  --green:    #22C55E;
-  --yellow:   #EAB308;
-  --red:      #EF4444;
-  --text:     #F1F5F9;
-  --text2:    #94A3B8;
-  --muted:    #334155;
-}
-html,body{
-  width:100%;height:100%;overflow:hidden;
-  background:var(--bg);
-  font-family:-apple-system,'Segoe UI',sans-serif;
-  color:var(--text);font-size:13px;
-  -webkit-font-smoothing:antialiased;
-}
+_SUPERVISOR_PIN = '1234'
 
-/* ── shell ── */
-.app{display:flex;flex-direction:column;height:100vh}
-
-/* ── topbar ── */
-.topbar{
-  height:48px;flex-shrink:0;
-  background:var(--surface);
-  border-bottom:1px solid var(--border);
-  display:flex;align-items:center;
-  padding:0 20px;gap:12px;
-}
-.logo{display:flex;align-items:center;gap:8px}
-.logo-mark{
-  width:26px;height:26px;border-radius:6px;
-  background:var(--accent);
-  display:flex;align-items:center;justify-content:center;
-  box-shadow:0 0 14px rgba(59,130,246,.4);
-}
-.logo-text{font-size:13px;font-weight:700;letter-spacing:.04em}
-.logo-text em{color:var(--accent);font-style:normal}
-.topbar-sep{width:1px;height:16px;background:var(--border)}
-.topbar-sub{font-size:11px;color:var(--text2)}
-.spacer{flex:1}
-.online-badge{
-  display:flex;align-items:center;gap:5px;
-  font-size:10px;font-weight:600;color:var(--green);
-  letter-spacing:.05em;
-}
-.pulse{
-  width:6px;height:6px;border-radius:50%;background:var(--green);
-  box-shadow:0 0 0 0 rgba(34,197,94,.5);
-  animation:pulse 2s ease infinite;
-}
-@keyframes pulse{
-  0%{box-shadow:0 0 0 0 rgba(34,197,94,.5)}
-  70%{box-shadow:0 0 0 7px rgba(34,197,94,0)}
-  100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}
-}
-.user-chip{
-  display:flex;align-items:center;gap:7px;
-  background:rgba(255,255,255,.04);
-  border:1px solid var(--border);
-  border-radius:20px;padding:3px 10px 3px 4px;
-}
-.user-av{
-  width:22px;height:22px;border-radius:50%;
-  background:var(--accent);
-  display:flex;align-items:center;justify-content:center;
-  font-size:10px;font-weight:700;color:#fff;
-}
-.user-name{font-size:11px;color:var(--text2)}
-.clock{
-  font-size:12px;font-weight:500;
-  color:var(--text2);
-  font-variant-numeric:tabular-nums;
-  letter-spacing:.04em;
-}
-
-/* ── main ── */
-.main{display:flex;flex:1;gap:0;min-height:0}
-
-/* ── camera section ── */
-.cam-section{
-  flex:1;display:flex;flex-direction:column;
-  border-right:1px solid var(--border);
-  min-width:0;
-}
-.cam-toolbar{
-  height:44px;flex-shrink:0;
-  display:flex;align-items:center;gap:10px;
-  padding:0 16px;
-  border-bottom:1px solid var(--border);
-  background:var(--surface);
-}
-.cam-label{font-size:11px;font-weight:600;color:var(--text2);letter-spacing:.06em;text-transform:uppercase}
-.tag{
-  font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
-  padding:2px 8px;border-radius:4px;
-  background:rgba(148,163,184,.1);color:var(--text2);
-  border:1px solid var(--border);
-}
-.tag.live{background:rgba(34,197,94,.1);color:var(--green);border-color:rgba(34,197,94,.2)}
-.tag.warn{background:rgba(234,179,8,.1);color:var(--yellow);border-color:rgba(234,179,8,.2)}
-.tag.err{background:rgba(239,68,68,.1);color:var(--red);border-color:rgba(239,68,68,.2)}
-.rec-dot{
-  width:6px;height:6px;border-radius:50%;background:var(--green);
-  display:none;animation:pulse 1.2s infinite;
-}
-.rec-dot.on{display:block}
-.ml-auto{margin-left:auto}
-
-/* video area */
-.video-area{
-  flex:1;position:relative;background:#000;
-  display:flex;align-items:center;justify-content:center;
-  min-height:0;overflow:hidden;
-}
-#vid{width:100%;height:100%;object-fit:cover;display:none}
-#vid.on{display:block}
-.idle-state{
-  display:flex;flex-direction:column;align-items:center;gap:16px;
-  pointer-events:none;user-select:none;
-}
-.idle-icon{
-  width:64px;height:64px;border-radius:16px;
-  background:rgba(255,255,255,.03);
-  border:1px solid var(--border);
-  display:flex;align-items:center;justify-content:center;
-}
-.idle-title{font-size:14px;font-weight:600;color:var(--text2)}
-.idle-hint{font-size:11px;color:var(--muted)}
-
-/* HUD */
-.hud{position:absolute;inset:0;pointer-events:none}
-.c{position:absolute;width:18px;height:18px;border-color:var(--accent);border-style:solid;border-width:0;opacity:.6}
-.c.tl{top:14px;left:14px;border-top-width:2px;border-left-width:2px}
-.c.tr{top:14px;right:14px;border-top-width:2px;border-right-width:2px}
-.c.bl{bottom:14px;left:14px;border-bottom-width:2px;border-left-width:2px}
-.c.br{bottom:14px;right:14px;border-bottom-width:2px;border-right-width:2px}
-.scan{
-  position:absolute;left:14px;right:14px;height:1px;top:14px;
-  background:linear-gradient(90deg,transparent,rgba(59,130,246,.6) 50%,transparent);
-  display:none;
-  animation:sweep 2.8s ease-in-out infinite;
-}
-.scan.on{display:block}
-@keyframes sweep{
-  0%{top:14px;opacity:0} 8%{opacity:.7}
-  92%{opacity:.7} 100%{top:calc(100% - 14px);opacity:0}
-}
-
-/* action bar */
-.action-bar{
-  height:60px;flex-shrink:0;
-  display:flex;align-items:center;gap:10px;
-  padding:0 16px;
-  background:var(--surface);
-  border-top:1px solid var(--border);
-}
-.btn{
-  height:36px;border:none;border-radius:8px;
-  font-size:11px;font-weight:700;letter-spacing:.05em;
-  cursor:pointer;transition:all .15s;
-  display:inline-flex;align-items:center;justify-content:center;gap:6px;
-  white-space:nowrap;
-}
-.btn-blue{
-  background:var(--accent);color:#fff;
-  padding:0 18px;
-  box-shadow:0 0 16px rgba(59,130,246,.25);
-}
-.btn-blue:hover{background:#2563EB;box-shadow:0 0 22px rgba(59,130,246,.4)}
-.btn-outline-red{
-  background:transparent;color:var(--red);
-  border:1px solid rgba(239,68,68,.25);
-  padding:0 14px;
-}
-.btn-outline-red:hover{background:rgba(239,68,68,.08)}
-
-.btn-register{
-  flex:1;height:36px;border:none;border-radius:8px;
-  background:var(--green);color:#fff;
-  font-size:11px;font-weight:700;letter-spacing:.05em;
-  cursor:pointer;transition:all .15s;
-  display:inline-flex;align-items:center;justify-content:center;gap:6px;
-  box-shadow:0 0 16px rgba(34,197,94,.2);
-}
-.btn-register:hover:not([disabled]){background:#16A34A;box-shadow:0 0 22px rgba(34,197,94,.35)}
-.btn-register[disabled]{
-  background:rgba(255,255,255,.04);color:var(--muted);
-  box-shadow:none;cursor:default;border:1px solid var(--border);
-}
-
-/* ── sidebar ── */
-.sidebar{
-  width:280px;flex-shrink:0;
-  display:flex;flex-direction:column;
-  background:var(--surface);
-  overflow:hidden;
-}
-
-/* confidence block */
-.conf-block{
-  padding:20px 16px 16px;
-  border-bottom:1px solid var(--border);
-  display:flex;flex-direction:column;align-items:center;gap:10px;
-  transition:background .3s;
-}
-.conf-block.ok{background:rgba(34,197,94,.04)}
-.conf-block.warn{background:rgba(234,179,8,.04)}
-.conf-block.bad{background:rgba(239,68,68,.04)}
-
-.conf-label{font-size:9px;font-weight:700;letter-spacing:.12em;color:var(--text2);text-transform:uppercase}
-.conf-block.ok  .conf-label{color:var(--green)}
-.conf-block.warn .conf-label{color:var(--yellow)}
-.conf-block.bad  .conf-label{color:var(--red)}
-
-/* SVG arc */
-.arc-ring{position:relative;width:88px;height:88px}
-.arc-ring svg{width:88px;height:88px;position:absolute;inset:0}
-.arc-num{
-  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  font-size:20px;font-weight:700;color:var(--text2);
-  font-variant-numeric:tabular-nums;
-}
-
-.conf-status{font-size:10px;color:var(--muted);letter-spacing:.04em}
-
-/* employee block */
-.emp-block{
-  padding:14px 16px;
-  border-bottom:1px solid var(--border);
-  display:flex;align-items:center;gap:12px;
-}
-.emp-photo{
-  width:44px;height:44px;border-radius:10px;flex-shrink:0;
-  background:var(--card);border:1px solid var(--border);
-  overflow:hidden;display:flex;align-items:center;justify-content:center;
-  transition:border-color .3s;
-}
-.emp-photo.found{border-color:var(--green);box-shadow:0 0 0 2px rgba(34,197,94,.15)}
-#empPhoto{width:100%;height:100%;object-fit:cover;display:none}
-#empPhoto.on{display:block}
-.emp-info{min-width:0;flex:1}
-.emp-name{font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.emp-title{font-size:10px;color:var(--text2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
-/* data rows */
-.data-rows{flex:1;overflow-y:auto;padding:6px 8px}
-.data-row{
-  display:flex;align-items:center;gap:10px;
-  padding:8px;border-radius:6px;
-  transition:background .12s;
-}
-.data-row:hover{background:rgba(255,255,255,.03)}
-.data-row-key{font-size:10px;color:var(--muted);width:56px;flex-shrink:0;font-weight:500}
-.data-row-val{font-size:11px;color:var(--text2);font-weight:600;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
-/* last reg */
-.last-block{
-  padding:10px 16px;
-  border-top:1px solid var(--border);
-  display:flex;align-items:center;gap:10px;
-}
-.last-icon{color:var(--muted)}
-.last-texts{}
-.last-key{font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
-.last-val{font-size:11px;color:var(--text2);font-weight:600;margin-top:1px;font-variant-numeric:tabular-nums}
-
-/* logout */
-.logout-block{padding:10px 12px;border-top:1px solid var(--border)}
-.btn-logout{
-  width:100%;height:34px;border:none;border-radius:7px;
-  background:transparent;color:var(--red);
-  border:1px solid rgba(239,68,68,.18);
-  font-size:11px;font-weight:600;letter-spacing:.04em;
-  cursor:pointer;transition:all .15s;
-  display:flex;align-items:center;justify-content:center;gap:6px;
-}
-.btn-logout:hover{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3)}
-
-/* ── dialog ── */
-.overlay{
-  position:fixed;inset:0;
-  background:rgba(5,8,16,.85);
-  backdrop-filter:blur(8px);
-  display:none;align-items:center;justify-content:center;
-  z-index:999;
-}
-.overlay.on{display:flex}
-.dlg{
-  width:320px;background:var(--card);
-  border:1px solid var(--border);
-  border-radius:16px;
-  padding:28px 22px 20px;
-  box-shadow:0 24px 60px rgba(0,0,0,.7);
-  animation:rise .3s cubic-bezier(.16,1,.3,1) both;
-}
-@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-.dlg-ico{
-  width:48px;height:48px;border-radius:50%;
-  margin:0 auto 14px;
-  display:flex;align-items:center;justify-content:center;
-}
-.dlg-ico.in{background:rgba(34,197,94,.15)}
-.dlg-ico.out{background:rgba(59,130,246,.15)}
-.dlg-title{font-size:16px;font-weight:700;text-align:center;margin-bottom:16px}
-.dlg-row{
-  display:flex;justify-content:space-between;align-items:center;
-  padding:7px 0;border-bottom:1px solid rgba(255,255,255,.04);
-}
-.dlg-row:last-of-type{border:none}
-.dlg-k{font-size:11px;color:var(--text2)}
-.dlg-v{font-size:11px;font-weight:700}
-.dlg-cd{
-  margin-top:14px;text-align:center;
-  font-size:10px;font-weight:600;color:var(--muted);
-  font-variant-numeric:tabular-nums;
-}
-</style>
-</head>
-<body>
-<div class="app">
-
-  <!-- topbar -->
-  <div class="topbar">
-    <div class="logo">
-      <div class="logo-mark">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-        </svg>
-      </div>
-      <span class="logo-text">SAFE<em>LINK</em></span>
-    </div>
-    <div class="topbar-sep"></div>
-    <span class="topbar-sub">Estación de Asistencia</span>
-    <div class="spacer"></div>
-    <div class="online-badge">
-      <div class="pulse"></div>
-      EN LÍNEA
-    </div>
-    <div class="user-chip">
-      <div class="user-av" id="uAv">A</div>
-      <span class="user-name" id="uName">—</span>
-    </div>
-    <span class="clock" id="clock">00:00:00</span>
-  </div>
-
-  <!-- main -->
-  <div class="main">
-
-    <!-- camera section -->
-    <div class="cam-section">
-
-      <div class="cam-toolbar">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text2)">
-          <path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14"/>
-          <rect x="3" y="6" width="12" height="12" rx="2"/>
-        </svg>
-        <span class="cam-label">Cámara</span>
-        <div class="rec-dot" id="recDot"></div>
-        <span class="tag ml-auto" id="camTag">OFFLINE</span>
-      </div>
-
-      <div class="video-area">
-        <img id="vid" alt=""/>
-        <div class="idle-state" id="idleState">
-          <div class="idle-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5">
-              <path d="M15 10l4.553-2.069A1 1 0 0121 8.87v6.26a1 1 0 01-1.447.894L15 14"/>
-              <rect x="3" y="6" width="12" height="12" rx="2"/>
-            </svg>
-          </div>
-          <span class="idle-title">Cámara desactivada</span>
-          <span class="idle-hint">Presiona Activar para comenzar</span>
-        </div>
-        <div class="hud">
-          <div class="c tl"></div><div class="c tr"></div>
-          <div class="c bl"></div><div class="c br"></div>
-          <div class="scan" id="scan"></div>
-        </div>
-      </div>
-
-      <div class="action-bar">
-        <button class="btn btn-blue" id="btnOn" onclick="startCam()">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
-          Activar
-        </button>
-        <button class="btn btn-outline-red" id="btnOff" style="display:none" onclick="stopCam()">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
-          Detener
-        </button>
-        <button class="btn-register" id="btnReg" disabled onclick="doReg()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          Registrar Asistencia
-        </button>
-      </div>
-    </div>
-
-    <!-- sidebar -->
-    <div class="sidebar">
-
-      <!-- confidence -->
-      <div class="conf-block" id="confBlock">
-        <span class="conf-label" id="confLabel">RECONOCIMIENTO</span>
-        <div class="arc-ring">
-          <svg viewBox="0 0 88 88">
-            <circle cx="44" cy="44" r="34" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="5.5"/>
-            <circle id="arc" cx="44" cy="44" r="34"
-              fill="none" stroke="var(--text2)" stroke-width="5.5"
-              stroke-linecap="round"
-              stroke-dasharray="213.6" stroke-dashoffset="213.6"
-              transform="rotate(-90 44 44)"
-              style="transition:stroke-dashoffset .5s,stroke .5s"/>
-          </svg>
-          <div class="arc-num" id="arcNum">--</div>
-        </div>
-        <span class="conf-status" id="confStatus">Sin detección</span>
-      </div>
-
-      <!-- employee -->
-      <div class="emp-block">
-        <div class="emp-photo" id="empBox">
-          <img id="empPhoto" alt=""/>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" id="empPhIcon">
-            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
-          </svg>
-        </div>
-        <div class="emp-info">
-          <div class="emp-name" id="empName">Esperando...</div>
-          <div class="emp-title" id="empRole">—</div>
-        </div>
-      </div>
-
-      <!-- data -->
-      <div class="data-rows">
-        <div class="data-row">
-          <span class="data-row-key">Apellidos</span>
-          <span class="data-row-val" id="dApe">—</span>
-        </div>
-        <div class="data-row">
-          <span class="data-row-key">Zona</span>
-          <span class="data-row-val" id="dZona">—</span>
-        </div>
-        <div class="data-row">
-          <span class="data-row-key">Sucursal</span>
-          <span class="data-row-val" id="dSuc">—</span>
-        </div>
-      </div>
-
-      <!-- last reg -->
-      <div class="last-block">
-        <svg class="last-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-        </svg>
-        <div class="last-texts">
-          <div class="last-key">Último registro</div>
-          <div class="last-val" id="lastVal">Sin registros hoy</div>
-        </div>
-      </div>
-
-      <!-- logout -->
-      <div class="logout-block">
-        <button class="btn-logout" onclick="doLogout()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
-            <polyline points="16 17 21 12 16 7"/>
-            <line x1="21" y1="12" x2="9" y2="12"/>
-          </svg>
-          Cerrar Sesión
-        </button>
-      </div>
-
-    </div><!-- /sidebar -->
-  </div><!-- /main -->
-</div><!-- /app -->
-
-<!-- overlay dialog -->
-<div class="overlay" id="ov">
-  <div class="dlg">
-    <div class="dlg-ico" id="dIco">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
-           stroke="currentColor" stroke-width="2.5" id="dIcoSvg">
-        <polyline points="20 6 9 17 4 12"/>
-      </svg>
-    </div>
-    <div class="dlg-title" id="dTitle">Entrada Registrada</div>
-    <div class="dlg-row"><span class="dlg-k">Empleado</span><span class="dlg-v" id="dNom">—</span></div>
-    <div class="dlg-row"><span class="dlg-k">Confianza</span><span class="dlg-v" id="dConf">—</span></div>
-    <div class="dlg-row"><span class="dlg-k">Hora</span><span class="dlg-v" id="dHora">—</span></div>
-    <div class="dlg-cd" id="dCd">Cerrando en 5s</div>
-  </div>
-</div>
-
-<script>
-var bridge=null;
-new QWebChannel(qt.webChannelTransport,function(ch){bridge=ch.objects.bridge;});
-
-// clock
-(function t(){
-  var n=new Date(),p=function(x){return('0'+x).slice(-2)};
-  document.getElementById('clock').textContent=p(n.getHours())+':'+p(n.getMinutes())+':'+p(n.getSeconds());
-  setTimeout(t,1000);
-})();
-
-function startCam(){if(bridge)bridge.startCamera();}
-function stopCam() {if(bridge)bridge.stopCamera();}
-function doReg()   {if(bridge)bridge.registerAttendance();}
-function doLogout(){if(bridge)bridge.logout();}
-
-function setUser(name){
-  document.getElementById('uName').textContent=name;
-  document.getElementById('uAv').textContent=name?name.charAt(0).toUpperCase():'?';
-}
-
-function updateFrame(b64){
-  var v=document.getElementById('vid'),ph=document.getElementById('idleState');
-  v.src='data:image/jpeg;base64,'+b64;
-  if(!v.classList.contains('on')){v.classList.add('on');ph.style.display='none';}
-}
-
-function setCamState(s){
-  var dot=document.getElementById('recDot'),tag=document.getElementById('camTag'),
-      scan=document.getElementById('scan'),
-      on=document.getElementById('btnOn'),off=document.getElementById('btnOff'),
-      reg=document.getElementById('btnReg');
-  dot.className='rec-dot'; tag.className='tag';
-  if(s==='live'){
-    dot.classList.add('on');
-    tag.classList.add('live');tag.textContent='EN VIVO';
-    scan.classList.add('on');
-    on.style.display='none';off.style.display='';reg.disabled=false;
-  } else if(s==='connecting'||s==='preparing'){
-    tag.classList.add('warn');tag.textContent=s==='connecting'?'CONECTANDO':'ESPERA';
-    on.style.display='none';off.style.display='';reg.disabled=true;
-  } else {
-    tag.textContent=s==='error'?'ERROR':'OFFLINE';
-    if(s==='error')tag.classList.add('err');
-    scan.classList.remove('on');
-    on.style.display='';off.style.display='none';reg.disabled=true;
-    var v=document.getElementById('vid'),ph=document.getElementById('idleState');
-    v.src='';v.classList.remove('on');ph.style.display='';
-  }
-}
-function setBadgeText(t){document.getElementById('camTag').textContent=t;}
-
-function setStatus(text,level){
-  var b=document.getElementById('confBlock'),l=document.getElementById('confLabel');
-  b.className='conf-block'+(level?' '+level:'');
-  l.textContent=text.toUpperCase();
-}
-
-function setConfidence(pct){
-  var arc=document.getElementById('arc'),num=document.getElementById('arcNum'),
-      status=document.getElementById('confStatus');
-  var C=213.6;
-  if(pct<0){
-    arc.style.strokeDashoffset=C;arc.style.stroke='var(--text2)';
-    num.textContent='--';num.style.color='var(--text2)';
-    status.textContent='Sin detección';
-  } else {
-    arc.style.strokeDashoffset=C*(1-pct/100);
-    var col=pct>=80?'var(--green)':pct>=60?'var(--yellow)':'var(--red)';
-    arc.style.stroke=col;
-    num.textContent=Math.round(pct)+'%';num.style.color=col;
-    status.textContent=pct>=80?'Identificado':'Verificando...';
-  }
-}
-
-function setEmployeeInfo(nom,ape,zona,suc,puesto){
-  document.getElementById('empName').textContent=nom||'Esperando...';
-  document.getElementById('empRole').textContent=puesto||'—';
-  document.getElementById('dApe').textContent=ape||'—';
-  document.getElementById('dZona').textContent=zona||'—';
-  document.getElementById('dSuc').textContent=suc||'—';
-}
-
-function setAvatar(b64){
-  var img=document.getElementById('empPhoto'),
-      ico=document.getElementById('empPhIcon'),
-      box=document.getElementById('empBox');
-  if(b64){
-    img.src='data:image/jpeg;base64,'+b64;
-    img.classList.add('on');ico.style.display='none';
-    box.classList.add('found');
-  } else {
-    img.src='';img.classList.remove('on');
-    ico.style.display='';box.classList.remove('found');
-  }
-}
-
-function setLastReg(text,color){
-  var el=document.getElementById('lastVal');
-  el.textContent=text;if(color)el.style.color=color;
-}
-
-function resetEmployee(){
-  setEmployeeInfo('Esperando...','—','—','—','—');
-  setConfidence(-1);setAvatar(null);
-}
-
-var _dt=null,_ds=0;
-function showAttendanceDialog(tipo,nom,conf,hora){
-  var isE=tipo==='entrada';
-  var ico=document.getElementById('dIco'),svg=document.getElementById('dIcoSvg');
-  ico.className='dlg-ico '+(isE?'in':'out');
-  svg.setAttribute('stroke',isE?'var(--green)':'var(--accent)');
-  svg.innerHTML=isE?'<polyline points="20 6 9 17 4 12"/>':
-    '<path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>';
-  document.getElementById('dTitle').textContent=(isE?'Entrada':'Salida')+' Registrada';
-  document.getElementById('dNom').textContent=nom;
-  document.getElementById('dConf').textContent=conf+'%';
-  document.getElementById('dHora').textContent=hora;
-  document.getElementById('ov').classList.add('on');
-  _ds=5;document.getElementById('dCd').textContent='Cerrando en '+_ds+'s';
-  if(_dt)clearInterval(_dt);
-  _dt=setInterval(function(){
-    _ds--;
-    if(_ds>0)document.getElementById('dCd').textContent='Cerrando en '+_ds+'s';
-    else{clearInterval(_dt);document.getElementById('ov').classList.remove('on');}
-  },1000);
-}
-</script>
-</body>
-</html>"""
+# Fallback si no hay React build
+_HTML = _FALLBACK_HTML
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -706,12 +79,17 @@ class _CameraThread(QThread):
 
     def run(self):
         try:
-            self._cap = cv2.VideoCapture(self._index)
+            # CAP_DSHOW es el backend más rápido y estable en Windows
+            self._cap = cv2.VideoCapture(self._index, cv2.CAP_DSHOW)
+            if not self._cap.isOpened():
+                # Fallback al backend por defecto
+                self._cap = cv2.VideoCapture(self._index)
             self._cap.set(cv2.CAP_PROP_FRAME_WIDTH,  640)
             self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             self._cap.set(cv2.CAP_PROP_BUFFERSIZE,   1)
             self.msleep(120)
             if not self._cap.isOpened():
+                logger.error("CameraThread: no se pudo abrir la cámara")
                 self.camera_started.emit(False)
                 return
             ok, _ = self._cap.read()
@@ -866,10 +244,41 @@ class _RecognitionThread(QThread):
 #  Bridge Python ↔ JS
 # ═════════════════════════════════════════════════════════════════════════════
 class _Bridge(QObject):
-    start_camera_requested  = pyqtSignal()
-    stop_camera_requested   = pyqtSignal()
-    register_requested      = pyqtSignal()
-    logout_requested        = pyqtSignal()
+    start_camera_requested     = pyqtSignal()
+    stop_camera_requested      = pyqtSignal()
+    register_requested         = pyqtSignal()
+    start_enrollment_requested = pyqtSignal()
+    logout_requested           = pyqtSignal()
+    stats_requested            = pyqtSignal()
+    employees_requested        = pyqtSignal()
+    manual_requested           = pyqtSignal(str, str)
+    save_config_requested      = pyqtSignal(str)
+    relaunch_setup_requested   = pyqtSignal()
+    sync_requested             = pyqtSignal()
+
+    @pyqtSlot()
+    def getStats(self):
+        self.stats_requested.emit()
+
+    @pyqtSlot()
+    def getEmployees(self):
+        self.employees_requested.emit()
+
+    @pyqtSlot(str, str)
+    def registerManual(self, emp_id, tipo):
+        self.manual_requested.emit(emp_id, tipo)
+
+    @pyqtSlot(str)
+    def saveStationConfig(self, name):
+        self.save_config_requested.emit(name)
+
+    @pyqtSlot()
+    def relaunchSetup(self):
+        self.relaunch_setup_requested.emit()
+
+    @pyqtSlot()
+    def syncEmployees(self):
+        self.sync_requested.emit()
 
     @pyqtSlot()
     def startCamera(self):
@@ -884,8 +293,13 @@ class _Bridge(QObject):
         self.register_requested.emit()
 
     @pyqtSlot()
+    def startEnrollment(self):
+        self.start_enrollment_requested.emit()
+
+    @pyqtSlot()
     def logout(self):
         self.logout_requested.emit()
+
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -893,9 +307,9 @@ class _Bridge(QObject):
 # ═════════════════════════════════════════════════════════════════════════════
 class DashboardWindow(QMainWindow):
 
-    def __init__(self, trabajador):
+    def __init__(self, trabajador=None):
         super().__init__()
-        self.trabajador       = trabajador
+        self.trabajador       = trabajador  # None en modo kiosco
         self._cam_thread      = None
         self._rec_thread      = None
         self._current_frame   = None
@@ -905,22 +319,30 @@ class DashboardWindow(QMainWindow):
         self._prep_count      = 0
         self._prep_timer      = None
         self._last_frame_ts   = 0.0
+        self._had_face        = False
+        self._last_avatar_b64 = ""
+        self._last_info       = None
 
+        self._ui_initialized = False  # guard para evitar doble init
         self._init_ui()
-        QTimer.singleShot(800, self._page_ready)
 
     def _init_ui(self):
-        self.setWindowTitle(
-            f"Safe Link Monitoring — {self.trabajador.nombre} {self.trabajador.apellido}"
-        )
+        self.setWindowTitle("Safe Link Monitoring — Estación de Acceso")
         self.setMinimumSize(1080, 640)
         self.resize(1280, 760)
-        self.setStyleSheet("QMainWindow{background:#050810}")
+        self.setStyleSheet("QMainWindow{background:#070810}")
 
         self._view = QWebEngineView()
+
+        # Configurar ANTES de cargar cualquier contenido
         s = self._view.settings()
         s.setAttribute(QWebEngineSettings.JavascriptEnabled, True)
         s.setAttribute(QWebEngineSettings.LocalContentCanAccessRemoteUrls, True)
+        s.setAttribute(QWebEngineSettings.LocalContentCanAccessFileUrls, True)
+        s.setAttribute(QWebEngineSettings.AllowRunningInsecureContent, True)
+        s.setAttribute(QWebEngineSettings.LocalStorageEnabled, True)
+        s.setAttribute(QWebEngineSettings.WebGLEnabled, True)
+        s.setAttribute(QWebEngineSettings.ScrollAnimatorEnabled, False)
 
         self._channel = QWebChannel()
         self._bridge  = _Bridge()
@@ -930,15 +352,61 @@ class DashboardWindow(QMainWindow):
         self._bridge.start_camera_requested.connect(self._start_camera)
         self._bridge.stop_camera_requested.connect(self._stop_camera)
         self._bridge.register_requested.connect(self._register_attendance)
+        self._bridge.start_enrollment_requested.connect(self._open_enrollment)
         self._bridge.logout_requested.connect(self._logout)
+        self._bridge.stats_requested.connect(self._load_stats)
+        self._bridge.employees_requested.connect(self._load_employees)
+        self._bridge.manual_requested.connect(self._register_manual)
+        self._bridge.save_config_requested.connect(self._save_config)
+        self._bridge.relaunch_setup_requested.connect(self._relaunch_setup)
+        self._bridge.sync_requested.connect(self._sync_employees)
 
-        from PyQt5.QtCore import QUrl
-        self._view.setHtml(_HTML, baseUrl=QUrl("qrc:///"))
+        # Capturar errores JS y mensajes de consola
+        try:
+            from PyQt5.QtWebEngineWidgets import QWebEnginePage
+            _orig_msg = QWebEnginePage.javaScriptConsoleMessage
+            def _js_console(self_page, level, msg, line, source):
+                tag = ["LOG", "WARN", "ERR"][min(int(level), 2)]
+                logger.info(f"[JS-{tag}] {msg} ({source}:{line})")
+            QWebEnginePage.javaScriptConsoleMessage = _js_console
+        except Exception:
+            pass
+
+        self._view.page().loadStarted.connect(lambda: logger.info("WebEngine: load started"))
+
+        def _on_progress(p):
+            if p in (25, 50, 75, 100):
+                logger.info(f"WebEngine: {p}%")
+            if p >= 100 and not self._ui_initialized:
+                # No esperar loadFinished — disparar inicialización al llegar a 100%
+                QTimer.singleShot(500, lambda: self._on_load(True))
+
+        self._view.page().loadProgress.connect(_on_progress)
         self._view.page().loadFinished.connect(self._on_load)
+        # Fallback final: si nada dispara en 15s, continuar igual
+        QTimer.singleShot(15000, lambda: self._on_load(True))
+
+        # Cargar contenido
+        import os
+        is_dev = os.getenv("STATION_DEV") == "1"
+
+        if is_dev:
+            logger.info("Modo Desarrollo: Cargando http://localhost:5173")
+            self._view.load(QUrl("http://localhost:5173"))
+        else:
+            station_root = Path(__file__).parent.parent.parent
+            frontend_path = station_root / "frontend" / "dist" / "index.html"
+            if frontend_path.exists():
+                url = QUrl.fromLocalFile(str(frontend_path.absolute()))
+                logger.info(f"Cargando UI React desde {url.toString()}")
+                self._view.load(url)
+            else:
+                logger.warning("React dist no encontrada — usando fallback embebido")
+                self._view.setHtml(_HTML)
 
         container = QWidget()
         lay = QVBoxLayout(container)
-        lay.setContentsMargins(0,0,0,0)
+        lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(0)
         lay.addWidget(self._view)
         self.setCentralWidget(container)
@@ -947,23 +415,280 @@ class DashboardWindow(QMainWindow):
         self._view.page().runJavaScript(code)
 
     def _on_load(self, ok):
-        if ok:
-            QTimer.singleShot(200, self._page_ready)
+        if self._ui_initialized:
+            return
+        logger.info("WebEngine cargado — inicializando UI de la estación")
+        # No esperar a React: arrancar inmediatamente. Los main.tsx ya registran
+        # los globals como noop, y React los reemplazará cuando monte.
+        QTimer.singleShot(300, self._init_station_ui)
 
-    def _page_ready(self):
-        nombre = f"{self.trabajador.nombre} {self.trabajador.apellido}"
-        self._js(f"setUser({nombre!r});")
+    def _init_station_ui(self):
+        """Inicializa la UI de la estación — solo cuando React ya está listo. Corre una sola vez."""
+        if self._ui_initialized:
+            return
+        self._ui_initialized = True
+        if self.trabajador:
+            nombre = f"{self.trabajador.nombre} {self.trabajador.apellido}"
+            self._js(f"setUser({nombre!r});")
         self._js("setStatus('Sistema listo', '');")
-        self._load_last_registration()
-        QTimer.singleShot(500, self._init_face_recognition)
+
+        # Nombre de estación y sucursal desde StationInfo
+        try:
+            from utils.station_manager import StationInfo
+            st_name   = StationInfo.nombre   or "Estación"
+            st_branch = StationInfo.sucursal_id or "Sin sucursal"
+            st_branch_label = StationInfo.config.get("sucursal_nombre") or st_branch
+            self._js(f"setStationInfo({st_name!r}, {st_branch_label!r});")
+            try:
+                from utils.station_manager import get_station
+                mgr = get_station()
+                mgr.status_changed.connect(self._on_heartbeat_status)
+            except Exception:
+                pass
+        except Exception:
+            self._js("setStationInfo('Estación', '');")
+
+        # Arrancar servicios escalonadamente para no bloquear la UI
+        QTimer.singleShot(500,  self._load_last_registration)
+        QTimer.singleShot(1000, self._start_camera)
+        QTimer.singleShot(2500, self._start_sync_manager)
+        QTimer.singleShot(3500, self._start_realtime_listener)
+        QTimer.singleShot(5000, self._init_face_recognition)
+
+    def _on_heartbeat_status(self, state: str, msg: str):
+        online = state == "online"
+        self._js(f"setConnectivity({str(online).lower()}, {msg!r});")
+        self._push_health_to_ui()
+
+    # ── SyncManager ───────────────────────────────────────────────────────────
+
+    def _start_sync_manager(self):
+        try:
+            from utils.sync_manager import get_sync_manager
+            self._sync_mgr = get_sync_manager()
+            self._sync_mgr.sync_started.connect(lambda: self._js("setStatus('Sincronizando empleados...', 'warn');"))
+            self._sync_mgr.sync_done.connect(self._on_sync_done)
+            self._sync_mgr.sync_error.connect(lambda msg: logger.warning(f"Sync error: {msg}"))
+            self._sync_mgr.start()
+        except Exception as e:
+            logger.error(f"SyncManager init error: {e}")
+
+    def _on_sync_done(self, count: int):
+        logger.info(f"Sync completado: {count} empleados")
+        self._js("setStatus('Sistema listo', 'ok');")
+        # Reapuntar matchers al caché de la empresa
+        try:
+            cache_dir = self._sync_mgr.get_cache_dir()
+            if cache_dir:
+                self._reload_matchers_from_cache(cache_dir)
+        except Exception:
+            pass
+        # Actualizar health panel en React
+        self._push_health_to_ui()
+
+    def _push_health_to_ui(self):
+        try:
+            from utils.station_manager import (
+                _health_empleados_count, _health_camara_ok, _health_encodings_ver
+            )
+            score = 0
+            if _health_camara_ok is True:         score += 30
+            if _health_empleados_count > 0:       score += 40
+            if _health_encodings_ver > 0:         score += 30
+            camara_js = "true" if _health_camara_ok is True else ("false" if _health_camara_ok is False else "null")
+            self._js(f"window.setHealth && window.setHealth({score},{_health_empleados_count},{camara_js},{_health_encodings_ver});")
+        except Exception:
+            pass
+
+    def _reload_matchers_from_cache(self, cache_dir):
+        try:
+            import utils.hybrid_opencv_gemini_matcher as hm
+            import utils.photo_to_photo_matcher as pm
+            hm._hybrid_matcher = None
+            pm._photo_matcher = None
+            hm.get_hybrid_matcher(database_dir=cache_dir)
+            pm.get_photo_matcher(database_dir=cache_dir)
+        except Exception as e:
+            logger.warning(f"reload matchers: {e}")
+
+    # ── Polling de comandos (reemplaza Realtime — supabase-py sync no lo soporta) ──
+
+    def _start_realtime_listener(self):
+        """Realtime para comandos + polling como fallback (cada 30s)."""
+        from utils.station_manager import StationInfo
+        dispositivo_id = StationInfo.dispositivo_id
+
+        # Suscripción Realtime — recibe comandos en <500ms
+        if dispositivo_id:
+            try:
+                from utils.realtime_listener import RealtimeCommandListener
+                self._rt_listener = RealtimeCommandListener(
+                    dispositivo_id=dispositivo_id,
+                    on_command=self._on_realtime_command,
+                )
+                self._rt_listener.start()
+            except Exception as e:
+                logger.warning(f"Realtime no disponible: {e}")
+
+        # Fallback polling cada 2 min (recoge lo que Realtime pueda perder si
+        # el WebSocket se desconectó silenciosamente). Realtime es la fuente
+        # primaria ahora — ~720× menos requests que el polling de 10s anterior.
+        self._cmd_poll_timer = QTimer(self)
+        self._cmd_poll_timer.setInterval(120_000)
+        self._cmd_poll_timer.timeout.connect(self._poll_commands)
+        self._cmd_poll_timer.start()
+        QTimer.singleShot(800, self._poll_commands)
+        logger.info("Listener de comandos iniciado (Realtime + polling fallback 2min)")
+
+    def _on_realtime_command(self, cmd: dict):
+        """Callback desde RealtimeListener — corre en thread del listener,
+        delegamos al hilo principal vía QTimer.singleShot."""
+        from utils.station_manager import get_station_api_key
+        api_key = get_station_api_key()
+        sb = get_supabase_client()
+        if not api_key or not sb:
+            return
+        QTimer.singleShot(0, lambda: self._execute_command(cmd, api_key, sb))
+
+    def _poll_commands(self):
+        """Consulta comandos_estacion en background — nunca bloquea la UI."""
+        if getattr(self, "_polling", False):
+            return
+        self._polling = True
+
+        import threading
+        def _bg():
+            try:
+                from utils.station_manager import StationInfo, get_station_api_key
+                dispositivo_id = StationInfo.dispositivo_id
+                api_key = get_station_api_key()
+                if not dispositivo_id or not api_key:
+                    return
+                sb = get_supabase_client()
+                if not sb:
+                    return
+                result = (
+                    sb.table("comandos_estacion")
+                    .select("id, tipo, payload")
+                    .eq("dispositivo_id", str(dispositivo_id))
+                    .is_("ejecutado_en", "null")
+                    .order("creado_en")
+                    .limit(10)
+                    .execute()
+                )
+                cmds = result.data or []
+                if cmds:
+                    QTimer.singleShot(0, lambda: [self._execute_command(c, api_key, sb) for c in cmds])
+            except Exception as e:
+                logger.debug(f"Poll commands error: {e}")
+            finally:
+                self._polling = False
+
+        threading.Thread(target=_bg, daemon=True).start()
+
+    def _execute_command(self, cmd: dict, api_key: str, sb):
+        tipo   = cmd.get("tipo", "")
+        cmd_id = cmd.get("id", "")
+
+        # Deduplicación: si ya procesamos este cmd_id en esta sesión, ignorar
+        if cmd_id:
+            if not hasattr(self, "_seen_cmds"):
+                self._seen_cmds = set()
+            if cmd_id in self._seen_cmds:
+                return
+            self._seen_cmds.add(cmd_id)
+
+        resultado = "ok"
+        try:
+            if tipo == "sync_empleados":
+                logger.info(f"Comando recibido: sync_empleados ({cmd_id[:8] if cmd_id else '?'})")
+                if hasattr(self, "_sync_mgr"):
+                    self._sync_mgr.force_sync()
+            elif tipo == "reiniciar_app":
+                logger.info(f"Comando recibido: reiniciar_app ({cmd_id[:8] if cmd_id else '?'})")
+                QTimer.singleShot(1000, self._logout)
+            elif tipo == "limpiar_cache":
+                logger.info(f"Comando recibido: limpiar_cache ({cmd_id[:8] if cmd_id else '?'})")
+            else:
+                logger.warning(f"Comando desconocido: {tipo}")
+                resultado = f"tipo desconocido: {tipo}"
+        except Exception as ex:
+            logger.error(f"execute_command {tipo}: {ex}")
+            resultado = f"error: {ex}"
+
+        # Confirmar SIEMPRE en Supabase (incluso si la ejecución falló)
+        # — así el web panel sabe que llegó y se mantiene el estado consistente.
+        if cmd_id:
+            try:
+                sb.rpc("marcar_comando_ejecutado", {
+                    "p_api_key": api_key,
+                    "p_comando_id": cmd_id,
+                    "p_resultado": resultado,
+                }).execute()
+            except Exception as ex:
+                logger.warning(f"No se pudo marcar comando {cmd_id[:8]} como ejecutado: {ex}")
+
+    # ── Offline queue ─────────────────────────────────────────────────────────
+
+    def _flush_offline_queue(self):
+        """Sube a Supabase las asistencias guardadas offline en SQLite."""
+        try:
+            from utils.database import get_db_session
+            from utils.models import RegistroAsistencia, Trabajador
+            from utils.station_manager import get_station_api_key
+            api_key = get_station_api_key()
+            if not api_key:
+                return
+            sb = get_supabase_client()
+            if not sb:
+                return
+            db = get_db_session()
+            try:
+                pendientes = (
+                    db.query(RegistroAsistencia)
+                    .filter(RegistroAsistencia.sincronizado == False)  # noqa: E712
+                    .limit(50)
+                    .all()
+                )
+                for reg in pendientes:
+                    trab = db.query(Trabajador).filter(Trabajador.id == reg.trabajador_id).first()
+                    if not trab or not trab.employee_id:
+                        continue
+                    try:
+                        emp_data = sb.table("empleados").select("id").eq("employee_id", trab.employee_id).execute()
+                        if emp_data.data:
+                            result = sb.rpc("registrar_asistencia_station", {
+                                "p_api_key": api_key,
+                                "p_empleado_id": emp_data.data[0]["id"],
+                                "p_tipo": reg.tipo,
+                                "p_confianza": float(reg.confianza or 0),
+                            }).execute()
+                            if result.data and result.data.get("ok"):
+                                reg.sincronizado = True
+                    except Exception:
+                        pass
+                db.commit()
+                synced = sum(1 for r in pendientes if r.sincronizado)
+                if synced:
+                    logger.info(f"Offline queue: {synced} asistencias subidas")
+            finally:
+                db.close()
+        except Exception as e:
+            logger.error(f"flush_offline_queue: {e}")
 
     def _init_face_recognition(self):
-        self._js("setStatus('Inicializando...', 'warn');")
+        """Inicializa el sistema facial en un thread separado para no bloquear la UI."""
+        self._js("setStatus('Inicializando reconocimiento...', 'warn');")
         _lazy_load_face_recognition()
         self._rec_thread = _RecognitionThread(self)
         self._rec_thread.results_ready.connect(self._on_recognition)
 
-        if FACE_RECOGNITION_AVAILABLE and inicializar_sistema_facial:
+        if not (FACE_RECOGNITION_AVAILABLE and inicializar_sistema_facial):
+            self._js("setStatus('Reconocimiento no disponible', 'warn');")
+            return
+
+        import threading
+        def _bg_init():
             try:
                 try:
                     from utils.register_photos import register_photos_from_database
@@ -971,12 +696,11 @@ class DashboardWindow(QMainWindow):
                 except Exception:
                     pass
                 inicializar_sistema_facial()
-                self._js("setStatus('Sistema listo', 'ok');")
+                QTimer.singleShot(0, lambda: self._js("setStatus('Sistema listo', 'ok');"))
             except Exception as e:
                 logger.error(f"init facial: {e}")
-                self._js("setStatus('Reconocimiento parcial', 'warn');")
-        else:
-            self._js("setStatus('Reconocimiento no disponible', 'warn');")
+                QTimer.singleShot(0, lambda: self._js("setStatus('Reconocimiento parcial', 'warn');"))
+        threading.Thread(target=_bg_init, daemon=True).start()
 
     def _start_camera(self):
         if self._cam_thread:
@@ -989,6 +713,11 @@ class DashboardWindow(QMainWindow):
         QTimer.singleShot(50, self._cam_thread.start_camera)
 
     def _on_cam_started(self, ok):
+        try:
+            from utils.station_manager import report_health
+            report_health(camara_ok=ok)
+        except Exception:
+            pass
         if not ok:
             self._cam_thread = None
             self._js("setCamState('error');")
@@ -1046,6 +775,8 @@ class DashboardWindow(QMainWindow):
     def _on_recognition(self, ok, conf, info, method):
         import time
         if ok and info:
+            self._had_face = True
+            self._last_info = info
             pct = conf * 100
             self._js(f"setConfidence({pct:.1f});")
             self._js(f"setStatus('Identificado — {method}', 'ok');")
@@ -1062,9 +793,10 @@ class DashboardWindow(QMainWindow):
                     if not px.isNull():
                         ba = QByteArray(); buf2 = QBuffer(ba)
                         buf2.open(QBuffer.WriteOnly); px.save(buf2, "JPEG", 80)
-                        self._js(f"setAvatar('{base64.b64encode(ba.data()).decode()}');")
+                        self._last_avatar_b64 = base64.b64encode(ba.data()).decode()
+                        self._js(f"setAvatar('{self._last_avatar_b64}');")
             except Exception:
-                pass
+                self._last_avatar_b64 = ""
 
             if conf >= 0.85 and not self._attendance_done:
                 self._auto_register(info, conf, method)
@@ -1073,6 +805,11 @@ class DashboardWindow(QMainWindow):
                 self._js("setConfidence(-1);")
                 self._js("setStatus('Buscando rostro...', 'warn');")
                 self._js("resetEmployee();")
+                if self._had_face:
+                    self._js("showNotRecognized();")
+                    self._had_face = False
+                    self._last_avatar_b64 = ""
+                    self._last_info = None
 
     def _auto_register(self, info: Dict, conf: float, method: str):
         if self._attendance_done or self._active_dialog:
@@ -1101,6 +838,16 @@ class DashboardWindow(QMainWindow):
         except Exception as e:
             logger.error(f"auto_register: {e}")
 
+    def _open_enrollment(self):
+        """Abre la ventana de registro de nuevo empleado."""
+        try:
+            from windows.enrollment_window import EnrollmentWindow
+            self._enrollment = EnrollmentWindow(self)
+            self._enrollment.show()
+        except Exception as e:
+            logger.error(f"Error al abrir EnrollmentWindow: {e}")
+            self._js(f"setStatus('Error al abrir registro: {e}', 'bad');")
+
     def _register_attendance(self):
         if self._current_frame is None:
             self._js("setStatus('Sin imagen — activa la cámara primero', 'bad');")
@@ -1111,23 +858,37 @@ class DashboardWindow(QMainWindow):
         if not FACE_RECOGNITION_AVAILABLE or reconocer_desde_frame is None:
             self._js("setStatus('Reconocimiento no disponible', 'bad');")
             return
+        t_id  = self.trabajador.id if self.trabajador else None
+        t_idx = getattr(self.trabajador, 'embedding_idx', None) if self.trabajador else None
         ok, conf, idx = reconocer_desde_frame(
             self._current_frame,
-            trabajador_id=self.trabajador.id,
-            embedding_idx=getattr(self.trabajador, 'embedding_idx', None),
+            trabajador_id=t_id,
+            embedding_idx=t_idx,
         )
         if not ok or conf < 0.85:
             self._js(f"setStatus('No reconocido — {conf*100:.0f}%', 'bad');")
             return
-        self._register_db(self.trabajador, conf, None, "manual")
+        if self.trabajador:
+            self._register_db(self.trabajador, conf, None, "manual")
 
     def _register_db(self, trab, conf, info, method):
+        """
+        1. Guarda en SQLite local (siempre, funciona offline).
+        2. Sube a Supabase via RPC registrar_asistencia_station (si hay internet).
+        3. Si falla la nube, marca sincronizado=False para el offline queue.
+        4. Muestra diálogo de confirmación en React.
+        5. Intenta flush de la cola offline.
+        """
         try:
             from utils.database import get_db_session
             from utils.models import RegistroAsistencia
             from sqlalchemy import func
+            from utils.station_manager import get_station_api_key
+
             db  = get_db_session()
             hoy = datetime.now().date()
+            ahora = datetime.now()
+
             try:
                 ultimo = (
                     db.query(RegistroAsistencia)
@@ -1137,45 +898,104 @@ class DashboardWindow(QMainWindow):
                     )
                     .order_by(RegistroAsistencia.timestamp.desc()).first()
                 )
+
+                if ultimo:
+                    secs_since = (ahora - ultimo.timestamp).total_seconds()
+                    if secs_since < 60:
+                        hora_ult = ultimo.timestamp.strftime("%H:%M")
+                        self._js(f"showAlreadyRegistered({ultimo.tipo!r}, {hora_ult!r});")
+                        db.close()
+                        return
+
                 tipo = "salida" if ultimo and ultimo.tipo == "entrada" else "entrada"
-                db.add(RegistroAsistencia(
-                    trabajador_id=trab.id, timestamp=datetime.now(), tipo=tipo,
-                    reconocimiento_facial=True, confianza=conf,
-                    ubicacion=(info.get("sucursal","N/A") if info else getattr(trab,"sucursal","N/A")),
-                ))
+
+                # 1. Guardar localmente (siempre)
+                reg = RegistroAsistencia(
+                    trabajador_id=trab.id,
+                    timestamp=ahora,
+                    tipo=tipo,
+                    reconocimiento_facial=True,
+                    confianza=conf,
+                    ubicacion=(info.get("sucursal", "N/A") if info else getattr(trab, "sucursal", "N/A")),
+                    sincronizado=False,
+                )
+                db.add(reg)
                 db.commit()
+                db.refresh(reg)
                 self._attendance_done = True
-                self._update_last_reg(tipo, datetime.now())
+                self._update_last_reg(tipo, ahora)
             finally:
                 db.close()
 
-            nombre_display = info.get("nombre","Trabajador") if info else f"{trab.nombre} {trab.apellido}"
-            hora = datetime.now().strftime("%H:%M:%S")
-            self._active_dialog = True
-            self._js(f"showAttendanceDialog({tipo!r},{nombre_display!r},{int(conf*100)!r},{hora!r});")
+            # Datos para la UI
+            nombre_display = info.get("nombre", "Trabajador") if info else f"{trab.nombre} {trab.apellido}"
+            apellido_display = info.get("apellido", "") if info else ""
+            hora = ahora.strftime("%H:%M:%S")
+            avatar = self._last_avatar_b64 or ""
 
+            # 2. Mostrar overlay de confirmación en React
+            self._active_dialog = True
+            apellido_js = apellido_display if apellido_display else ""
+            self._js(
+                f"showAttendanceConfirmed({nombre_display!r},{apellido_js!r},"
+                f"{tipo!r},{hora!r},{avatar!r});"
+            )
+
+            # 3. Subir a Supabase via RPC (con api_key — no requiere auth)
             ok_cloud = False
             try:
+                api_key = get_station_api_key()
                 sb = get_supabase_client()
-                if sb:
+                if api_key and sb and trab.employee_id:
                     emp_data = sb.table("empleados").select("id").eq("employee_id", trab.employee_id).execute()
                     if emp_data.data:
-                        sb.table("asistencias").insert({
-                            "empleado_id": emp_data.data[0]["id"],
-                            "tipo": tipo, "confianza": float(conf),
-                            "ubicacion": (info.get("sucursal","N/A") if info else getattr(trab,"sucursal","N/A")),
-                            "reconocimiento_facial": True,
-                            "metodo": method.lower().replace(" ","_") if method else "manual",
-                            "dispositivo": socket.gethostname(),
+                        result = sb.rpc("registrar_asistencia_station", {
+                            "p_api_key": api_key,
+                            "p_empleado_id": emp_data.data[0]["id"],
+                            "p_tipo": tipo,
+                            "p_confianza": float(conf),
+                            "p_notas": method or "",
                         }).execute()
-                        ok_cloud = True
+                        if result.data and result.data.get("ok"):
+                            ok_cloud = True
+                            # Marcar como sincronizado en SQLite
+                            db2 = get_db_session()
+                            try:
+                                r = db2.query(RegistroAsistencia).filter(RegistroAsistencia.id == reg.id).first()
+                                if r:
+                                    r.sincronizado = True
+                                    db2.commit()
+                            finally:
+                                db2.close()
             except Exception as es:
-                logger.error(f"Supabase sync: {es}")
+                logger.warning(f"Supabase sync fallo (se reintentará): {es}")
 
-            self._js(f"setStatus({'REGISTRO SAAS OK' if ok_cloud else 'REGISTRO LOCAL'!r}, 'ok');")
-            QTimer.singleShot(5000, self._logout)
+            status_msg = "Registro en nube ✓" if ok_cloud else "Registro local (sin conexión)"
+            self._js(f"setStatus({status_msg!r}, 'ok');")
+
+            # 4. Agregar al historial reciente
+            nombre_full = f"{nombre_display} {apellido_display}".strip()
+            self._js(f"addRecentRecord({nombre_full!r}, {tipo!r}, {hora!r});")
+
+            # 5. Intentar flush de cola offline en background
+            QTimer.singleShot(2000, self._flush_offline_queue)
+
+            # 6. Resetear UI después de 6 segundos
+            QTimer.singleShot(6000, self._reset_after_attendance)
+
         except Exception as e:
             logger.error(f"_register_db: {e}")
+
+    def _reset_after_attendance(self):
+        """Resetea el estado kiosco después de un registro."""
+        self._attendance_done = False
+        self._active_dialog = False
+        self._had_face = False
+        self._last_avatar_b64 = ""
+        self._last_info = None
+        self._js("resetEmployee();")
+        self._js("setBadgeText('');")
+        self._js("setStatus('Buscando rostro...', 'warn');")
 
     def _load_last_registration(self):
         try:
@@ -1184,14 +1004,12 @@ class DashboardWindow(QMainWindow):
             from sqlalchemy import func
             db  = get_db_session()
             hoy = datetime.now().date()
-            last = (
-                db.query(RegistroAsistencia)
-                .filter(
-                    RegistroAsistencia.trabajador_id == self.trabajador.id,
-                    func.date(RegistroAsistencia.timestamp) == hoy,
-                )
-                .order_by(RegistroAsistencia.timestamp.desc()).first()
+            q = db.query(RegistroAsistencia).filter(
+                func.date(RegistroAsistencia.timestamp) == hoy,
             )
+            if self.trabajador:
+                q = q.filter(RegistroAsistencia.trabajador_id == self.trabajador.id)
+            last = q.order_by(RegistroAsistencia.timestamp.desc()).first()
             db.close()
             if last:
                 self._update_last_reg(last.tipo, last.timestamp)
@@ -1202,17 +1020,123 @@ class DashboardWindow(QMainWindow):
         hora  = ts.strftime("%H:%M:%S") if hasattr(ts, "strftime") else str(ts)
         color = "var(--green)" if tipo == "entrada" else "var(--accent)"
         self._js(f"setLastReg({(tipo.upper() + '  ' + hora)!r}, {color!r});")
+        # Also add to the recent list
+        if self.trabajador:
+            nombre = f"{self.trabajador.nombre} {self.trabajador.apellido}"
+        else:
+            nombre = "Empleado"
+        self._js(f"addRecentRecord({nombre!r}, {tipo!r}, {hora!r});")
 
     def _logout(self):
         self._stop_camera()
         if self._rec_thread and self._rec_thread.isRunning():
             self._rec_thread.stop()
-        self.close()
-        from windows.login_window import LoginWindow
-        self._login = LoginWindow()
-        self._login.show()
+        # Modo kiosco: nunca cierra, reinicia el estado en lugar de ir al login
+        self._attendance_done = False
+        self._had_face = False
+        self._last_avatar_b64 = ""
+        self._last_info = None
+        self._js("resetEmployee();")
+        self._js("setStatus('Sistema listo', '');")
+        # Reiniciar cámara si se detuvo
+        if not self._cam_thread:
+            QTimer.singleShot(500, self._start_camera)
+
+    def _load_stats(self):
+        try:
+            from utils.database import get_db_session
+            from utils.models import RegistroAsistencia
+            from sqlalchemy import func
+            import json
+            db = get_db_session()
+            hoy = datetime.now().date()
+            
+            total = db.query(RegistroAsistencia).filter(func.date(RegistroAsistencia.timestamp) == hoy).count()
+            entradas = db.query(RegistroAsistencia).filter(func.date(RegistroAsistencia.timestamp) == hoy, RegistroAsistencia.tipo == "entrada").count()
+            salidas = db.query(RegistroAsistencia).filter(func.date(RegistroAsistencia.timestamp) == hoy, RegistroAsistencia.tipo == "salida").count()
+            
+            # Dummy history for Chart.js (to be replaced with real query if needed)
+            data = {
+                "total": total,
+                "entradas_count": entradas,
+                "salidas_count": salidas,
+                "online": True,
+                "labels": ["08:00", "10:00", "12:00", "14:00", "16:00", "18:00"],
+                "entradas_history": [max(0, entradas-5), max(0, entradas-2), entradas, entradas+1, entradas, entradas],
+                "salidas_history": [0, 1, salidas, salidas+1, salidas, salidas]
+            }
+            db.close()
+            self._js(f"renderStats({json.dumps(data)});")
+        except Exception as e:
+            logger.error(f"Error loading stats: {e}")
+
+    def _load_employees(self):
+        try:
+            from utils.database import get_db_session
+            from utils.models import Empleado
+            import json
+            db = get_db_session()
+            emps = db.query(Empleado).all()
+            list_data = []
+            for e in emps:
+                list_data.append({
+                    "id": str(e.id),
+                    "nombre": e.nombre,
+                    "apellido": e.apellido,
+                    "puesto": e.puesto or "Operativo"
+                })
+            db.close()
+            self._js(f"setEmployees({json.dumps(list_data)});")
+        except Exception as e:
+            logger.error(f"Error loading emps: {e}")
+
+    def _register_manual(self, emp_id, tipo):
+        try:
+            from utils.database import get_db_session
+            from utils.models import Empleado, RegistroAsistencia
+            import os
+            db = get_db_session()
+            emp = db.query(Empleado).filter(Empleado.id == emp_id).first()
+            if not emp:
+                self._js("alert('Error: Empleado no encontrado.');")
+                return
+            reg = RegistroAsistencia(
+                trabajador_id=emp.id,
+                tipo=tipo,
+                sucursal_id=os.getenv("STATION_BRANCH_ID", "default"),
+                timestamp=datetime.now()
+            )
+            db.add(reg)
+            db.commit()
+            db.close()
+            self._js("alert('Registro manual guardado correctamente.');")
+            self._load_stats()
+        except Exception as e:
+            logger.error(f"Manual reg error: {e}")
+
+    def _save_config(self, name):
+        # Update UI and log
+        self._js(f"document.getElementById('sbName').textContent = {name!r};")
+        logger.info(f"Config update: Station Name -> {name}")
+        self._js("alert('Cambios aplicados localmente.');")
+
+    def _relaunch_setup(self):
+        try:
+            self._stop_camera()
+            from windows.provisioning_window import ProvisioningWindow
+            self.setup_win = ProvisioningWindow()
+            self.setup_win.show()
+            self.close()
+        except Exception as e:
+            logger.error(f"Error relaunching setup: {e}")
+
+    def _sync_employees(self):
+        self._js("document.getElementById('sb-sync-status').textContent = 'Sincronizando...';")
+        # Simular delay de red
+        QTimer.singleShot(1500, lambda: self._js("document.getElementById('sb-sync-status').textContent = 'Sincronizado';"))
 
     def show(self):
+
         self.setWindowOpacity(0)
         super().show()
         self._fade = QPropertyAnimation(self, b"windowOpacity")

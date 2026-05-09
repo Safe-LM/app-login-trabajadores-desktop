@@ -4,6 +4,7 @@ UI: QWebEngineView con HTML/Tailwind/CSS embebido.
 Cámara: OpenCV en QThread → frames → base64 → JS bridge → <img> en HTML.
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -16,6 +17,7 @@ from PyQt5.QtGui import QColor
 from utils.auth import authenticate_user
 
 _BASE_DIR = Path(__file__).resolve().parent.parent
+_DEBUG    = os.getenv("DEBUG", "").lower() in ("1", "true", "yes")
 
 # ── HTML de la UI ─────────────────────────────────────────────────────
 _HTML = """<!DOCTYPE html>
@@ -315,10 +317,7 @@ _HTML = """<!DOCTYPE html>
     </button>
 
     <div class="divider"></div>
-    <div class="dev-row">
-      <span class="badge">DEV</span>
-      <span class="dev-creds">admin &nbsp;·&nbsp; admin123</span>
-    </div>
+    {dev_block}
     <div class="footer-row"><span class="ver">v3.0.0</span></div>
   </div>
 
@@ -438,7 +437,14 @@ class LoginWindow(QMainWindow):
         self._view.page().setWebChannel(self._channel)
         self._bridge.login_requested.connect(self._on_login)
 
-        self._view.setHtml(_HTML, baseUrl=__import__('PyQt5.QtCore', fromlist=['QUrl']).QUrl("qrc:///"))
+        dev_block = (
+            '<div class="dev-row">'
+            '<span class="badge">DEV</span>'
+            '<span class="dev-creds">admin &nbsp;·&nbsp; admin123</span>'
+            '</div>'
+        ) if _DEBUG else ''
+        html = _HTML.replace("{dev_block}", dev_block)
+        self._view.setHtml(html, baseUrl=__import__('PyQt5.QtCore', fromlist=['QUrl']).QUrl("qrc:///"))
         self._view.page().loadFinished.connect(self._on_page_loaded)
 
         container = QWidget()

@@ -1,3 +1,4 @@
+
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -9,12 +10,11 @@ export async function POST(request: NextRequest) {
   const { id } = await request.json();
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from("empleados")
     .delete()
     .eq("id", id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: "No se puede eliminar el empleado porque tiene registros de asistencia." }, { status: 500 });
   return NextResponse.json({ ok: true });
 }

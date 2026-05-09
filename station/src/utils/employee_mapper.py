@@ -64,7 +64,7 @@ def load_employee_data():
     base_dir = Path(__file__).parent.parent
 
     # PRIORIDAD 1: Buscar JSON (tiene 56 empleados)
-    PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
     json_path = PROJECT_ROOT / "database_fotos" / "json" / "employees_db.json"
     if json_path.exists():
         EMPLOYEE_DATA = load_employee_data_from_json(json_path)
@@ -138,7 +138,7 @@ def get_employee_by_id(employee_id: int) -> Optional[Dict]:
 def get_photo_path(employee_id: int) -> Optional[Path]:
     """Obtener ruta de la foto de un empleado."""
     # Apuntar a database_fotos/ en la raíz del proyecto
-    PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
     database_fotos_dir = PROJECT_ROOT / "database_fotos"
 
     # PRIORIDAD 1: Buscar en el JSON si tiene photo_file

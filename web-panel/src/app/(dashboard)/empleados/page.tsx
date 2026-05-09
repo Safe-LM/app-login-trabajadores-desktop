@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { EmpleadosClient } from "./empleados-client";
 
+export const revalidate = 60;
+
 type Empleado = {
   id: string;
   nombre: string;

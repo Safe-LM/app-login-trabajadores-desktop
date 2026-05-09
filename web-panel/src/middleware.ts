@@ -24,7 +24,7 @@ export async function middleware(request: NextRequest) {
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)!,
     {
       cookies: {
         getAll() { return request.cookies.getAll(); },
@@ -39,17 +39,15 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // getSession lee la cookie sin llamada a red — evita consumir el refresh token
-  // El Server Component llamará getUser() una sola vez para datos reales
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (!user) {
     return redirectWithCookies(new URL("/login", request.url), supabaseResponse);
   }
 
   const empresaId =
-    session.user.user_metadata?.empresa_id ||
-    session.user.user_metadata?.raw_user_meta_data?.empresa_id;
+    user.user_metadata?.empresa_id ||
+    user.user_metadata?.raw_user_meta_data?.empresa_id;
 
   if (!empresaId && !pathname.startsWith(ONBOARDING) && !pathname.startsWith("/api")) {
     return redirectWithCookies(new URL(ONBOARDING, request.url), supabaseResponse);

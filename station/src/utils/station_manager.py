@@ -1,4 +1,4 @@
-﻿"""
+"""
 Gestiona identidad y heartbeat de la estacion fisica.
 Lee STATION_API_KEY del .env, se registra en Supabase al arrancar
 y manda heartbeat cada 60s en un QThread de background.
@@ -8,6 +8,8 @@ import os
 import socket
 import logging
 import platform
+import subprocess
+import hashlib
 from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
@@ -22,6 +24,20 @@ logger = logging.getLogger(__name__)
 
 APP_VERSION = "3.0.0"
 HEARTBEAT_INTERVAL_MS = 60_000  # 60 segundos
+
+# Estado de salud — se actualiza desde dashboard_window / sync_manager
+_health_empleados_count: int = 0
+_health_camara_ok: Optional[bool] = None
+_health_encodings_ver: int = 0
+
+
+def report_health(empleados_count: int = 0, camara_ok: Optional[bool] = None, encodings_ver: int = 0):
+    """Llamado desde el dashboard o sync_manager para actualizar métricas de salud."""
+    global _health_empleados_count, _health_camara_ok, _health_encodings_ver
+    _health_empleados_count = empleados_count
+    if camara_ok is not None:
+        _health_camara_ok = camara_ok
+    _health_encodings_ver = encodings_ver
 
 
 def get_station_api_key() -> Optional[str]:
@@ -69,22 +85,43 @@ def get_hostname() -> str:
         return platform.node() or "unknown"
 
 
+def get_hwid() -> str:
+    """Genera un ID único para el hardware (Machine GUID o UUID)."""
+    try:
+        # En Windows: reg query HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Cryptography /v MachineGuid
+        if platform.system() == "Windows":
+            cmd = 'reg query "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography" /v MachineGuid'
+            out = subprocess.check_output(cmd, shell=True).decode()
+            guid = out.split()[-1]
+            return hashlib.sha256(guid.encode()).hexdigest()[:16].upper()
+        else:
+            # Fallback para otros sistemas
+            import uuid
+            return hashlib.sha256(str(uuid.getnode()).encode()).hexdigest()[:16].upper()
+    except Exception:
+        return "HW-UNKNOWN"
+
+
 class HeartbeatWorker(QObject):
     """Corre en QThread — manda heartbeat a Supabase cada 60s."""
-    heartbeat_ok    = pyqtSignal(dict)   # emite info del dispositivo
-    heartbeat_fail  = pyqtSignal(str)    # emite mensaje de error
+    heartbeat_ok       = pyqtSignal(dict)
+    heartbeat_fail     = pyqtSignal(str)
+    heartbeat_revocada = pyqtSignal()    # estación revocada desde el panel
 
     def __init__(self):
         super().__init__()
-        self._timer = QTimer()
-        self._timer.timeout.connect(self._beat)
+        self._timer = None
 
     def start(self):
+        # Crear el QTimer aquí — ya estamos dentro del QThread correcto
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._beat)
         self._beat()  # primer beat inmediato
         self._timer.start(HEARTBEAT_INTERVAL_MS)
 
     def stop(self):
-        self._timer.stop()
+        if self._timer:
+            self._timer.stop()
 
     def _beat(self):
         if not get_station_api_key():
@@ -98,10 +135,14 @@ class HeartbeatWorker(QObject):
                 return
 
             result = sb.rpc("station_heartbeat", {
-                "p_api_key":  get_station_api_key(),
-                "p_ip_local": get_local_ip(),
-                "p_hostname": get_hostname(),
-                "p_version":  APP_VERSION,
+                "p_api_key":         get_station_api_key(),
+                "p_ip_local":        get_local_ip(),
+                "p_hostname":        get_hostname(),
+                "p_version":         APP_VERSION,
+                "p_hwid":            get_hwid(),
+                "p_empleados_count": _health_empleados_count,
+                "p_camara_ok":       _health_camara_ok,
+                "p_encodings_ver":   _health_encodings_ver if _health_encodings_ver > 0 else None,
             }).execute()
 
             data = result.data
@@ -111,8 +152,12 @@ class HeartbeatWorker(QObject):
                 self.heartbeat_ok.emit(data)
             else:
                 err = data.get("error", "respuesta invalida") if data else "sin datos"
-                logger.warning(f"Heartbeat rechazado: {err}")
-                self.heartbeat_fail.emit(err)
+                revocada = data.get("revocada", False) if data else False
+                logger.warning(f"Heartbeat rechazado: {err} (revocada={revocada})")
+                if revocada:
+                    self.heartbeat_revocada.emit()
+                else:
+                    self.heartbeat_fail.emit(err)
 
         except Exception as e:
             logger.error(f"Heartbeat error: {e}")
@@ -137,6 +182,7 @@ class StationManager(QObject):
         self._worker.moveToThread(self._thread)
         self._worker.heartbeat_ok.connect(self._on_ok)
         self._worker.heartbeat_fail.connect(self._on_fail)
+        self._worker.heartbeat_revocada.connect(self._on_revocada)
         self._thread.started.connect(self._worker.start)
 
     def validate(self) -> tuple[bool, str]:
@@ -159,11 +205,14 @@ class StationManager(QObject):
         self._thread.quit()
         self._thread.wait(3000)
 
-    def _on_ok(self, data: dict):
+    def _on_ok(self, _data: dict):
         self.status_changed.emit("online", StationInfo.nombre or "Estacion")
 
     def _on_fail(self, err: str):
         self.status_changed.emit("offline", err)
+
+    def _on_revocada(self):
+        self.status_changed.emit("revocada", "Estación revocada desde el panel web")
 
 
 # Instancia global — se inicializa en main.py después de QApplication

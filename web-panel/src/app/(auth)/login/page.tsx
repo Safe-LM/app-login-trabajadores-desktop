@@ -23,14 +23,25 @@ export default function LoginPage() {
         password: password,
       });
       if (error) {
-        setError(`Error: ${error.message}`);
+        if (error.message.toLowerCase().includes("invalid login")) {
+          setError("Credenciales incorrectas. Verifica tu correo y contraseña.");
+        } else if (error.message.toLowerCase().includes("email not confirmed")) {
+          setError("Confirma tu correo electrónico antes de ingresar.");
+        } else {
+          setError(error.message);
+        }
         setLoading(false);
         return;
       }
       router.refresh();
       router.push("/dashboard");
-    } catch (err) {
-      setError(`Error inesperado: ${String(err)}`);
+    } catch (err: any) {
+      const msg = String(err);
+      if (msg.includes("fetch") || msg.includes("network") || msg.includes("Failed")) {
+        setError("Sin conexión al servidor. Verifica tu internet o contacta soporte.");
+      } else {
+        setError("Error inesperado. Intenta de nuevo.");
+      }
       setLoading(false);
     }
   }

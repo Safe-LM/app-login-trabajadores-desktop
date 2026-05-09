@@ -1,4 +1,4 @@
-﻿"""
+"""
 SetupWindow — Registro inicial de estacion fisica.
 Aparece solo cuando no existe STATION_API_KEY en .env.
 Autentica al admin con Supabase, crea el dispositivo
@@ -6,82 +6,28 @@ y escribe STATION_API_KEY en .env automaticamente.
 """
 
 import os
-import sys
+import json
 from pathlib import Path
 from dotenv import load_dotenv, set_key
 
-from PyQt5.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QLineEdit, QPushButton, QFrame, QComboBox,
-    QGraphicsDropShadowEffect, QSizePolicy,
-)
-from PyQt5.QtCore import (
-    Qt, QTimer, QPropertyAnimation, QVariantAnimation,
-    QEasingCurve, QRectF, QSize, QThread, pyqtSignal, QObject,
-)
-from PyQt5.QtGui import (
-    QFont, QPalette, QColor, QPixmap, QPainter,
-    QLinearGradient, QRadialGradient, QBrush, QPen,
-    QPainterPath, QIcon,
-)
+from PyQt5.QtCore import Qt, QTimer, QUrl, QThread, pyqtSignal, QObject
+from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QApplication
+from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineSettings
+from PyQt5.QtWebChannel import QWebChannel
 
 load_dotenv()
 
-_BASE_DIR = Path(__file__).resolve().parent.parent
-_ENV_PATH = _BASE_DIR.parent / ".env"
-
-# Mismos design tokens que login_window.py
-_C = {
-    "bg":          "#0a0f1a",
-    "panel":       "#0f1525",
-    "card":        "#0f172a",
-    "card_alt":    "#111827",
-    "input_bg":    "#0c1428",
-    "border":      "#1e293b",
-    "border_hl":   "#334155",
-    "accent":      "#2563eb",
-    "accent_dk":   "#1d4ed8",
-    "accent_lt":   "#60a5fa",
-    "accent_glow": "#2563eb45",
-    "success":     "#22c55e",
-    "success_bg":  "#052e16",
-    "success_brd": "#166534",
-    "error":       "#ef4444",
-    "error_bg":    "#1a0a0a",
-    "error_brd":   "#7f1d1d",
-    "text":        "#f1f5f9",
-    "text2":       "#e2e8f0",
-    "dim":         "#94a3b8",
-    "muted":       "#64748b",
-    "faint":       "#475569",
-}
-_FF = "Segoe UI"
-
-
-def _f(size, bold=False, weight=None):
-    f = QFont(_FF, size)
-    if bold:
-        f.setBold(True)
-    if weight is not None:
-        f.setWeight(weight)
-    return f
-
-
-def _shadow(color="#000", blur=24, ox=0, oy=4, parent=None):
-    e = QGraphicsDropShadowEffect(parent)
-    e.setColor(QColor(color))
-    e.setBlurRadius(blur)
-    e.setOffset(ox, oy)
-    return e
+_BASE_DIR = Path(__file__).resolve().parent.parent  # = station/
+_ENV_PATH = _BASE_DIR / ".env"                       # = station/.env  (donde supabase_client lo encuentra primero)
 
 
 # ─────────────────────────────────────────────────────────────────────
-#  Worker: corre en QThread para no bloquear UI
+#  Workers (sin cambios — lógica correcta)
 # ─────────────────────────────────────────────────────────────────────
 class _SetupWorker(QObject):
-    done    = pyqtSignal(str, str)   # api_key, dispositivo_id
-    error   = pyqtSignal(str)
-    step    = pyqtSignal(str)        # mensaje de progreso
+    done  = pyqtSignal(str, str)
+    error = pyqtSignal(str)
+    step  = pyqtSignal(str)
 
     def __init__(self, email, password, empresa_id, sucursal_id, nombre):
         super().__init__()
@@ -93,31 +39,27 @@ class _SetupWorker(QObject):
 
     def run(self):
         try:
+            from utils.station_manager import get_hwid
             from utils.supabase_client import get_supabase_client
             sb = get_supabase_client()
             if not sb:
                 self.error.emit("No se pudo conectar a Supabase. Verifica SUPABASE_URL y SUPABASE_KEY en .env")
                 return
 
-            # 1. Autenticar admin
             self.step.emit("Autenticando administrador...")
             auth_res = sb.auth.sign_in_with_password({
-                "email": self.email,
-                "password": self.password,
+                "email": self.email, "password": self.password,
             })
             if not auth_res.user:
-                self.error.emit("Credenciales incorrectas. Verifica email y contrasena.")
+                self.error.emit("Credenciales incorrectas. Verifica email y contraseña.")
                 return
 
-            # 2. Verificar que el usuario pertenece a la empresa
-            self.step.emit("Verificando acceso a la empresa...")
-
-            # 3. Crear dispositivo via función SECURITY DEFINER (bypasa RLS)
-            self.step.emit("Registrando estacion en la nube...")
+            self.step.emit("Registrando estación en la nube...")
             rpc_res = sb.rpc("crear_dispositivo", {
-                "p_user_id":    auth_res.user.id,
-                "p_nombre":     self.nombre,
+                "p_user_id":     auth_res.user.id,
+                "p_nombre":      self.nombre,
                 "p_sucursal_id": self.sucursal_id,
+                "p_hwid":        get_hwid(),
             }).execute()
 
             data = rpc_res.data
@@ -126,30 +68,28 @@ class _SetupWorker(QObject):
                 self.error.emit(f"No se pudo crear el dispositivo: {err}")
                 return
 
-            api_key = data["api_key"]
-            device_id = data["id"]
-
-            # 4. Guardar en .env
-            self.step.emit("Guardando configuracion local...")
-            env_file = str(_ENV_PATH)
+            self.step.emit("Guardando configuración local...")
             if not _ENV_PATH.exists():
                 _ENV_PATH.write_text("")
-            set_key(env_file, "STATION_API_KEY", api_key)
-
-            # 5. Cerrar sesion admin (la estacion usa api_key, no sesion de usuario)
+            env_str = str(_ENV_PATH)
+            set_key(env_str, "STATION_API_KEY", data["api_key"])
+            # Guardar también las claves de Supabase para que la estación
+            # sea autónoma — sin depender del .env del directorio padre
+            supabase_url = os.environ.get("SUPABASE_URL", "")
+            supabase_key = os.environ.get("SUPABASE_KEY", "")
+            if supabase_url:
+                set_key(env_str, "SUPABASE_URL", supabase_url)
+            if supabase_key:
+                set_key(env_str, "SUPABASE_KEY", supabase_key)
             sb.auth.sign_out()
-
-            self.done.emit(api_key, device_id)
+            self.done.emit(data["api_key"], data["id"])
 
         except Exception as e:
             self.error.emit(str(e))
 
 
-# ─────────────────────────────────────────────────────────────────────
-#  Worker: carga empresas y sucursales (login previo requerido)
-# ─────────────────────────────────────────────────────────────────────
 class _LoadDataWorker(QObject):
-    done  = pyqtSignal(list, list)   # empresas[], sucursales[]
+    done  = pyqtSignal(list, list)
     error = pyqtSignal(str)
 
     def __init__(self, email, password):
@@ -162,646 +102,719 @@ class _LoadDataWorker(QObject):
             from utils.supabase_client import get_supabase_client
             sb = get_supabase_client()
             if not sb:
-                self.error.emit("Sin conexion a Supabase")
+                self.error.emit("Sin conexión a Supabase — verifica SUPABASE_URL y SUPABASE_KEY en .env")
                 return
-
             auth_res = sb.auth.sign_in_with_password({
                 "email": self.email, "password": self.password,
             })
             if not auth_res.user:
                 self.error.emit("Credenciales incorrectas")
                 return
-
             emp_res = sb.table("empresas").select("id, nombre").eq("activa", True).execute()
             suc_res = sb.table("sucursales").select("id, nombre, empresa_id").eq("activa", True).execute()
             sb.auth.sign_out()
-
             self.done.emit(emp_res.data or [], suc_res.data or [])
         except Exception as e:
             self.error.emit(str(e))
 
 
-# ─────────────────────────────────────────────────────────────────────
-#  Input field reutilizable (igual que login_window)
-# ─────────────────────────────────────────────────────────────────────
-class _Input(QLineEdit):
-    def __init__(self, placeholder, pw=False):
+class _PairingWorker(QObject):
+    done  = pyqtSignal(str, str)
+    error = pyqtSignal(str)
+
+    def __init__(self, code):
         super().__init__()
-        self.setPlaceholderText(placeholder)
-        if pw:
-            self.setEchoMode(QLineEdit.Password)
-        self.setFont(_f(13))
-        self.setFixedHeight(46)
-        self.setStyleSheet(f"""
-            QLineEdit {{
-                background: {_C['input_bg']};
-                border: 1px solid {_C['border']};
-                border-radius: 8px;
-                padding: 11px 14px;
-                color: {_C['text']};
-                font-size: 13px;
-                selection-background-color: {_C['accent']};
-            }}
-            QLineEdit:focus {{
-                border: 1.5px solid {_C['accent']};
-                background: {_C['card_alt']};
-            }}
-            QLineEdit:hover:!focus {{
-                border: 1px solid {_C['border_hl']};
-            }}
-        """)
+        self.code     = code
+        self._running = True
 
-    def focusInEvent(self, ev):
-        super().focusInEvent(ev)
-        s = QGraphicsDropShadowEffect(self)
-        s.setBlurRadius(18)
-        s.setColor(QColor(37, 99, 235, 70))
-        s.setOffset(0, 0)
-        self.setGraphicsEffect(s)
+    def run(self):
+        import time
+        from utils.station_manager import get_hwid
+        from utils.supabase_client import get_supabase_client
+        sb   = get_supabase_client()
+        hwid = get_hwid()
+        t0   = time.time()
+        while self._running and (time.time() - t0 < 300):
+            try:
+                res  = sb.rpc("verificar_vinculacion", {"p_codigo": self.code, "p_hwid": hwid}).execute()
+                data = res.data
+                if data and data.get("ok") and data.get("activado"):
+                    env_str = str(_ENV_PATH)
+                    if not _ENV_PATH.exists():
+                        _ENV_PATH.write_text("")
+                    set_key(env_str, "STATION_API_KEY", data["api_key"])
+                    for k in ("SUPABASE_URL", "SUPABASE_KEY"):
+                        v = os.environ.get(k, "")
+                        if v:
+                            set_key(env_str, k, v)
+                    self.done.emit(data["api_key"], "ID-LINKED")
+                    return
+                if data and not data.get("ok"):
+                    self.error.emit(data.get("error", "Error"))
+                    return
+            except Exception as e:
+                self.error.emit(str(e))
+                return
+            time.sleep(3)
+        if self._running:
+            self.error.emit("Tiempo de espera agotado. El código expiró.")
 
-    def focusOutEvent(self, ev):
-        super().focusOutEvent(ev)
-        self.setGraphicsEffect(None)
-
-
-class _Combo(QComboBox):
-    def __init__(self):
-        super().__init__()
-        self.setFont(_f(13))
-        self.setFixedHeight(46)
-        self.setCursor(Qt.PointingHandCursor)
-        self.setStyleSheet(f"""
-            QComboBox {{
-                background: {_C['input_bg']};
-                border: 1px solid {_C['border']};
-                border-radius: 8px;
-                padding: 0 14px;
-                color: {_C['text']};
-                font-size: 13px;
-            }}
-            QComboBox:hover {{ border: 1px solid {_C['border_hl']}; }}
-            QComboBox:focus {{ border: 1.5px solid {_C['accent']}; }}
-            QComboBox::drop-down {{
-                border: none; width: 32px;
-                subcontrol-origin: padding; subcontrol-position: right center;
-            }}
-            QComboBox QAbstractItemView {{
-                background: {_C['card_alt']};
-                border: 1px solid {_C['border_hl']};
-                border-radius: 8px;
-                color: {_C['text']};
-                selection-background-color: {_C['accent']};
-                padding: 4px;
-                outline: none;
-            }}
-        """)
+    def stop(self):
+        self._running = False
 
 
 # ─────────────────────────────────────────────────────────────────────
-#  Boton principal con spinner
+#  Bridge Python ↔ JS
 # ─────────────────────────────────────────────────────────────────────
-class _ActionButton(QPushButton):
-    def __init__(self, text, parent=None):
-        super().__init__(text, parent)
-        self._spinning = False
-        self._angle    = 0
-        self._timer    = QTimer(self)
-        self._timer.timeout.connect(self._tick)
-        self.setCursor(Qt.PointingHandCursor)
-        self.setFixedHeight(50)
-        self.setFont(_f(12, True))
-        self._apply_normal()
+class _SetupBridge(QObject):
+    # Señales JS → Python
+    verifyCredentials = pyqtSignal(str, str)          # email, password
+    registerStation   = pyqtSignal(str, str, str, str) # empresa_id, sucursal_id, nombre, email_pw_json
+    startPairing      = pyqtSignal(str)               # code
+    launch            = pyqtSignal()
 
-    def _apply_normal(self):
-        self.setStyleSheet(f"""
-            QPushButton {{
-                background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
-                    stop:0 {_C['accent']}, stop:1 {_C['accent_dk']});
-                color: white; border: none; border-radius: 10px; padding: 12px 0;
-            }}
-            QPushButton:hover {{
-                background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
-                    stop:0 {_C['accent_lt']}, stop:1 {_C['accent']});
-            }}
-            QPushButton:pressed {{ background: #1e40af; }}
-            QPushButton:disabled {{ background: {_C['border']}; color: {_C['muted']}; }}
-        """)
+    # Señales Python → JS (llamadas vía runJavaScript)
+    def __init__(self, parent=None):
+        super().__init__(parent)
 
-    def apply_success(self):
-        self._spinning = False
-        self._timer.stop()
-        self.setStyleSheet(f"""
-            QPushButton {{
-                background: {_C['success_bg']};
-                border: 1px solid {_C['success_brd']};
-                color: {_C['success']}; border-radius: 10px; padding: 12px 0;
-            }}
-        """)
+    from PyQt5.QtCore import pyqtSlot
 
-    def start_spin(self):
-        self._spinning = True
-        self._angle = 0
-        self._timer.start(22)
-        self.setEnabled(False)
-        self.update()
+    @pyqtSlot(str, str)
+    def onVerify(self, email: str, password: str):
+        self.verifyCredentials.emit(email, password)
 
-    def stop_spin(self):
-        self._spinning = False
-        self._timer.stop()
-        self.setEnabled(True)
-        self._apply_normal()
-        self.update()
+    @pyqtSlot(str, str, str, str, str)
+    def onRegister(self, email: str, password: str, empresa_id: str, sucursal_id: str, nombre: str):
+        self.registerStation.emit(empresa_id, sucursal_id, nombre,
+                                  json.dumps({"email": email, "password": password}))
 
-    def _tick(self):
-        self._angle = (self._angle + 9) % 360
-        self.update()
+    @pyqtSlot(str)
+    def onPair(self, code: str):
+        self.startPairing.emit(code)
 
-    def paintEvent(self, ev):
-        super().paintEvent(ev)
-        if not self._spinning:
-            return
-        p = QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing)
-        sz = 16
-        x = self.width() // 2 + 60
-        y = (self.height() - sz) // 2
-        p.setPen(QPen(QColor(255, 255, 255, 200), 2.2, Qt.SolidLine, Qt.RoundCap))
-        p.setBrush(Qt.NoBrush)
-        p.drawArc(QRectF(x, y, sz, sz), self._angle * 16, 260 * 16)
-        p.end()
+    @pyqtSlot()
+    def onLaunch(self):
+        self.launch.emit()
 
 
 # ─────────────────────────────────────────────────────────────────────
-#  Panel de fondo decorativo (dot grid + glow)
+#  HTML completo — todas las pantallas en una sola página con JS
 # ─────────────────────────────────────────────────────────────────────
-class _BgPanel(QWidget):
-    def paintEvent(self, ev):
-        p = QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing)
-        w, h = self.width(), self.height()
-        p.fillRect(self.rect(), QColor(_C["bg"]))
+_HTML = """<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<title>Safe Link — Configuración inicial</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{
+  width:100%;height:100%;overflow:hidden;
+  background:#070710;
+  font-family:-apple-system,'Segoe UI',system-ui,sans-serif;
+  color:#f1f5f9;
+  -webkit-font-smoothing:antialiased;
+  display:flex;align-items:center;justify-content:center;
+}
 
-        # Glow central
-        glow = QRadialGradient(w / 2, h / 2, min(w, h) * 0.6)
-        glow.setColorAt(0.0, QColor(37, 99, 235, 18))
-        glow.setColorAt(1.0, QColor(0, 0, 0, 0))
-        p.fillRect(self.rect(), QBrush(glow))
+/* BG */
+.bg{position:fixed;inset:0;
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 40%,rgba(37,99,235,.08) 0%,transparent 65%),
+    radial-gradient(ellipse 40% 30% at 85% 80%,rgba(34,197,94,.04) 0%,transparent 55%),
+    #070710;
+}
+.bg::before{content:'';position:absolute;inset:0;
+  background-image:radial-gradient(rgba(255,255,255,.035) 1px,transparent 1px);
+  background-size:28px 28px;
+}
 
-        # Dot grid
-        p.setPen(QPen(QColor(255, 255, 255, 14), 1.2))
-        step = 28
-        for x in range(0, w + step, step):
-            for y in range(0, h + step, step):
-                p.drawPoint(x, y)
-        p.end()
+/* CARD */
+.card{
+  position:relative;z-index:1;
+  width:420px;
+  background:linear-gradient(160deg,#101828 0%,#0c1220 100%);
+  border:1px solid rgba(37,99,235,.22);
+  border-radius:20px;
+  box-shadow:0 0 60px rgba(37,99,235,.12),0 24px 48px rgba(0,0,0,.6);
+  overflow:hidden;
+  animation:fadeUp .45s cubic-bezier(.16,1,.3,1) both;
+}
+.card-stripe{
+  height:3px;
+  background:linear-gradient(90deg,transparent,#2563eb 30%,#60a5fa 70%,transparent);
+}
+.card-body{padding:32px 32px 28px;}
 
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
 
-# ─────────────────────────────────────────────────────────────────────
-#  Card con franja azul superior
-# ─────────────────────────────────────────────────────────────────────
-class _Card(QFrame):
-    def paintEvent(self, ev):
-        super().paintEvent(ev)
-        p = QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing)
-        w = self.width()
-        grad = QLinearGradient(0, 0, w, 0)
-        grad.setColorAt(0.00, QColor(37, 99, 235, 0))
-        grad.setColorAt(0.20, QColor(37, 99, 235, 220))
-        grad.setColorAt(0.75, QColor(96, 165, 250, 180))
-        grad.setColorAt(1.00, QColor(37, 99, 235, 0))
-        clip = QPainterPath()
-        clip.addRect(QRectF(0, 0, w, 4))
-        rounded = QPainterPath()
-        rounded.addRoundedRect(QRectF(0, 0, w, 4), 16, 16)
-        p.setClipPath(clip.intersected(rounded))
-        p.setPen(Qt.NoPen)
-        p.fillRect(0, 0, w, 4, QBrush(grad))
-        p.end()
+/* LOGO */
+.logo-wrap{display:flex;align-items:center;justify-content:center;margin-bottom:20px}
+.logo-icon{
+  width:52px;height:52px;border-radius:14px;
+  background:linear-gradient(135deg,#2563eb,#1d4ed8);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 28px rgba(37,99,235,.45),0 0 60px rgba(37,99,235,.12);
+}
+
+/* HEADINGS */
+.title{font-size:22px;font-weight:800;color:#f1f5f9;text-align:center;letter-spacing:-.02em;margin-bottom:6px}
+.subtitle{font-size:12px;color:#64748b;text-align:center;line-height:1.6;margin-bottom:24px}
+
+/* FORM FIELDS */
+.field{margin-bottom:14px}
+.field-label{
+  font-size:10px;font-weight:700;color:#475569;letter-spacing:.1em;
+  text-transform:uppercase;margin-bottom:5px;
+}
+.input-wrap{position:relative;display:flex}
+input{
+  width:100%;height:44px;
+  background:#0a1428;
+  border:1px solid #1e293b;
+  border-radius:10px;
+  padding:0 14px;
+  color:#f1f5f9;font-size:13px;font-family:inherit;
+  outline:none;transition:border-color .15s,box-shadow .15s;
+}
+input::placeholder{color:#334155}
+input:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+input:hover:not(:focus){border-color:#334155}
+input.pw-with-toggle{border-radius:10px 0 0 10px;border-right:none}
+
+.pw-toggle{
+  width:44px;height:44px;
+  background:#0a1428;border:1px solid #1e293b;border-left:none;
+  border-radius:0 10px 10px 0;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;flex-shrink:0;color:#475569;
+  transition:background .15s,color .15s;
+}
+.pw-toggle:hover{background:#111827;color:#94a3b8}
+.pw-toggle.active{color:#2563eb}
+
+select{
+  width:100%;height:44px;
+  background:#0a1428;border:1px solid #1e293b;border-radius:10px;
+  padding:0 14px;color:#f1f5f9;font-size:13px;font-family:inherit;
+  outline:none;cursor:pointer;
+  appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 14px center;
+  transition:border-color .15s;
+}
+select:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+select option{background:#0f172a}
+
+/* BUTTON */
+.btn{
+  width:100%;height:48px;
+  background:linear-gradient(135deg,#2563eb,#1d4ed8);
+  border:none;border-radius:11px;
+  color:#fff;font-size:13px;font-weight:700;font-family:inherit;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
+  box-shadow:0 4px 20px rgba(37,99,235,.35);
+  transition:opacity .15s,transform .1s,box-shadow .15s;
+  position:relative;overflow:hidden;
+}
+.btn:hover{opacity:.92;box-shadow:0 6px 28px rgba(37,99,235,.45)}
+.btn:active{transform:scale(.985)}
+.btn:disabled{opacity:.45;cursor:not-allowed;pointer-events:none}
+.btn-ghost{
+  width:100%;height:40px;
+  background:transparent;border:1px solid #1e293b;border-radius:10px;
+  color:#94a3b8;font-size:12px;font-weight:600;font-family:inherit;
+  cursor:pointer;margin-top:10px;
+  transition:border-color .15s,color .15s,background .15s;
+}
+.btn-ghost:hover{border-color:#334155;color:#f1f5f9;background:rgba(255,255,255,.03)}
+.btn-success{
+  background:linear-gradient(135deg,#22c55e,#16a34a);
+  box-shadow:0 4px 20px rgba(34,197,94,.3);
+}
+.btn-success:hover{box-shadow:0 6px 28px rgba(34,197,94,.4)}
+
+/* SPINNER inside button */
+.spinner{
+  width:16px;height:16px;border-radius:50%;
+  border:2px solid rgba(255,255,255,.3);
+  border-top-color:#fff;
+  animation:spin .7s linear infinite;
+  display:none;
+}
+.loading .spinner{display:block}
+.loading .btn-label{display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* DIVIDER */
+.divider{
+  display:flex;align-items:center;gap:10px;
+  margin:18px 0;color:#334155;font-size:11px;
+}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:#1e293b}
+
+/* PAIR INPUT — código grande */
+.pair-input{
+  height:64px;font-size:28px;font-weight:800;
+  text-align:center;letter-spacing:.2em;
+  text-transform:uppercase;
+}
+
+/* ALERT */
+.alert{
+  display:none;
+  padding:11px 14px;border-radius:10px;
+  font-size:12px;line-height:1.55;
+  margin-bottom:16px;animation:fadeUp .25s ease both;
+}
+.alert.error{display:block;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.22);color:#fca5a5}
+.alert.info{display:block;background:rgba(37,99,235,.07);border:1px solid rgba(37,99,235,.22);color:#93c5fd}
+.alert.success{display:block;background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.22);color:#86efac}
+
+/* SCREENS */
+.screen{display:none}
+.screen.active{display:block}
+
+/* BACK LINK */
+.back-link{
+  display:flex;align-items:center;gap:5px;justify-content:center;
+  margin-top:14px;
+  font-size:11px;color:#475569;cursor:pointer;
+  transition:color .15s;
+}
+.back-link:hover{color:#94a3b8}
+
+/* SUCCESS SCREEN */
+.success-box{
+  background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);
+  border-radius:12px;padding:20px;margin-bottom:20px;text-align:center;
+}
+.success-box .checkmark{
+  width:48px;height:48px;border-radius:50%;
+  background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 12px;
+}
+.success-box h3{font-size:15px;font-weight:700;color:#86efac;margin-bottom:6px}
+.success-box p{font-size:12px;color:#4ade80;line-height:1.6}
+.success-meta{
+  font-size:11px;color:#334155;background:#0a1020;
+  border-radius:8px;padding:10px 12px;margin-top:10px;
+  font-family:monospace;text-align:left;line-height:1.8;
+}
+
+/* FOOTER */
+.footer{
+  padding:14px 32px;border-top:1px solid rgba(255,255,255,.04);
+  font-size:10px;color:#1e293b;text-align:center;letter-spacing:.05em;
+}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+
+<div class="card">
+  <div class="card-stripe"></div>
+  <div class="card-body">
+
+    <div class="logo-wrap">
+      <div class="logo-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+      </div>
+    </div>
+
+    <h1 class="title">Configuración inicial</h1>
+    <p class="subtitle">Esta estación aún no está registrada.<br>Ingresa tus credenciales de administrador para continuar.</p>
+
+    <div class="alert" id="alert"></div>
+
+    <!-- ── SCREEN 1: Credenciales ── -->
+    <div class="screen active" id="screenCreds">
+      <div class="field">
+        <div class="field-label">Correo del administrador</div>
+        <input type="email" id="email" placeholder="admin@empresa.com" autocomplete="off"/>
+      </div>
+      <div class="field">
+        <div class="field-label">Contraseña</div>
+        <div class="input-wrap">
+          <input type="password" id="password" class="pw-with-toggle" placeholder="Tu contraseña del panel web"/>
+          <div class="pw-toggle" id="pwToggle" onclick="togglePw()">
+            <svg id="eyeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
+            <svg id="eyeOffIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="display:none">
+              <path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/>
+              <line x1="1" y1="1" x2="23" y2="23"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn" id="btnVerify" onclick="doVerify()">
+        <div class="spinner" id="spVerify"></div>
+        <span class="btn-label">Verificar credenciales</span>
+      </button>
+
+      <div class="divider">o usa un código de vinculación</div>
+
+      <button class="btn-ghost" onclick="showScreen('screenPair')">
+        Vincular con Código de 6 dígitos
+      </button>
+    </div>
+
+    <!-- ── SCREEN 2: Pairing ── -->
+    <div class="screen" id="screenPair">
+      <div class="field">
+        <div class="field-label">Código de vinculación (6 dígitos)</div>
+        <input type="text" id="pairCode" class="pair-input"
+               placeholder="AB1234" maxlength="6" autocomplete="off"
+               oninput="this.value=this.value.toUpperCase()"/>
+      </div>
+
+      <button class="btn" id="btnPair" onclick="doPair()">
+        <div class="spinner" id="spPair"></div>
+        <span class="btn-label">Vincular estación</span>
+      </button>
+
+      <div class="back-link" onclick="showScreen('screenCreds')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        Usar credenciales de administrador
+      </div>
+    </div>
+
+    <!-- ── SCREEN 3: Selección empresa/sucursal ── -->
+    <div class="screen" id="screenSelect">
+      <div class="field">
+        <div class="field-label">Empresa</div>
+        <select id="empSelect" onchange="onEmpChange()"></select>
+      </div>
+      <div class="field">
+        <div class="field-label">Sucursal (opcional)</div>
+        <select id="sucSelect"></select>
+      </div>
+      <div class="field">
+        <div class="field-label">Nombre de esta estación</div>
+        <input type="text" id="stName" placeholder="Ej: Entrada Principal, Recepción"/>
+      </div>
+
+      <button class="btn" id="btnRegister" onclick="doRegister()">
+        <div class="spinner" id="spRegister"></div>
+        <span class="btn-label">Registrar esta estación</span>
+      </button>
+
+      <div class="back-link" onclick="showScreen('screenCreds')">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        Volver
+      </div>
+    </div>
+
+    <!-- ── SCREEN 4: Éxito ── -->
+    <div class="screen" id="screenDone">
+      <div class="success-box">
+        <div class="checkmark">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <h3>¡Estación registrada!</h3>
+        <p>La API Key fue guardada automáticamente.<br>Ya puedes iniciar Safe Link Monitoring.</p>
+        <div class="success-meta" id="successMeta"></div>
+      </div>
+      <button class="btn btn-success" onclick="doLaunch()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="10 8 16 12 10 16"/></svg>
+        Iniciar Safe Link Monitoring
+      </button>
+    </div>
+
+  </div>
+  <div class="footer">Safe Link Monitoring &nbsp;—&nbsp; Configuración de estación física</div>
+</div>
+
+<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+<script>
+var bridge = null;
+var _empresas = [];
+var _sucursales = [];
+
+new QWebChannel(qt.webChannelTransport, function(ch) {
+  bridge = ch.objects.bridge;
+});
+
+// ── Navegación ────────────────────────────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+  document.getElementById(id).classList.add('active');
+  clearAlert();
+}
+
+function showAlert(msg, type) {
+  var el = document.getElementById('alert');
+  el.className = 'alert ' + type;
+  el.textContent = msg;
+}
+function clearAlert() { document.getElementById('alert').className = 'alert'; }
+
+// ── Toggle contraseña ─────────────────────────────────────────────────
+function togglePw() {
+  var inp  = document.getElementById('password');
+  var tog  = document.getElementById('pwToggle');
+  var eye  = document.getElementById('eyeIcon');
+  var eyeO = document.getElementById('eyeOffIcon');
+  var show = inp.type === 'password';
+  inp.type  = show ? 'text' : 'password';
+  eye.style.display  = show ? 'none' : 'block';
+  eyeO.style.display = show ? 'block' : 'none';
+  tog.classList.toggle('active', show);
+}
+
+// ── Spinner helpers ───────────────────────────────────────────────────
+function setLoading(btnId, spId, loading) {
+  var btn = document.getElementById(btnId);
+  var sp  = document.getElementById(spId);
+  btn.disabled = loading;
+  sp.style.display = loading ? 'block' : 'none';
+  btn.querySelector('.btn-label').style.display = loading ? 'none' : 'block';
+}
+
+// ── Paso 1: Verificar ─────────────────────────────────────────────────
+function doVerify() {
+  var email = document.getElementById('email').value.trim();
+  var pw    = document.getElementById('password').value;
+  if (!email || !pw) { showAlert('Ingresa correo y contraseña.', 'error'); return; }
+  clearAlert();
+  setLoading('btnVerify', 'spVerify', true);
+  if (bridge) bridge.onVerify(email, pw);
+}
+
+// ── Paso 1b: Python devuelve empresas/sucursales ──────────────────────
+function loadSelectScreen(empresasJson, sucursalesJson, hostname) {
+  _empresas   = JSON.parse(empresasJson);
+  _sucursales = JSON.parse(sucursalesJson);
+  setLoading('btnVerify', 'spVerify', false);
+
+  var emp = document.getElementById('empSelect');
+  emp.innerHTML = '';
+  _empresas.forEach(function(e, i) {
+    var o = document.createElement('option');
+    o.value = e.id; o.textContent = e.nombre;
+    emp.appendChild(o);
+  });
+  document.getElementById('stName').value = hostname || '';
+  onEmpChange();
+  showScreen('screenSelect');
+}
+
+function onEmpChange() {
+  var empId = document.getElementById('empSelect').value;
+  var suc   = document.getElementById('sucSelect');
+  suc.innerHTML = '<option value="">— Sin sucursal asignada —</option>';
+  _sucursales.filter(function(s) { return s.empresa_id === empId; }).forEach(function(s) {
+    var o = document.createElement('option');
+    o.value = s.id; o.textContent = s.nombre;
+    suc.appendChild(o);
+  });
+}
+
+// ── Paso 2: Registrar ─────────────────────────────────────────────────
+function doRegister() {
+  var emp    = document.getElementById('empSelect').value;
+  var suc    = document.getElementById('sucSelect').value;
+  var nombre = document.getElementById('stName').value.trim();
+  var email  = document.getElementById('email').value.trim();
+  var pw     = document.getElementById('password').value;
+  if (!nombre) { showAlert('Escribe un nombre para esta estación.', 'error'); return; }
+  clearAlert();
+  setLoading('btnRegister', 'spRegister', true);
+  if (bridge) bridge.onRegister(email, pw, emp, suc, nombre);
+}
+
+// ── Pairing ───────────────────────────────────────────────────────────
+function doPair() {
+  var code = document.getElementById('pairCode').value.trim().toUpperCase();
+  if (code.length < 6) { showAlert('El código debe tener 6 dígitos.', 'error'); return; }
+  clearAlert();
+  setLoading('btnPair', 'spPair', true);
+  showAlert('Esperando activación desde el Panel Web...', 'info');
+  if (bridge) bridge.onPair(code);
+}
+
+// ── Éxito ─────────────────────────────────────────────────────────────
+function showSuccess(nombre, deviceId) {
+  setLoading('btnRegister', 'spRegister', false);
+  setLoading('btnPair', 'spPair', false);
+  document.getElementById('successMeta').innerHTML =
+    'Nombre: <b style="color:#86efac">' + nombre + '</b><br>' +
+    'ID: <span style="color:#64748b">' + (deviceId||'').substring(0,22) + '...</span>';
+  showScreen('screenDone');
+}
+
+// ── Errores desde Python ──────────────────────────────────────────────
+function showError(msg) {
+  setLoading('btnVerify', 'spVerify', false);
+  setLoading('btnRegister', 'spRegister', false);
+  setLoading('btnPair', 'spPair', false);
+  showAlert(msg, 'error');
+}
+
+function showInfo(msg) {
+  showAlert(msg, 'info');
+}
+
+// ── Launch ────────────────────────────────────────────────────────────
+function doLaunch() {
+  if (bridge) bridge.onLaunch();
+}
+</script>
+</body>
+</html>"""
 
 
 # ─────────────────────────────────────────────────────────────────────
 #  SetupWindow — ventana principal
 # ─────────────────────────────────────────────────────────────────────
 class SetupWindow(QMainWindow):
-    setup_complete = pyqtSignal()   # emitido cuando todo quedo guardado
+    setup_complete = pyqtSignal()
 
     def __init__(self):
         super().__init__()
-        self._thread    = None
-        self._worker    = None
-        self._empresas  = []
-        self._sucursales_all = []
-        self._step = "credentials"   # credentials → select → done
+        self._thread      = None
+        self._worker      = None
+        self._pair_thread = None
+        self._pair_worker = None
+        self._empresas    = []
+        self._suc_all     = []
+        self._email       = ""
+        self._password    = ""
+        self._station_nombre = ""
         self._init_ui()
 
-    # ── UI ────────────────────────────────────────────────────────────
     def _init_ui(self):
-        self.setWindowTitle("Safe Link Monitoring — Configuracion inicial")
-        self.setMinimumSize(520, 700)
-        self.resize(560, 720)
-        self.setStyleSheet(f"QMainWindow{{background:{_C['bg']}}}")
+        self.setWindowTitle("Safe Link Monitoring — Configuración inicial")
+        self.resize(500, 680)
+        self.setMinimumSize(480, 600)
 
-        root = _BgPanel()
+        root = QWidget()
         self.setCentralWidget(root)
-        outer = QVBoxLayout(root)
-        outer.setContentsMargins(40, 0, 40, 30)
-        outer.addStretch(1)
+        lay = QVBoxLayout(root)
+        lay.setContentsMargins(0, 0, 0, 0)
 
-        # Card
-        card = _Card()
-        card.setObjectName("setupCard")
-        card.setStyleSheet(f"""
-            QFrame#setupCard {{
-                background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
-                    stop:0 #111827, stop:1 {_C['card']});
-                border: 1px solid rgba(37,99,235,0.30);
-                border-radius: 16px;
-            }}
-        """)
-        card.setGraphicsEffect(_shadow(_C["accent_glow"], 55, 0, 10))
-        cl = QVBoxLayout(card)
-        cl.setContentsMargins(36, 36, 36, 32)
-        cl.setSpacing(0)
+        self._view = QWebEngineView()
+        s = self._view.settings()
+        s.setAttribute(QWebEngineSettings.JavascriptEnabled, True)
+        s.setAttribute(QWebEngineSettings.JavascriptCanOpenWindows, False)
 
-        # Shield icon
-        shield_lbl = QLabel()
-        shield_lbl.setPixmap(self._shield_px(54))
-        shield_lbl.setAlignment(Qt.AlignCenter)
-        shield_lbl.setStyleSheet("background:transparent;")
-        cl.addWidget(shield_lbl)
-        cl.addSpacing(16)
+        self._channel = QWebChannel()
+        self._bridge  = _SetupBridge(self)
+        self._channel.registerObject("bridge", self._bridge)
+        self._view.page().setWebChannel(self._channel)
 
-        # Titulo
-        title = QLabel("Configuracion inicial")
-        title.setFont(_f(22, weight=80))
-        title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet(f"color:{_C['text']};background:transparent;")
-        cl.addWidget(title)
+        self._view.setHtml(_HTML, baseUrl=QUrl("qrc:///"))
 
-        sub = QLabel("Esta estacion aun no esta registrada.\nIngresa tus credenciales de administrador para continuar.")
-        sub.setFont(_f(11))
-        sub.setAlignment(Qt.AlignCenter)
-        sub.setWordWrap(True)
-        sub.setStyleSheet(f"color:{_C['dim']};background:transparent;line-height:150%;")
-        cl.addWidget(sub)
-        cl.addSpacing(24)
+        self._bridge.verifyCredentials.connect(self._on_verify)
+        self._bridge.registerStation.connect(self._on_register)
+        self._bridge.startPairing.connect(self._on_pair_start)
+        self._bridge.launch.connect(self._on_launch)
 
-        # Mensaje de estado (error / progreso / exito)
-        self._msg_frame = self._make_msg_frame()
-        cl.addWidget(self._msg_frame)
+        lay.addWidget(self._view)
+        self._center()
 
-        # ── PASO 1: Credenciales ──────────────────────────────────────
-        self._step1 = QWidget()
-        self._step1.setStyleSheet("background:transparent;")
-        s1 = QVBoxLayout(self._step1)
-        s1.setContentsMargins(0,0,0,0)
-        s1.setSpacing(0)
-
-        s1.addWidget(self._field_lbl("CORREO DEL ADMINISTRADOR"))
-        s1.addSpacing(4)
-        self._email_input = _Input("admin@empresa.com")
-        s1.addWidget(self._email_input)
-        s1.addSpacing(14)
-
-        s1.addWidget(self._field_lbl("CONTRASENA"))
-        s1.addSpacing(4)
-        self._pw_input = _Input("Tu contrasena de Supabase", pw=True)
-        s1.addWidget(self._pw_input)
-        s1.addSpacing(22)
-
-        self._btn1 = _ActionButton("Verificar credenciales")
-        self._btn1.setGraphicsEffect(_shadow(_C["accent_glow"], 30, 0, 6))
-        self._btn1.clicked.connect(self._on_verify)
-        self._email_input.returnPressed.connect(self._pw_input.setFocus)
-        self._pw_input.returnPressed.connect(self._on_verify)
-        s1.addWidget(self._btn1)
-
-        cl.addWidget(self._step1)
-
-        # ── PASO 2: Seleccion empresa + sucursal + nombre ─────────────
-        self._step2 = QWidget()
-        self._step2.setStyleSheet("background:transparent;")
-        self._step2.setVisible(False)
-        s2 = QVBoxLayout(self._step2)
-        s2.setContentsMargins(0,0,0,0)
-        s2.setSpacing(0)
-
-        s2.addWidget(self._field_lbl("EMPRESA"))
-        s2.addSpacing(4)
-        self._emp_combo = _Combo()
-        self._emp_combo.currentIndexChanged.connect(self._on_empresa_changed)
-        s2.addWidget(self._emp_combo)
-        s2.addSpacing(14)
-
-        s2.addWidget(self._field_lbl("SUCURSAL (OPCIONAL)"))
-        s2.addSpacing(4)
-        self._suc_combo = _Combo()
-        s2.addWidget(self._suc_combo)
-        s2.addSpacing(14)
-
-        s2.addWidget(self._field_lbl("NOMBRE DE ESTA ESTACION"))
-        s2.addSpacing(4)
-        self._nombre_input = _Input("Ej: Entrada Principal, Almacen, Recepcion")
-        s2.addWidget(self._nombre_input)
-        s2.addSpacing(22)
-
-        self._btn2 = _ActionButton("Registrar esta estacion")
-        self._btn2.setGraphicsEffect(_shadow(_C["accent_glow"], 30, 0, 6))
-        self._btn2.clicked.connect(self._on_register)
-        s2.addWidget(self._btn2)
-
-        # Boton volver
-        back_btn = QPushButton("Volver")
-        back_btn.setFont(_f(10))
-        back_btn.setCursor(Qt.PointingHandCursor)
-        back_btn.setFixedHeight(36)
-        back_btn.setStyleSheet(f"""
-            QPushButton {{
-                background:transparent; border:1px solid {_C['border']};
-                border-radius:8px; color:{_C['muted']};
-            }}
-            QPushButton:hover {{ border-color:{_C['border_hl']}; color:{_C['dim']}; }}
-        """)
-        back_btn.clicked.connect(self._go_step1)
-        s2.addSpacing(8)
-        s2.addWidget(back_btn)
-
-        cl.addWidget(self._step2)
-
-        # ── PASO 3: Exito ─────────────────────────────────────────────
-        self._step3 = QWidget()
-        self._step3.setStyleSheet("background:transparent;")
-        self._step3.setVisible(False)
-        s3 = QVBoxLayout(self._step3)
-        s3.setContentsMargins(0,0,0,0)
-        s3.setSpacing(0)
-
-        self._success_lbl = QLabel()
-        self._success_lbl.setFont(_f(12))
-        self._success_lbl.setWordWrap(True)
-        self._success_lbl.setAlignment(Qt.AlignCenter)
-        self._success_lbl.setStyleSheet(f"""
-            color:{_C['success']}; background:{_C['success_bg']};
-            border:1px solid {_C['success_brd']};
-            border-radius:10px; padding:16px;
-        """)
-        s3.addWidget(self._success_lbl)
-        s3.addSpacing(20)
-
-        self._btn3 = _ActionButton("Iniciar Safe Link Monitoring")
-        self._btn3.apply_success()
-        self._btn3.setEnabled(True)
-        self._btn3.setStyleSheet(f"""
-            QPushButton {{
-                background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
-                    stop:0 {_C['success']}, stop:1 #16a34a);
-                color:white; border:none; border-radius:10px; padding:12px 0;
-            }}
-            QPushButton:hover {{ background:#16a34a; }}
-        """)
-        self._btn3.clicked.connect(self._on_launch)
-        s3.addWidget(self._btn3)
-
-        cl.addWidget(self._step3)
-
-        # Footer
-        cl.addSpacing(20)
-        sep = QFrame()
-        sep.setFixedHeight(1)
-        sep.setStyleSheet("background: rgba(37,99,235,0.20);")
-        cl.addWidget(sep)
-        cl.addSpacing(12)
-        foot = QLabel("Safe Link Monitoring  —  Configuracion de estacion fisica")
-        foot.setFont(_f(8))
-        foot.setAlignment(Qt.AlignCenter)
-        foot.setStyleSheet(f"color:{_C['faint']};background:transparent;")
-        cl.addWidget(foot)
-
-        outer.addWidget(card)
-        outer.addStretch(1)
-
-    # ── Helpers ───────────────────────────────────────────────────────
-    def _field_lbl(self, txt):
-        l = QLabel(txt)
-        l.setFont(_f(8, True))
-        l.setStyleSheet(f"color:{_C['muted']};background:transparent;")
-        return l
-
-    def _make_msg_frame(self):
-        f = QFrame()
-        f.setVisible(False)
-        lay = QHBoxLayout(f)
-        lay.setContentsMargins(12, 10, 12, 10)
-        lay.setSpacing(8)
-        self._msg_lbl = QLabel()
-        self._msg_lbl.setFont(_f(10))
-        self._msg_lbl.setWordWrap(True)
-        self._msg_lbl.setStyleSheet("background:transparent;")
-        lay.addWidget(self._msg_lbl)
-        return f
-
-    def _show_error(self, msg):
-        self._msg_frame.setStyleSheet(f"""
-            QFrame {{ background:{_C['error_bg']}; border:1px solid {_C['error_brd']}; border-radius:8px; }}
-        """)
-        self._msg_lbl.setStyleSheet(f"color:#fca5a5;background:transparent;")
-        self._msg_lbl.setText(msg)
-        self._msg_frame.setVisible(True)
-
-    def _show_info(self, msg):
-        self._msg_frame.setStyleSheet(f"""
-            QFrame {{ background:rgba(37,99,235,0.08); border:1px solid rgba(37,99,235,0.25); border-radius:8px; }}
-        """)
-        self._msg_lbl.setStyleSheet(f"color:{_C['accent_lt']};background:transparent;")
-        self._msg_lbl.setText(msg)
-        self._msg_frame.setVisible(True)
-
-    def _hide_msg(self):
-        self._msg_frame.setVisible(False)
-
-    def _go_step1(self):
-        self._step2.setVisible(False)
-        self._step1.setVisible(True)
-        self._hide_msg()
-
-    def _go_step2(self):
-        self._step1.setVisible(False)
-        self._step2.setVisible(True)
-        self._hide_msg()
-
-    def _go_step3(self, api_key, device_id):
-        self._step2.setVisible(False)
-        self._step3.setVisible(True)
-        nombre = self._nombre_input.text().strip() or "Estacion"
-        self._success_lbl.setText(
-            f"Estacion registrada exitosamente.\n\n"
-            f"Nombre:  {nombre}\n"
-            f"ID:  {device_id[:18]}...\n\n"
-            f"La API Key ha sido guardada en .env automaticamente.\n"
-            f"No necesitas hacer nada mas."
+    def _center(self):
+        screen = QApplication.primaryScreen().geometry()
+        self.move(
+            screen.center().x() - self.width() // 2,
+            screen.center().y() - self.height() // 2,
         )
-        self._hide_msg()
 
-    def _on_empresa_changed(self, idx):
-        if idx < 0 or idx >= len(self._empresas):
-            return
-        empresa_id = self._empresas[idx]["id"]
-        self._suc_combo.clear()
-        self._suc_combo.addItem("-- Sin sucursal asignada --", None)
-        for s in self._sucursales_all:
-            if s["empresa_id"] == empresa_id:
-                self._suc_combo.addItem(s["nombre"], s["id"])
+    def _js(self, code: str):
+        self._view.page().runJavaScript(code)
 
-    # ── Paso 1: Verificar credenciales y cargar datos ──────────────────
-    def _on_verify(self):
-        email = self._email_input.text().strip()
-        pw    = self._pw_input.text()
-        if not email or not pw:
-            self._show_error("Ingresa correo y contrasena.")
-            return
-        self._hide_msg()
-        self._btn1.start_spin()
-        self._btn1.setText("Verificando...")
+    # ── Verificar credenciales ────────────────────────────────────────
+    def _on_verify(self, email: str, password: str):
+        self._email    = email
+        self._password = password
 
         self._thread = QThread()
-        self._worker = _LoadDataWorker(email, pw)
+        self._worker = _LoadDataWorker(email, password)
         self._worker.moveToThread(self._thread)
         self._thread.started.connect(self._worker.run)
         self._worker.done.connect(self._on_data_loaded)
-        self._worker.error.connect(self._on_load_error)
+        self._worker.error.connect(self._on_error)
         self._worker.done.connect(self._thread.quit)
         self._worker.error.connect(self._thread.quit)
         self._thread.start()
 
-    def _on_data_loaded(self, empresas, sucursales):
-        self._btn1.stop_spin()
-        self._btn1.setText("Verificar credenciales")
+    def _on_data_loaded(self, empresas: list, sucursales: list):
         self._empresas = empresas
-        self._sucursales_all = sucursales
+        self._suc_all  = sucursales
+        from utils.station_manager import get_hostname
+        hostname = get_hostname().upper()
+        self._js(
+            f"loadSelectScreen({json.dumps(json.dumps(empresas))},"
+            f"{json.dumps(json.dumps(sucursales))},{json.dumps(hostname)});"
+        )
 
-        if not empresas:
-            self._show_error("No se encontraron empresas activas para este usuario.")
-            return
-
-        self._emp_combo.clear()
-        for e in empresas:
-            self._emp_combo.addItem(e["nombre"], e["id"])
-
-        self._go_step2()
-
-    def _on_load_error(self, msg):
-        self._btn1.stop_spin()
-        self._btn1.setText("Verificar credenciales")
-        self._show_error(f"Error: {msg}")
-
-    # ── Paso 2: Registrar estacion ────────────────────────────────────
-    def _on_register(self):
-        nombre = self._nombre_input.text().strip()
-        if not nombre:
-            self._show_error("Escribe un nombre para esta estacion.")
-            return
-
-        emp_idx = self._emp_combo.currentIndex()
-        if emp_idx < 0 or emp_idx >= len(self._empresas):
-            self._show_error("Selecciona una empresa.")
-            return
-        empresa_id  = self._empresas[emp_idx]["id"]
-        sucursal_id = self._suc_combo.currentData()
-
-        self._hide_msg()
-        self._btn2.start_spin()
-        self._btn2.setText("Registrando...")
+    # ── Registrar estación ────────────────────────────────────────────
+    def _on_register(self, empresa_id: str, sucursal_id: str, nombre: str, creds_json: str):
+        self._station_nombre = nombre
+        creds = json.loads(creds_json)
+        suc_id = sucursal_id if sucursal_id else None
 
         self._thread = QThread()
         self._worker = _SetupWorker(
-            self._email_input.text().strip(),
-            self._pw_input.text(),
-            empresa_id, sucursal_id, nombre,
+            creds["email"], creds["password"],
+            empresa_id, suc_id, nombre,
         )
         self._worker.moveToThread(self._thread)
         self._thread.started.connect(self._worker.run)
-        self._worker.step.connect(self._show_info)
+        self._worker.step.connect(lambda m: self._js(f"showInfo({json.dumps(m)});"))
         self._worker.done.connect(self._on_register_done)
-        self._worker.error.connect(self._on_register_error)
+        self._worker.error.connect(self._on_error)
         self._worker.done.connect(self._thread.quit)
         self._worker.error.connect(self._thread.quit)
         self._thread.start()
 
-    def _on_register_done(self, api_key, device_id):
-        self._btn2.stop_spin()
-        self._btn2.setText("Registrar esta estacion")
-        # Recargar .env para que station_manager lo lea
+    def _on_register_done(self, api_key: str, device_id: str):
         load_dotenv(override=True)
         os.environ["STATION_API_KEY"] = api_key
-        self._go_step3(api_key, device_id)
+        nombre = self._station_nombre or "Estación"
+        self._js(f"showSuccess({json.dumps(nombre)},{json.dumps(device_id)});")
 
-    def _on_register_error(self, msg):
-        self._btn2.stop_spin()
-        self._btn2.setText("Registrar esta estacion")
-        self._show_error(f"Error al registrar: {msg}")
+    # ── Pairing ───────────────────────────────────────────────────────
+    def _on_pair_start(self, code: str):
+        self._pair_thread = QThread()
+        self._pair_worker = _PairingWorker(code)
+        self._pair_worker.moveToThread(self._pair_thread)
+        self._pair_thread.started.connect(self._pair_worker.run)
+        self._pair_worker.done.connect(self._on_pair_done)
+        self._pair_worker.error.connect(self._on_error)
+        self._pair_worker.done.connect(self._pair_thread.quit)
+        self._pair_worker.error.connect(self._pair_thread.quit)
+        self._pair_thread.start()
 
-    # ── Paso 3: Lanzar app ────────────────────────────────────────────
+    def _on_pair_done(self, api_key: str, device_id: str):
+        load_dotenv(override=True)
+        os.environ["STATION_API_KEY"] = api_key
+        self._js(f"showSuccess('Vinculada por código',{json.dumps(device_id)});")
+
+    # ── Error genérico ────────────────────────────────────────────────
+    def _on_error(self, msg: str):
+        self._js(f"showError({json.dumps(msg)});")
+
+    # ── Lanzar app ────────────────────────────────────────────────────
     def _on_launch(self):
         self.hide()
-        # Emitir después de ocultar para que _after_setup no destruya el objeto
-        # mientras aún estamos en el stack de llamadas de este método
         QTimer.singleShot(0, self.setup_complete.emit)
 
-    # ── Shield pixmap ─────────────────────────────────────────────────
-    def _shield_px(self, sz):
-        px = QPixmap(sz, sz)
-        px.fill(Qt.transparent)
-        p = QPainter(px)
-        p.setRenderHint(QPainter.Antialiasing)
-        cx, cy, s = sz / 2, sz / 2, sz * 0.42
-
-        gl = QRadialGradient(cx, cy, sz * 0.48)
-        gl.setColorAt(0, QColor(37, 99, 235, 50))
-        gl.setColorAt(1, QColor(0, 0, 0, 0))
-        p.setBrush(QBrush(gl))
-        p.setPen(Qt.NoPen)
-        p.drawEllipse(0, 0, sz, sz)
-
-        path = self._shield_path(cx, cy, s)
-        g = QLinearGradient(cx, cy - s, cx, cy + s)
-        g.setColorAt(0, QColor(_C["accent_lt"]))
-        g.setColorAt(1, QColor(_C["accent_dk"]))
-        p.setBrush(QBrush(g))
-        p.setPen(QPen(QColor(147, 197, 253, 110), 1))
-        p.drawPath(path)
-
-        p.setPen(QPen(QColor(255, 255, 255, 220), 2.4, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
-        p.setBrush(Qt.NoBrush)
-        ck = QPainterPath()
-        ck.moveTo(cx - s * 0.28, cy + s * 0.05)
-        ck.lineTo(cx - s * 0.05, cy + s * 0.30)
-        ck.lineTo(cx + s * 0.32, cy - s * 0.22)
-        p.drawPath(ck)
-        p.end()
-        return px
-
-    @staticmethod
-    def _shield_path(cx, cy, s):
-        p = QPainterPath()
-        p.moveTo(cx, cy - s)
-        p.cubicTo(cx - s*0.7, cy - s*0.8, cx - s*0.95, cy - s*0.3, cx - s*0.85, cy + s*0.3)
-        p.quadTo(cx - s*0.3, cy + s*0.95, cx, cy + s*1.05)
-        p.quadTo(cx + s*0.3, cy + s*0.95, cx + s*0.85, cy + s*0.3)
-        p.cubicTo(cx + s*0.95, cy - s*0.3, cx + s*0.7, cy - s*0.8, cx, cy - s)
-        return p
-
-    # ── Fade in ───────────────────────────────────────────────────────
     def show(self):
-        self.setWindowOpacity(0)
+        self.setWindowOpacity(0.0)
         super().show()
-        anim = QPropertyAnimation(self, b"windowOpacity")
-        anim.setDuration(400)
-        anim.setStartValue(0.0)
-        anim.setEndValue(1.0)
-        anim.setEasingCurve(QEasingCurve.OutCubic)
-        anim.start()
-        self._fade_anim = anim
+        # Fade in simple
+        self._fade_step = 0.0
+        self._fade_timer = QTimer(self)
+        self._fade_timer.timeout.connect(self._do_fade)
+        self._fade_timer.start(16)
 
-    def closeEvent(self, ev):
-        ev.accept()
+    def _do_fade(self):
+        self._fade_step = min(self._fade_step + 0.06, 1.0)
+        self.setWindowOpacity(self._fade_step)
+        if self._fade_step >= 1.0:
+            self._fade_timer.stop()

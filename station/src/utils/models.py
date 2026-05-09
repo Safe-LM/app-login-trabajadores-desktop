@@ -1,58 +1,76 @@
 """
-Modelos de base de datos.
-Crea los modelos directamente para evitar problemas de imports relativos.
+SQLAlchemy 2.0 models — Safe Link Monitoring Station.
+
+Uses Mapped[T] + mapped_column() typed annotations.
 """
 
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float, ForeignKey
-from sqlalchemy.orm import relationship
 from datetime import datetime
+from typing import Optional, List
+
+from sqlalchemy import (
+    Boolean, DateTime, Float, ForeignKey, Index, Integer, String,
+    func,
+)
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from utils.database import Base
 
 
 class Trabajador(Base):
     __tablename__ = "trabajadores"
 
-    id = Column(Integer, primary_key=True, index=True)
-    usuario = Column(String, unique=True, index=True, nullable=False)
-    password_hash = Column(String, nullable=False)
-    nombre = Column(String, nullable=False)
-    apellido = Column(String, nullable=False)
-    email = Column(String, unique=True, index=True)
-    activo = Column(Boolean, default=True)
-    fecha_registro = Column(DateTime, default=datetime.now)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    usuario: Mapped[str] = mapped_column(String, unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String)
+    nombre: Mapped[str] = mapped_column(String)
+    apellido: Mapped[str] = mapped_column(String)
+    email: Mapped[Optional[str]] = mapped_column(String, unique=True, index=True)
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    enrollado: Mapped[bool] = mapped_column(Boolean, default=False)
+    fecha_registro: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
-    # Campos adicionales para gestión de sucursales
-    zona = Column(String, nullable=True, index=True)  # CDMX, EDO DE MÉXICO, etc.
-    sucursal = Column(String, nullable=True, index=True)  # Nombre de la sucursal
-    puesto = Column(String, nullable=True)  # GERENTE, SUPERVISOR, ASESORA, etc.
-    employee_id = Column(Integer, nullable=True, index=True)  # ID del empleado del CSV
+    zona: Mapped[Optional[str]] = mapped_column(String, index=True)
+    sucursal: Mapped[Optional[str]] = mapped_column(String, index=True)
+    puesto: Mapped[Optional[str]] = mapped_column(String)
+    employee_id: Mapped[Optional[int]] = mapped_column(Integer, index=True)
+    foto_path: Mapped[Optional[str]] = mapped_column(String)
+    embedding_idx: Mapped[Optional[int]] = mapped_column(Integer)
 
-    # Foto del trabajador
-    foto_path = Column(String, nullable=True)  # Ruta a la foto del trabajador
+    registros: Mapped[List["RegistroAsistencia"]] = relationship(
+        back_populates="trabajador", lazy="selectin"
+    )
 
-    # Relación con embeddings (usando el índice del sistema principal)
-    embedding_idx = Column(
-        Integer, nullable=True
-    )  # Índice en embeddings_empleados del sistema principal
-
-    # Relación con registros de asistencia
-    registros = relationship("RegistroAsistencia", back_populates="trabajador")
+    def __repr__(self) -> str:
+        return f"<Trabajador #{self.id} {self.nombre} {self.apellido}>"
 
 
 class RegistroAsistencia(Base):
     __tablename__ = "registros_asistencia"
+    __table_args__ = (
+        Index("idx_asistencia_fecha", func.date("timestamp")),
+        Index("idx_asistencia_emp_fecha", "trabajador_id", func.date("timestamp")),
+        Index("idx_asistencia_sync", "sincronizado"),
+        Index("idx_asistencia_tipo_fecha", "tipo", func.date("timestamp")),
+    )
 
-    id = Column(Integer, primary_key=True, index=True)
-    trabajador_id = Column(Integer, ForeignKey("trabajadores.id"), nullable=False)
-    tipo = Column(String, nullable=False)  # 'entrada' o 'salida'
-    timestamp = Column(DateTime, default=datetime.now, nullable=False)
-    reconocimiento_facial = Column(Boolean, default=True)  # Si fue reconocido por cara
-    confianza = Column(Float, nullable=True)  # Confianza del reconocimiento (0-1)
-    ubicacion = Column(String, nullable=True)  # Ubicación del registro
-    notas = Column(String, nullable=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    trabajador_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("trabajadores.id"), nullable=False, index=True
+    )
+    tipo: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now, nullable=False, index=True
+    )
+    reconocimiento_facial: Mapped[bool] = mapped_column(Boolean, default=True)
+    confianza: Mapped[Optional[float]] = mapped_column(Float)
+    ubicacion: Mapped[Optional[str]] = mapped_column(String)
+    notas: Mapped[Optional[str]] = mapped_column(String)
+    sincronizado: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    # Relación con trabajador
-    trabajador = relationship("Trabajador", back_populates="registros")
+    trabajador: Mapped["Trabajador"] = relationship(back_populates="registros")
+
+    def __repr__(self) -> str:
+        return f"<Registro {self.tipo} #{self.trabajador_id} @ {self.timestamp}>"
 
 
-__all__ = ["Trabajador", "RegistroAsistencia"]
+__all__ = ["Trabajador", "RegistroAsistencia", "Registro"]

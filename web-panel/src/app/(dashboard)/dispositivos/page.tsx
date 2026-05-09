@@ -18,20 +18,31 @@ type Dispositivo = {
   sucursal_nombre: string | null;
   estado_conexion: "online" | "alerta" | "offline" | "nunca";
   segundos_desde_heartbeat: number | null;
+  creado_por: string | null;
+  hwid: string | null;
+  empleados_count: number;
+  health_score: number;
+  ultimo_sync_at: string | null;
+  encodings_version: number;
+  camara_ok: boolean | null;
 };
+
+type Sucursal = { id: string; nombre: string };
 
 export default async function DispositivosPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // Paralelizar las 2 queries — antes el cliente pedía sucursales después de hidratar (~300ms)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: raw } = await (supabase as any)
-    .from("v_dispositivos_estado")
-    .select("*")
-    .order("nombre");
+  const [dispRes, sucRes] = await Promise.all([
+    (supabase as any).from("v_dispositivos_estado").select("*").order("nombre"),
+    supabase.from("sucursales").select("id, nombre").order("nombre"),
+  ]);
 
-  const dispositivos = (raw ?? []) as Dispositivo[];
+  const dispositivos = (dispRes.data ?? []) as Dispositivo[];
+  const sucursales   = (sucRes.data  ?? []) as Sucursal[];
 
-  return <DispositivosClient dispositivos={dispositivos} />;
+  return <DispositivosClient dispositivos={dispositivos} initialSucursales={sucursales} />;
 }

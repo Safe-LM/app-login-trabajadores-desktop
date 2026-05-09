@@ -1,0 +1,177 @@
+name: Station Installer (Windows .exe)
+
+# Compila el bundle PyInstaller + frontend React + instalador NSIS
+# y publica todo como GitHub Release cuando se pushea un tag station-v*.
+
+on:
+  push:
+    tags:
+      - 'station-v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (ej. 5.1.0)'
+        required: true
+        default: '5.1.0'
+
+jobs:
+  build:
+    name: Build instalador Windows
+    runs-on: windows-latest
+    permissions:
+      contents: write   # para crear release y subir assets
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ─── Calcular version desde tag o input ────────────────────────
+      - name: Calcular version
+        id: version
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            $v = "${{ github.event.inputs.version }}"
+          } else {
+            # tag formato station-v5.1.0 -> 5.1.0
+            $v = "${{ github.ref_name }}".Replace("station-v", "")
+          }
+          Write-Output "version=$v" >> $env:GITHUB_OUTPUT
+          Write-Output "Version: $v"
+
+      # ─── Setup ─────────────────────────────────────────────────────
+      - name: Setup Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+          cache-dependency-path: 'station/requirements.txt'
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'station/frontend/package-lock.json'
+
+      # ─── Build frontend (Vite -> dist) ─────────────────────────────
+      - name: Build frontend (Vite)
+        working-directory: station/frontend
+        run: |
+          npm ci
+          npm run build
+
+      # ─── Build Python (PyInstaller) ────────────────────────────────
+      - name: Install Python deps
+        working-directory: station
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Descargar modelos ONNX
+        working-directory: station
+        run: |
+          if (Test-Path "download_models.py") {
+            python download_models.py
+          } else {
+            Write-Output "No hay download_models.py — modelos se obtendran en runtime"
+          }
+        continue-on-error: true
+
+      - name: Compilar bundle con PyInstaller
+        working-directory: station
+        run: pyinstaller SafeLink_Station.spec --noconfirm --clean
+
+      - name: Verificar bundle
+        working-directory: station
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "dist\SafeLink_Station\SafeLink_Station.exe")) {
+            Write-Error "Bundle no generado correctamente"
+            exit 1
+          }
+          $size = (Get-Item "dist\SafeLink_Station").GetFiles("*", "AllDirectories") | Measure-Object Length -Sum
+          $mb = [math]::Round($size.Sum / 1MB, 1)
+          Write-Output "Bundle generado: $mb MB"
+
+      # ─── Build instalador NSIS ─────────────────────────────────────
+      - name: Instalar NSIS
+        run: |
+          choco install nsis -y --no-progress
+
+      - name: Compilar instalador NSIS
+        working-directory: station/installer
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          # Sobrescribir APP_VERSION del .nsi con el valor de CI
+          makensis /DAPP_VERSION=$version installer.nsi
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Compilacion NSIS fallo"
+            exit 1
+          }
+          Get-ChildItem *.exe
+
+      # ─── Generar metadatos para auto-update ────────────────────────
+      - name: Generar version.txt y SHA256SUMS.txt
+        working-directory: station/installer
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $exe = "SafeLinkStation_Setup_$version.exe"
+          if (-not (Test-Path $exe)) {
+            Write-Error "Instalador $exe no encontrado"
+            exit 1
+          }
+          # version.txt: solo la version (lo lee auto_updater.py)
+          Set-Content -Path "version.txt" -Value $version -NoNewline
+          # SHA256SUMS.txt para verificar integridad de la descarga
+          $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower()
+          Set-Content -Path "SHA256SUMS.txt" -Value "$hash  $exe"
+          Write-Output "version.txt -> $version"
+          Write-Output "SHA256SUMS.txt -> $hash  $exe"
+
+      # ─── Upload artifacts (siempre, util para PRs sin tag) ─────────
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SafeLinkStation-${{ steps.version.outputs.version }}-windows
+          path: |
+            station/installer/SafeLinkStation_Setup_*.exe
+            station/installer/version.txt
+            station/installer/SHA256SUMS.txt
+          retention-days: 30
+
+      # ─── Release a GitHub (solo en push de tag) ────────────────────
+      - name: Crear/actualizar GitHub Release
+        if: startsWith(github.ref, 'refs/tags/station-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Safe Link Station v${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          files: |
+            station/installer/SafeLinkStation_Setup_*.exe
+            station/installer/version.txt
+            station/installer/SHA256SUMS.txt
+          body: |
+            ## Safe Link Station v${{ steps.version.outputs.version }}
+
+            ### Descarga
+
+            **Para clientes**: descarga `SafeLinkStation_Setup_${{ steps.version.outputs.version }}.exe`
+            y sigue el [manual de instalacion](https://github.com/${{ github.repository }}/blob/main/docs/MANUAL_INSTALACION.md).
+
+            ### Verificar integridad
+
+            ```
+            certutil -hashfile SafeLinkStation_Setup_${{ steps.version.outputs.version }}.exe SHA256
+            ```
+
+            Compara con el hash en `SHA256SUMS.txt`.
+
+            ### Auto-update
+
+            Las estaciones existentes detectaran esta version automaticamente
+            y notificaran al admin para actualizar.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

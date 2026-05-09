@@ -17,7 +17,7 @@ else {
 # Ejecutar aplicación
 $venvPython = Join-Path $scriptPath "venv\Scripts\python.exe"
 if (Test-Path $venvPython) {
-    & $venvPython src/main.py
+    & $venvPython station/src/main.py
 }
 else {
     Write-Host "❌ Error: Python del entorno virtual no encontrado." -ForegroundColor Red

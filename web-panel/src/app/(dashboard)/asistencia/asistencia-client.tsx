@@ -78,59 +78,45 @@ export function AsistenciaClient({ registros: initial }: { registros: Registro[]
         }
       />
 
-      <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
-        <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <h2 style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>Registros de asistencia</h2>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600, color: "#4ade80", background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 6, padding: "2px 6px" }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80", boxShadow: "0 0 6px #4ade80" }} />
+      <div className="card animate-fade-up" style={{ overflow: "hidden", animationDelay: "60ms", animationFillMode: "backwards" }}>
+        <div style={{
+          padding: "16px 22px", borderBottom: "1px solid var(--border)",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          background: "linear-gradient(180deg, rgba(255,255,255,0.015) 0%, transparent 100%)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <h2 className="heading-3" style={{ marginBottom: 0 }}>Timeline de registros</h2>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, fontWeight: 700, color: "#4ade80", background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.22)", borderRadius: 7, padding: "3px 8px", letterSpacing: "0.06em" }}>
+              <span className="animate-pulse-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80", boxShadow: "0 0 6px #4ade80" }} />
               EN VIVO{liveCount > 0 ? ` · ${liveCount}` : ""}
             </span>
           </div>
-          <span style={{ fontSize: 11, color: "var(--text-faint)", background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 6, padding: "2px 8px" }}>
-            {filtered.length} encontrados
-          </span>
         </div>
 
         {filtered.length > 0 ? (
           <div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 120px 100px 90px", padding: "8px 20px", borderBottom: "1px solid var(--border)" }}>
-              {["Empleado", "Sucursal", "Fecha y Hora", "Tipo", "Confianza"].map((h) => (
-                <span key={h} style={{ fontSize: 10, fontWeight: 500, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.08em" }}>{h}</span>
-              ))}
-            </div>
-            {filtered.map((r, i) => (
-              <div key={r.id} style={{
-                display: "grid", gridTemplateColumns: "1fr 140px 120px 100px 90px",
-                padding: "12px 20px", alignItems: "center",
-                borderBottom: i < filtered.length - 1 ? "1px solid rgba(255,255,255,0.03)" : "none",
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 30, height: 30, borderRadius: 8, background: "var(--accent)", opacity: 0.8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
-                    {r.empleados?.nombre?.[0] ?? "?"}
-                  </div>
-                  <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>
-                    {r.empleados ? `${r.empleados.nombre} ${r.empleados.apellido}` : "—"}
+            {groupByHour(filtered).map(({ hourKey, hourLabel, items }) => (
+              <div key={hourKey}>
+                <div style={{
+                  position: "sticky", top: 0, zIndex: 2,
+                  padding: "8px 22px",
+                  background: "linear-gradient(180deg, var(--bg-card) 0%, var(--bg-card) 80%, transparent 100%)",
+                  borderBottom: "1px solid var(--border)",
+                  display: "flex", alignItems: "center", gap: 8,
+                }}>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.1em", fontVariantNumeric: "tabular-nums" }}>
+                    {hourLabel}
+                  </span>
+                  <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, var(--border) 0%, transparent 100%)" }} />
+                  <span style={{ fontSize: 10, color: "var(--text-faint)", fontVariantNumeric: "tabular-nums" }}>
+                    {items.length}
                   </span>
                 </div>
-                <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{r.sucursales?.nombre ?? "—"}</span>
-                <div style={{ display: "flex", flexDirection: "column" }}>
-                  <span style={{ fontSize: 12, color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
-                    {new Date(r.timestamp).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                  </span>
-                  <span style={{ fontSize: 10, color: "var(--text-faint)" }}>
-                    {new Date(r.timestamp).toLocaleDateString("es-MX")}
-                  </span>
+                <div className="stagger-fade-up">
+                  {items.map((r) => (
+                    <TimelineRow key={r.id} r={r} />
+                  ))}
                 </div>
-                <span style={{
-                  fontSize: 11, fontWeight: 600, borderRadius: 6, padding: "3px 8px", display: "inline-block", textAlign: "center",
-                  background: r.tipo === "entrada" ? "rgba(34,197,94,0.1)" : "rgba(59,130,246,0.1)",
-                  border: `1px solid ${r.tipo === "entrada" ? "rgba(34,197,94,0.2)" : "rgba(59,130,246,0.2)"}`,
-                  color: r.tipo === "entrada" ? "#4ade80" : "#60a5fa",
-                }}>{r.tipo === "entrada" ? "ENTRADA" : "SALIDA"}</span>
-                <span style={{ fontSize: 12, color: "var(--text-muted)", fontVariantNumeric: "tabular-nums" }}>
-                  {r.confianza != null ? `${Math.round(r.confianza * 100)}%` : "—"}
-                </span>
               </div>
             ))}
           </div>
@@ -139,6 +125,113 @@ export function AsistenciaClient({ registros: initial }: { registros: Registro[]
             <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4 }}>No se encontraron registros</p>
             <p style={{ fontSize: 12, color: "var(--text-faint)" }}>Intenta con otro filtro de fecha o rango.</p>
           </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Agrupar por hora (HH:00) ─── */
+function groupByHour(rows: Registro[]): Array<{ hourKey: string; hourLabel: string; items: Registro[] }> {
+  const map = new Map<string, Registro[]>();
+  for (const r of rows) {
+    const d = new Date(r.timestamp);
+    const dateStr = d.toISOString().split("T")[0];
+    const hh = d.getHours().toString().padStart(2, "0");
+    const key = `${dateStr}-${hh}`;
+    const arr = map.get(key) ?? [];
+    arr.push(r);
+    map.set(key, arr);
+  }
+  // Orden por key descendente (mas reciente arriba)
+  return Array.from(map.entries())
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([hourKey, items]) => {
+      const sample = new Date(items[0].timestamp);
+      const hourLabel = sample.toLocaleString("es-MX", {
+        weekday: "short", day: "numeric", month: "short",
+        hour: "2-digit", minute: "2-digit",
+      }).replace(/(\d{2}):\d{2}/, "$1:00");
+      return { hourKey, hourLabel, items };
+    });
+}
+
+/* ─── Fila del timeline ─── */
+function TimelineRow({ r }: { r: Registro }) {
+  const isEntrada = r.tipo === "entrada";
+  const color = isEntrada ? "#22c55e" : "#3b82f6";
+  const colorSoft = isEntrada ? "rgba(34,197,94,0.12)" : "rgba(59,130,246,0.12)";
+  const colorBorder = isEntrada ? "rgba(34,197,94,0.28)" : "rgba(59,130,246,0.28)";
+  const nombre = r.empleados ? `${r.empleados.nombre} ${r.empleados.apellido}` : "Sin empleado";
+  const inicial = r.empleados?.nombre?.[0]?.toUpperCase() ?? "?";
+
+  return (
+    <div
+      className="timeline-row"
+      style={{
+        display: "grid",
+        gridTemplateColumns: "16px 1fr auto",
+        gap: 14,
+        padding: "12px 22px",
+        alignItems: "center",
+        borderBottom: "1px solid rgba(255,255,255,0.03)",
+        transition: "background 150ms",
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.015)")}
+      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+    >
+      {/* Dot de la timeline */}
+      <div style={{
+        width: 10, height: 10, borderRadius: "50%",
+        background: color, justifySelf: "center",
+        boxShadow: `0 0 8px ${colorSoft}, 0 0 0 3px ${colorSoft}`,
+      }} />
+
+      {/* Empleado + sucursal */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+        <div style={{
+          width: 32, height: 32, borderRadius: 9,
+          background: `linear-gradient(135deg, ${colorSoft} 0%, ${colorBorder} 100%)`,
+          border: `1px solid ${colorBorder}`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 12, fontWeight: 700, color, flexShrink: 0,
+        }}>
+          {inicial}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {nombre}
+          </span>
+          {r.sucursales?.nombre && (
+            <span style={{ fontSize: 11, color: "var(--text-faint)" }}>
+              {r.sucursales.nombre}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Tipo + hora + confianza */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <span style={{
+          fontSize: 10, fontWeight: 700, letterSpacing: "0.08em",
+          padding: "3px 9px", borderRadius: 6,
+          background: colorSoft, border: `1px solid ${colorBorder}`,
+          color, textTransform: "uppercase",
+        }}>
+          {isEntrada ? "Entrada" : "Salida"}
+        </span>
+        <span style={{ fontSize: 12, color: "var(--text-muted)", fontVariantNumeric: "tabular-nums", minWidth: 56 }}>
+          {new Date(r.timestamp).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+        </span>
+        {r.confianza != null && (
+          <span style={{
+            fontSize: 11, fontWeight: 600,
+            color: r.confianza >= 0.9 ? "#4ade80" : r.confianza >= 0.75 ? "#facc15" : "#f87171",
+            fontVariantNumeric: "tabular-nums",
+            minWidth: 36, textAlign: "right",
+          }}>
+            {Math.round(r.confianza * 100)}%
+          </span>
         )}
       </div>
     </div>

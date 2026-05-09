@@ -659,7 +659,13 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
 }
 
 /* ── Modal configurar ── */
-function ConfigModal({ d, onClose, sucursales }: { d: Dispositivo; onClose: () => void; sucursales: Sucursal[] }) {
+function ConfigModal({ d, onClose, onOptimisticDelete, onOptimisticUpdate, sucursales }: {
+  d: Dispositivo;
+  onClose: () => void;
+  onOptimisticDelete?: (id: string) => void;
+  onOptimisticUpdate?: (d: Dispositivo) => void;
+  sucursales: Sucursal[];
+}) {
   const [nombre,     setNombre]     = useState(d.nombre);
   const [sucursalId, setSucursalId] = useState(d.sucursal_id || "");
   const [activo,     setActivo]     = useState(d.activo);
@@ -673,6 +679,13 @@ function ConfigModal({ d, onClose, sucursales }: { d: Dispositivo; onClose: () =
 
   async function save() {
     setSaving(true);
+    // Optimistic update: actualizamos UI ya
+    onOptimisticUpdate?.({
+      ...d,
+      nombre,
+      sucursal_id: sucursalId || null,
+      activo,
+    });
     const res = await fetch("/api/dispositivos/update", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: d.id, nombre, sucursal_id: sucursalId || null, activo }),
@@ -682,13 +695,14 @@ function ConfigModal({ d, onClose, sucursales }: { d: Dispositivo; onClose: () =
   }
 
   async function handleDelete() {
-    setDeleting(true);
-    const res = await fetch("/api/dispositivos/delete", {
+    // Optimistic delete: cerramos modal y removemos de la lista al instante
+    onOptimisticDelete?.(d.id);
+    onClose();
+    // Fire and forget; si falla el server quedara desincronizado hasta el siguiente refresh
+    fetch("/api/dispositivos/delete", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: d.id }),
-    });
-    if (res.ok) onClose();
-    else setDeleting(false);
+    }).catch(() => { setDeleting(false); });
   }
 
   async function handleSync() {
@@ -1035,7 +1049,13 @@ export function DispositivosClient({
   return (
     <div style={{ padding: "28px 32px", maxWidth: 1280, margin: "0 auto" }}>
       {showRegistrar && <RegistrarEstacionModal sucursales={sucursales} onClose={() => setShowRegistrar(false)} onDone={refresh} />}
-      {selected      && <ConfigModal d={selected} sucursales={sucursales} onClose={() => { setSelected(null); refresh(); }} />}
+      {selected      && <ConfigModal
+        d={selected}
+        sucursales={sucursales}
+        onClose={() => setSelected(null)}
+        onOptimisticDelete={(id) => setDispositivos((prev) => prev.filter((x) => x.id !== id))}
+        onOptimisticUpdate={(updated) => setDispositivos((prev) => prev.map((x) => x.id === updated.id ? { ...x, ...updated } : x))}
+      />}
       {logsDevice    && <LogsModal   d={logsDevice} onClose={() => setLogsDevice(null)} />}
 
       {/* Header */}

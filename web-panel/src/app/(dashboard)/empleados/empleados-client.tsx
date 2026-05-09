@@ -245,14 +245,27 @@ function EmpModal({
 }
 
 /* ── Modal confirmar eliminar ── */
-function DeleteModal({ emp, onClose, onDeleted }: { emp: Empleado; onClose: () => void; onDeleted: () => void }) {
-  const [loading, setLoading] = useState(false);
-
+function DeleteModal({ emp, onClose, onOptimisticDelete, onError }: {
+  emp: Empleado;
+  onClose: () => void;
+  onOptimisticDelete: (id: string) => void;
+  onError: (emp: Empleado) => void;
+}) {
   async function confirm() {
-    setLoading(true);
-    await fetch("/api/empleados/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: emp.id }) });
-    setLoading(false);
-    onDeleted(); onClose();
+    // Optimistic: removemos del estado local YA y cerramos modal de inmediato.
+    onOptimisticDelete(emp.id);
+    onClose();
+    // El fetch corre en segundo plano; si falla, restauramos.
+    try {
+      const res = await fetch("/api/empleados/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: emp.id }),
+      });
+      if (!res.ok) onError(emp);
+    } catch {
+      onError(emp);
+    }
   }
 
   return (
@@ -271,8 +284,8 @@ function DeleteModal({ emp, onClose, onDeleted }: { emp: Empleado; onClose: () =
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={onClose} style={{ flex: 1, padding: "10px 0", background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 13, fontWeight: 500, color: "var(--text-muted)", cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
-          <button onClick={confirm} disabled={loading} style={{ flex: 1, padding: "10px 0", background: "rgba(239,68,68,.9)", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", fontFamily: "inherit" }}>
-            {loading ? "Eliminando..." : "Sí, eliminar"}
+          <button onClick={confirm} style={{ flex: 1, padding: "10px 0", background: "rgba(239,68,68,.9)", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            Sí, eliminar
           </button>
         </div>
       </div>
@@ -361,7 +374,16 @@ export function EmpleadosClient({ empleados: initial, sucursales }: { empleados:
         <EmpModal emp={modal === "edit" ? target : null} sucursales={sucursales} onClose={() => setModal(null)} onSaved={refresh} />
       )}
       {modal === "delete" && target && (
-        <DeleteModal emp={target} onClose={() => setModal(null)} onDeleted={refresh} />
+        <DeleteModal
+          emp={target}
+          onClose={() => setModal(null)}
+          onOptimisticDelete={(id) => setEmpleados((prev) => prev.filter((e) => e.id !== id))}
+          onError={(emp) => {
+            // Restaurar si el server fallo y refrescar para sincronizar
+            setEmpleados((prev) => [...prev, emp].sort((a, b) => a.apellido.localeCompare(b.apellido)));
+            refresh();
+          }}
+        />
       )}
       {modal === "import-info" && (
         <ImportInfoModal 

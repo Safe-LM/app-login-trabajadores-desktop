@@ -122,9 +122,24 @@ jobs:
           Write-Output "Bundle generado: $mb MB"
 
       # ─── Build instalador NSIS ─────────────────────────────────────
+      # Choco actualiza el PATH del proceso pero no del step actual.
+      # Por eso despues de instalar agregamos la ruta de makensis al
+      # GITHUB_PATH para que los siguientes steps lo encuentren.
       - name: Instalar NSIS
+        shell: pwsh
         run: |
           choco install nsis -y --no-progress
+          # Persistir la ruta al PATH del workflow
+          $nsisPath = "C:\Program Files (x86)\NSIS"
+          if (-not (Test-Path "$nsisPath\makensis.exe")) {
+            # Algunos runners lo instalan en otra ruta — buscar dinamicamente
+            $found = Get-ChildItem -Path "C:\" -Recurse -Filter "makensis.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($found) { $nsisPath = Split-Path $found.FullName -Parent }
+          }
+          Write-Output "NSIS instalado en: $nsisPath"
+          Add-Content -Path $env:GITHUB_PATH -Value $nsisPath
+          # Verificar
+          & "$nsisPath\makensis.exe" /VERSION
 
       - name: Compilar instalador NSIS
         working-directory: station/installer

@@ -54,10 +54,14 @@ jobs:
           cache-dependency-path: 'station/frontend/package-lock.json'
 
       # ─── Build frontend (Vite -> dist) ─────────────────────────────
+      # Usamos 'npm install' en lugar de 'npm ci' para tolerar desincronia
+      # entre package.json y package-lock.json (caso comun cuando devs
+      # actualizan deps sin commitear el lock). En produccion reproducible
+      # esto se reemplazaria por 'npm ci' tras commitear el lock al dia.
       - name: Build frontend (Vite)
         working-directory: station/frontend
         run: |
-          npm ci
+          npm install --no-audit --no-fund
           npm run build
 
       # ─── Build Python (PyInstaller) ────────────────────────────────

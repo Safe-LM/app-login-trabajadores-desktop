@@ -12,7 +12,7 @@ supabase>=2.3.0
 psycopg2-binary>=2.9.0
 
 # Sistema avanzado (opcional, requiere PyTorch)
-torch>=2.0.0
+torch>=2.11.0
 torchvision>=0.15.0
 ultralytics>=8.0.0
 scikit-image>=0.20.0

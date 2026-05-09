@@ -2,6 +2,7 @@
 import { useState, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useNotifications } from "@/components/notifications/NotificationProvider";
 // XLSX se carga bajo demanda dentro de handleExcelImport — pesa ~300KB
 
 type Sucursal = { id: string; nombre: string };
@@ -51,6 +52,7 @@ function EmpModal({
   onSaved: () => void;
 }) {
   const editing = !!emp;
+  const { notify } = useNotifications();
   const [nombre,     setNombre]     = useState(emp?.nombre     ?? "");
   const [apellido,   setApellido]   = useState(emp?.apellido   ?? "");
   const [puesto,     setPuesto]     = useState(emp?.puesto     ?? "");
@@ -73,14 +75,32 @@ function EmpModal({
       employee_code: empCode.trim() || null,
       sucursal_id: sucursalId || null,
       activo,
-      foto: photo, // Enviamos el base64 para procesar embedding
+      foto: photo,
     };
     const url  = editing ? "/api/empleados/update" : "/api/empleados/create";
-    const res  = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const data = await res.json();
-    setLoading(false);
-    if (!res.ok) { setError(data.error || "Error al guardar"); return; }
-    onSaved(); onClose();
+    try {
+      const res  = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const data = await res.json();
+      setLoading(false);
+      if (!res.ok) {
+        const msg = data.error || "Error al guardar";
+        setError(msg);
+        notify({ kind: "error", title: editing ? "No se pudo actualizar" : "No se pudo crear", message: msg });
+        return;
+      }
+      notify({
+        kind: "success",
+        title: editing ? "Empleado actualizado" : "Empleado creado",
+        message: `${nombre.trim()} ${apellido.trim()}`,
+        duration: 3500,
+      });
+      onSaved(); onClose();
+    } catch (e) {
+      setLoading(false);
+      const msg = (e as Error).message ?? "Error de red";
+      setError(msg);
+      notify({ kind: "error", title: "Error de red", message: msg });
+    }
   }
 
   const handleFile = (file: File) => {
@@ -251,20 +271,32 @@ function DeleteModal({ emp, onClose, onOptimisticDelete, onError }: {
   onOptimisticDelete: (id: string) => void;
   onError: (emp: Empleado) => void;
 }) {
+  const { notify } = useNotifications();
   async function confirm() {
-    // Optimistic: removemos del estado local YA y cerramos modal de inmediato.
+    // Optimistic: removemos del estado local YA y cerramos modal.
     onOptimisticDelete(emp.id);
     onClose();
-    // El fetch corre en segundo plano; si falla, restauramos.
+    notify({
+      kind: "success",
+      title: "Empleado eliminado",
+      message: `${emp.nombre} ${emp.apellido}`,
+      duration: 3500,
+    });
+    // Fetch en background; si falla, restauramos y avisamos.
     try {
       const res = await fetch("/api/empleados/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: emp.id }),
       });
-      if (!res.ok) onError(emp);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        onError(emp);
+        notify({ kind: "error", title: "No se pudo eliminar", message: data.error ?? "El servidor rechazo la operacion. Restaurando." });
+      }
     } catch {
       onError(emp);
+      notify({ kind: "error", title: "Error de red", message: "No se pudo eliminar. Restaurando." });
     }
   }
 

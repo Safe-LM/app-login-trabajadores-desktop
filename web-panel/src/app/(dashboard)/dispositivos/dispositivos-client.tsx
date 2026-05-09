@@ -1,30 +1,27 @@
-﻿"use client";
+"use client";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
+import { useNotifications } from "@/components/notifications/NotificationProvider";
 import { Modal, FieldLabel, btnGhost, inputStyle, type Dispositivo, type Sucursal } from "./_shared";
-
 // Lazy-load: estos modales solo se abren ocasionalmente. Sacarlos del bundle
 // inicial baja el JS de la pagina principal ~30%.
 const RegistrarEstacionModal = dynamic(() => import("./RegistrarEstacionModal"), { ssr: false });
 const LogsModal = dynamic(() => import("./LogsModal"), { ssr: false });
-
 const ESTADO = {
-  online:  { color: "#22c55e", glow: "rgba(34,197,94,0.35)",  bg: "rgba(34,197,94,0.07)",  border: "rgba(34,197,94,0.18)",  label: "En lÃ­nea",        dot: true  },
-  alerta:  { color: "#f59e0b", glow: "rgba(245,158,11,0.35)", bg: "rgba(245,158,11,0.07)", border: "rgba(245,158,11,0.18)", label: "Sin seÃ±al",       dot: false },
+  online:  { color: "#22c55e", glow: "rgba(34,197,94,0.35)",  bg: "rgba(34,197,94,0.07)",  border: "rgba(34,197,94,0.18)",  label: "En línea",        dot: true  },
+  alerta:  { color: "#f59e0b", glow: "rgba(245,158,11,0.35)", bg: "rgba(245,158,11,0.07)", border: "rgba(245,158,11,0.18)", label: "Sin señal",       dot: false },
   offline: { color: "#ef4444", glow: "rgba(239,68,68,0.35)",  bg: "rgba(239,68,68,0.07)",  border: "rgba(239,68,68,0.18)",  label: "Offline",         dot: false },
   nunca:   { color: "#52525b", glow: "transparent",           bg: "rgba(39,39,42,0.5)",    border: "rgba(63,63,70,0.4)",   label: "Sin activar",     dot: false },
 };
-
 function fmtLabel(secs: number | null) {
   if (secs == null) return "Nunca";
   if (secs < 60)   return `hace ${secs}s`;
   if (secs < 3600) return `hace ${Math.floor(secs / 60)}m`;
   return `hace ${Math.floor(secs / 3600)}h`;
 }
-
-/* â”€â”€ Uptime bar visual â”€â”€ */
+/* ── Uptime bar visual ── */
 function HeartbeatBar({ secs }: { secs: number | null }) {
   const max = 120;
   const pct = secs == null ? 0 : Math.max(0, Math.min(1, 1 - secs / max));
@@ -40,13 +37,12 @@ function HeartbeatBar({ secs }: { secs: number | null }) {
     </div>
   );
 }
-
-/* â”€â”€ Health Score bar â”€â”€ */
+/* ── Health Score bar ── */
 function HealthBar({ score, camara, empleados, syncAt }: {
   score: number; camara: boolean | null; empleados: number; encodings: number; syncAt: string | null;
 }) {
   const color = score >= 80 ? "#22c55e" : score >= 40 ? "#f59e0b" : "#ef4444";
-  const fmtSync = syncAt ? new Date(syncAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }) : "â€”";
+  const fmtSync = syncAt ? new Date(syncAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }) : "—";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -60,7 +56,7 @@ function HealthBar({ score, camara, empleados, syncAt }: {
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, marginTop: 2 }}>
         {([
-          ["CÃ¡mara",    camara === true ? "âœ“ OK" : camara === false ? "âœ— Error" : "â€”", camara === true ? "#22c55e" : camara === false ? "#ef4444" : "var(--text-faint)"],
+          ["Cámara",    camara === true ? "âœ“ OK" : camara === false ? "✗ Error" : "—", camara === true ? "#22c55e" : camara === false ? "#ef4444" : "var(--text-faint)"],
           ["Empleados", String(empleados), empleados > 0 ? "#22c55e" : "var(--text-faint)"],
           ["Sync",      fmtSync,          syncAt ? "#22c55e" : "var(--text-faint)"],
         ] as [string, string, string][]).map(([k, v, c]) => (
@@ -73,19 +69,16 @@ function HealthBar({ score, camara, empleados, syncAt }: {
     </div>
   );
 }
-
-/* â”€â”€ API Key â”€â”€ */
+/* ── API Key ── */
 function ApiKey({ apiKey }: { apiKey: string }) {
   const [vis, setVis]       = useState(false);
   const [copied, setCopied] = useState(false);
   const masked = `${apiKey.slice(0, 8)}${"â€¢".repeat(16)}`;
-
   function copy() {
     navigator.clipboard.writeText(apiKey);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
-
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
       <code style={{ flex: 1, fontSize: 10, color: "var(--text-faint)", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -106,8 +99,7 @@ function ApiKey({ apiKey }: { apiKey: string }) {
     </div>
   );
 }
-
-/* â”€â”€ Pill de estado â”€â”€ */
+/* ── Pill de estado ── */
 function EstadoPill({ estado }: { estado: keyof typeof ESTADO }) {
   const m = ESTADO[estado];
   return (
@@ -126,12 +118,10 @@ function EstadoPill({ estado }: { estado: keyof typeof ESTADO }) {
     </span>
   );
 }
-
-/* â”€â”€ Card de dispositivo â”€â”€ */
+/* ── Card de dispositivo ── */
 function DispositivoCard({ d, onConfig, onLogs, index }: { d: Dispositivo; onConfig: (d: Dispositivo) => void; onLogs: (d: Dispositivo) => void; index: number }) {
   const m = ESTADO[d.estado_conexion];
   const [hov, setHov] = useState(false);
-
   return (
     <div
       onMouseEnter={() => setHov(true)}
@@ -149,7 +139,7 @@ function DispositivoCard({ d, onConfig, onLogs, index }: { d: Dispositivo; onCon
         animation: "fadeUp 0.4s cubic-bezier(0.16,1,0.3,1) both",
       }}
     >
-      {/* Barra de color superior segÃºn estado */}
+      {/* Barra de color superior según estado */}
       <div style={{
         height: 2,
         background: d.estado_conexion === "online"
@@ -159,9 +149,7 @@ function DispositivoCard({ d, onConfig, onLogs, index }: { d: Dispositivo; onCon
           : `linear-gradient(90deg, transparent, ${m.color} 40%, ${m.color} 60%, transparent)`,
         opacity: d.estado_conexion === "nunca" ? 0.3 : 0.7,
       }} />
-
       <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 14, flex: 1 }}>
-
         {/* Header: icono + nombre + estado */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
@@ -189,17 +177,15 @@ function DispositivoCard({ d, onConfig, onLogs, index }: { d: Dispositivo; onCon
           </div>
           <EstadoPill estado={d.estado_conexion} />
         </div>
-
         {/* Heartbeat bar */}
         <div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 5 }}>
             <span style={{ fontSize: 10, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 500 }}>
-              Ãšltimo heartbeat
+              Último heartbeat
             </span>
           </div>
           <HeartbeatBar secs={d.segundos_desde_heartbeat} />
         </div>
-
         {/* Health score */}
         <HealthBar
           score={d.health_score ?? 0}
@@ -208,14 +194,13 @@ function DispositivoCard({ d, onConfig, onLogs, index }: { d: Dispositivo; onCon
           encodings={d.encodings_version ?? 0}
           syncAt={d.ultimo_sync_at}
         />
-
         {/* Grid de metadatos */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 12px" }}>
           {([
-            ["IP local",  d.ip_local   ?? "â€”"],
-            ["Hostname",  d.hostname   ?? "â€”"],
-            ["VersiÃ³n",   d.version_app ? `v${d.version_app}` : "â€”"],
-            ["HWID",      d.hwid ? `${d.hwid.slice(0, 10)}â€¦` : "â€”"],
+            ["IP local",  d.ip_local   ?? "—"],
+            ["Hostname",  d.hostname   ?? "—"],
+            ["Versión",   d.version_app ? `v${d.version_app}` : "—"],
+            ["HWID",      d.hwid ? `${d.hwid.slice(0, 10)}…` : "—"],
           ] as [string, string][]).map(([k, v]) => (
             <div key={k}>
               <p style={{ fontSize: 9, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: 2 }}>{k}</p>
@@ -223,7 +208,6 @@ function DispositivoCard({ d, onConfig, onLogs, index }: { d: Dispositivo; onCon
             </div>
           ))}
         </div>
-
         {/* API Key */}
         <div style={{
           padding: "8px 10px",
@@ -233,7 +217,6 @@ function DispositivoCard({ d, onConfig, onLogs, index }: { d: Dispositivo; onCon
           <p style={{ fontSize: 9, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: 4 }}>API Key</p>
           <ApiKey apiKey={d.api_key} />
         </div>
-
         {/* Footer: admin + botones */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "auto", paddingTop: 4 }}>
           {d.creado_por ? (
@@ -251,7 +234,6 @@ function DispositivoCard({ d, onConfig, onLogs, index }: { d: Dispositivo; onCon
               </span>
             </div>
           ) : <span />}
-
           <div style={{ display: "flex", gap: 6 }}>
             <button
               onClick={() => onLogs(d)}
@@ -298,13 +280,11 @@ function DispositivoCard({ d, onConfig, onLogs, index }: { d: Dispositivo; onCon
     </div>
   );
 }
-
-/* â”€â”€ Modal base (overlay animado) â”€â”€ */
+/* ── Modal base (overlay animado) ── */
 /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   RegistrarEstacionModal â€” extraido a ./RegistrarEstacionModal.tsx
+   RegistrarEstacionModal — extraido a ./RegistrarEstacionModal.tsx
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
-
-/* â”€â”€ Toggle â”€â”€ */
+/* ── Toggle ── */
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
@@ -325,8 +305,7 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
     </button>
   );
 }
-
-/* â”€â”€ Modal configurar â”€â”€ */
+/* ── Modal configurar ── */
 function ConfigModal({ d, onClose, onOptimisticDelete, onOptimisticUpdate, sucursales }: {
   d: Dispositivo;
   onClose: () => void;
@@ -344,35 +323,49 @@ function ConfigModal({ d, onClose, onOptimisticDelete, onOptimisticUpdate, sucur
   const [syncing,    setSyncing]    = useState(false);
   const [syncMsg,    setSyncMsg]    = useState<{ ok: boolean; text: string } | null>(null);
   const supabase = createClient();
+  const { notify } = useNotifications();
 
   async function save() {
     setSaving(true);
-    // Optimistic update: actualizamos UI ya
-    onOptimisticUpdate?.({
-      ...d,
-      nombre,
-      sucursal_id: sucursalId || null,
-      activo,
-    });
-    const res = await fetch("/api/dispositivos/update", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: d.id, nombre, sucursal_id: sucursalId || null, activo }),
-    });
-    setSaving(false);
-    if (res.ok) { setSaved(true); setTimeout(onClose, 900); }
+    onOptimisticUpdate?.({ ...d, nombre, sucursal_id: sucursalId || null, activo });
+    try {
+      const res = await fetch("/api/dispositivos/update", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: d.id, nombre, sucursal_id: sucursalId || null, activo }),
+      });
+      setSaving(false);
+      if (res.ok) {
+        setSaved(true);
+        notify({ kind: "success", title: "Estación actualizada", message: nombre, duration: 3500 });
+        setTimeout(onClose, 900);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        notify({ kind: "error", title: "No se pudo actualizar", message: data.error ?? "Error en el servidor" });
+      }
+    } catch (e) {
+      setSaving(false);
+      notify({ kind: "error", title: "Error de red", message: (e as Error).message ?? "" });
+    }
   }
 
   async function handleDelete() {
-    // Optimistic delete: cerramos modal y removemos de la lista al instante
     onOptimisticDelete?.(d.id);
     onClose();
-    // Fire and forget; si falla el server quedara desincronizado hasta el siguiente refresh
-    fetch("/api/dispositivos/delete", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: d.id }),
-    }).catch(() => { setDeleting(false); });
+    notify({ kind: "success", title: "Estación eliminada", message: d.nombre, duration: 3500 });
+    try {
+      const res = await fetch("/api/dispositivos/delete", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: d.id }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        notify({ kind: "error", title: "No se pudo eliminar", message: data.error ?? "El servidor rechazó la operación" });
+      }
+    } catch {
+      setDeleting(false);
+      notify({ kind: "error", title: "Error de red", message: "No se pudo confirmar la eliminación" });
+    }
   }
-
   async function handleSync() {
     setSyncing(true); setSyncMsg(null);
     try {
@@ -384,20 +377,19 @@ function ConfigModal({ d, onClose, onOptimisticDelete, onOptimisticUpdate, sucur
       });
       if (rpcErr) throw rpcErr;
       if (data?.ok === false) throw new Error(data?.error ?? "Error al enviar comando");
-      setSyncMsg({ ok: true, text: "Comando enviado â€” la estaciÃ³n sincronizarÃ¡ en breve." });
+      setSyncMsg({ ok: true, text: "Comando enviado — la estación sincronizará en breve." });
     } catch (e) {
       setSyncMsg({ ok: false, text: (e as Error).message ?? "Error al sincronizar" });
     } finally {
       setSyncing(false);
     }
   }
-
   return (
     <Modal onClose={onClose} maxWidth={440}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)", marginBottom: 3 }}>Configurar estaciÃ³n</h2>
+          <h2 style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)", marginBottom: 3 }}>Configurar estación</h2>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <EstadoPill estado={d.estado_conexion} />
             {d.segundos_desde_heartbeat != null && (
@@ -411,7 +403,6 @@ function ConfigModal({ d, onClose, onOptimisticDelete, onOptimisticUpdate, sucur
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
-
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div>
           <FieldLabel>Nombre</FieldLabel>
@@ -420,23 +411,20 @@ function ConfigModal({ d, onClose, onOptimisticDelete, onOptimisticUpdate, sucur
             onBlur={(e)  => { e.currentTarget.style.borderColor = "var(--border)";  e.currentTarget.style.boxShadow = "none"; }}
           />
         </div>
-
         <div>
           <FieldLabel>Sucursal</FieldLabel>
           <select value={sucursalId} onChange={(e) => setSucursalId(e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
-            <option value="">â€” Sin sucursal â€”</option>
+            <option value="">— Sin sucursal —</option>
             {sucursales.map(s => <option key={s.id} value={s.id} style={{ background: "#0f0f10" }}>{s.nombre}</option>)}
           </select>
         </div>
-
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 13px", background: "var(--bg-elevated)", borderRadius: 9, border: "1px solid var(--border)" }}>
           <div>
             <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 1 }}>Dispositivo activo</p>
-            <p style={{ fontSize: 11, color: "var(--text-faint)" }}>Si estÃ¡ desactivado, no aceptarÃ¡ registros.</p>
+            <p style={{ fontSize: 11, color: "var(--text-faint)" }}>Si está desactivado, no aceptará registros.</p>
           </div>
           <Toggle value={activo} onChange={setActivo} />
         </div>
-
         {/* Sincronizar empleados */}
         <div style={{ borderTop: "1px solid var(--border)", paddingTop: 14 }}>
           <p style={{ fontSize: 10, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: 8 }}>
@@ -466,7 +454,6 @@ function ConfigModal({ d, onClose, onOptimisticDelete, onOptimisticUpdate, sucur
             </p>
           )}
         </div>
-
         <button onClick={save} disabled={saving || saved} style={{
           padding: "11px 20px",
           background: saved ? "rgba(34,197,94,0.12)" : saving ? "rgba(37,99,235,0.4)" : "var(--accent)",
@@ -481,7 +468,6 @@ function ConfigModal({ d, onClose, onOptimisticDelete, onOptimisticUpdate, sucur
           {saving && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="animate-spin-slow"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0110 10" strokeLinecap="round"/></svg>}
           {saved ? "âœ“ Cambios guardados" : saving ? "Guardando..." : "Guardar cambios"}
         </button>
-
         <div style={{ borderTop: "1px solid var(--border)", paddingTop: 14 }}>
           {!showDelete ? (
             <button onClick={() => setShowDelete(true)} style={{
@@ -494,19 +480,19 @@ function ConfigModal({ d, onClose, onOptimisticDelete, onOptimisticUpdate, sucur
               onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-              Eliminar esta estaciÃ³n
+              Eliminar esta estación
             </button>
           ) : (
             <div style={{ background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.15)", borderRadius: 9, padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
               <p style={{ fontSize: 12, color: "#f87171", fontWeight: 600, lineHeight: 1.5 }}>
-                Â¿Confirmas eliminar <strong>{d.nombre}</strong>? Esta acciÃ³n no se puede deshacer.
+                ¿Confirmas eliminar <strong>{d.nombre}</strong>? Esta acción no se puede deshacer.
               </p>
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={handleDelete} disabled={deleting} style={{
                   flex: 1, padding: "8px", background: "#ef4444", color: "#fff",
                   border: "none", borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: "pointer",
                 }}>
-                  {deleting ? "Eliminando..." : "SÃ­, eliminar"}
+                  {deleting ? "Eliminando..." : "Sí, eliminar"}
                 </button>
                 <button onClick={() => setShowDelete(false)} style={{
                   flex: 1, padding: "8px", background: "var(--bg-elevated)",
@@ -523,8 +509,7 @@ function ConfigModal({ d, onClose, onOptimisticDelete, onOptimisticUpdate, sucur
     </Modal>
   );
 }
-
-/* â”€â”€ Stat card â”€â”€ */
+/* ── Stat card ── */
 function StatCard({ label, value, color, icon, total }: {
   label: string; value: number; color: string; total: number;
   icon: React.ReactNode;
@@ -553,8 +538,7 @@ function StatCard({ label, value, color, icon, total }: {
     </div>
   );
 }
-
-/* â”€â”€ Empty state â”€â”€ */
+/* ── Empty state ── */
 function EmptyState({ onNew }: { onNew: () => void }) {
   return (
     <div style={{
@@ -574,7 +558,7 @@ function EmptyState({ onNew }: { onNew: () => void }) {
       </div>
       <p style={{ fontSize: 15, fontWeight: 700, color: "var(--text-muted)", marginBottom: 6 }}>Sin estaciones registradas</p>
       <p style={{ fontSize: 12, color: "var(--text-faint)", marginBottom: 24, lineHeight: 1.6, maxWidth: 360, margin: "0 auto 24px" }}>
-        Crea tu primera estaciÃ³n y copia la API Key al archivo <code style={{ fontSize: 11, background: "rgba(255,255,255,0.05)", padding: "1px 5px", borderRadius: 4 }}>.env</code> de la mÃ¡quina fÃ­sica.
+        Crea tu primera estación y copia la API Key al archivo <code style={{ fontSize: 11, background: "rgba(255,255,255,0.05)", padding: "1px 5px", borderRadius: 4 }}>.env</code> de la máquina física.
       </p>
       <button onClick={onNew} style={{
         padding: "10px 22px", background: "var(--accent)", color: "#fff",
@@ -584,14 +568,12 @@ function EmptyState({ onNew }: { onNew: () => void }) {
         display: "inline-flex", alignItems: "center", gap: 7,
       }}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Crear primera estaciÃ³n
+        Crear primera estación
       </button>
     </div>
   );
 }
-
-
-/* â”€â”€ Componente principal â”€â”€ */
+/* ── Componente principal ── */
 export function DispositivosClient({
   dispositivos: initial,
   initialSucursales = [],
@@ -606,17 +588,14 @@ export function DispositivosClient({
   const [logsDevice,     setLogsDevice]     = useState<Dispositivo | null>(null);
   const [realtimeOk,     setRealtimeOk]     = useState(false);
   const [sucursales]                       = useState<Sucursal[]>(initialSucursales);
-
   useEffect(() => { setDispositivos(initial); }, [initial]);
-
   const refresh = useCallback(() => router.refresh(), [router]);
-
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
       .channel("dispositivos-watch")
       .on("postgres_changes", { event: "*", schema: "public", table: "dispositivos" }, (payload) => {
-        // Aplicacion fina al estado local â€” sin full refetch
+        // Aplicacion fina al estado local — sin full refetch
         if (payload.eventType === "INSERT") {
           // INSERT trae datos parciales; pedimos un refresh ligero solo en este caso
           refresh();
@@ -631,12 +610,10 @@ export function DispositivosClient({
       .subscribe((s) => setRealtimeOk(s === "SUBSCRIBED"));
     return () => { supabase.removeChannel(channel); };
   }, [refresh]);
-
   const total   = dispositivos.length;
   const online  = dispositivos.filter(d => d.estado_conexion === "online").length;
   const alerta  = dispositivos.filter(d => d.estado_conexion === "alerta").length;
   const offline = dispositivos.filter(d => ["offline","nunca"].includes(d.estado_conexion)).length;
-
   return (
     <div style={{ padding: "28px 32px", maxWidth: 1280, margin: "0 auto" }}>
       {showRegistrar && <RegistrarEstacionModal sucursales={sucursales} onClose={() => setShowRegistrar(false)} onDone={refresh} />}
@@ -648,7 +625,6 @@ export function DispositivosClient({
         onOptimisticUpdate={(updated) => setDispositivos((prev) => prev.map((x) => x.id === updated.id ? { ...x, ...updated } : x))}
       />}
       {logsDevice    && <LogsModal   d={logsDevice} onClose={() => setLogsDevice(null)} />}
-
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }} className="animate-fade-up">
         <div>
@@ -666,10 +642,9 @@ export function DispositivosClient({
               {realtimeOk ? "Tiempo real activo" : "Conectando..."}
             </span>
             <span style={{ fontSize: 11, color: "var(--text-faint)" }}>Â·</span>
-            <span style={{ fontSize: 11, color: "var(--text-faint)" }}>{total} estaciÃ³n{total !== 1 ? "es" : ""}</span>
+            <span style={{ fontSize: 11, color: "var(--text-faint)" }}>{total} estación{total !== 1 ? "es" : ""}</span>
           </div>
         </div>
-
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button onClick={() => setShowRegistrar(true)} style={{
             padding: "9px 18px",
@@ -684,19 +659,16 @@ export function DispositivosClient({
             onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Registrar estaciÃ³n
+            Registrar estación
           </button>
-
         </div>
       </div>
-
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 24 }} className="animate-fade-up">
-        <StatCard label="En lÃ­nea"   value={online}  color="#22c55e" total={total} icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>} />
-        <StatCard label="Sin seÃ±al"  value={alerta}  color="#f59e0b" total={total} icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>} />
+        <StatCard label="En línea"   value={online}  color="#22c55e" total={total} icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>} />
+        <StatCard label="Sin señal"  value={alerta}  color="#f59e0b" total={total} icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>} />
         <StatCard label="Offline"    value={offline} color="#ef4444" total={total} icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0119 12.55M5 12.55a10.94 10.94 0 015.17-2.39M10.71 5.05A16 16 0 0122.56 9M1.42 9a15.91 15.91 0 014.7-2.88M8.53 16.11a6 6 0 016.95 0M12 20h.01"/></svg>} />
       </div>
-
       {/* Grid de cards */}
       {total > 0 ? (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(310px, 1fr))", gap: 12 }}>

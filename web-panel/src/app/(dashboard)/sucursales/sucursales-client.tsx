@@ -63,59 +63,111 @@ export function SucursalesClient({ sucursales: initial }: { sucursales: Sucursal
           }
         />
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 20 }}>
+      <div className="stagger-fade-up" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 20 }}>
         {filtered.map((s) => (
-          <div key={s.id} onClick={() => setSelected(s)} style={{
-            background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 18,
-            padding: "24px", cursor: "pointer", transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-            position: "relative", overflow: "hidden"
-          }} className="hover-card">
-            <div style={{ position: "absolute", top: 0, left: 0, width: 4, height: "100%", background: s.activa ? "var(--green)" : "var(--text-faint)", opacity: 0.6 }} />
-            
+          <div key={s.id} onClick={() => setSelected(s)} className="card card-hover sucursal-card" style={{
+            padding: "22px", cursor: "pointer",
+            position: "relative", overflow: "hidden",
+          }}>
+            {/* Accent bar lateral con glow */}
+            <div style={{
+              position: "absolute", top: 0, left: 0, bottom: 0, width: 3,
+              background: s.activa
+                ? "linear-gradient(180deg, #22c55e 0%, #16a34a 100%)"
+                : "linear-gradient(180deg, #52525b 0%, #3f3f46 100%)",
+              boxShadow: s.activa ? "0 0 12px rgba(34,197,94,0.4)" : "none",
+            }} />
+
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ 
-                  width: 36, height: 36, borderRadius: 10, background: "rgba(59,130,246,0.1)", 
-                  display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid rgba(59,130,246,0.2)"
+              <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+                <div style={{
+                  width: 38, height: 38, borderRadius: 11,
+                  background: "linear-gradient(135deg, rgba(167,139,250,0.18) 0%, rgba(167,139,250,0.06) 100%)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  border: "1px solid rgba(167,139,250,0.22)",
+                  boxShadow: "0 6px 14px -8px rgba(167,139,250,0.5)",
                 }}>
-                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2"><path d="M3 21h18M3 7v1a3 3 0 006 0V7m0 1a3 3 0 006 0V7m0 1a3 3 0 006 0V7M4 21V4a2 2 0 012-2h12a2 2 0 012 2v17M9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4"/></svg>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M3 7v1a3 3 0 006 0V7m0 1a3 3 0 006 0V7m0 1a3 3 0 006 0V7M4 21V4a2 2 0 012-2h12a2 2 0 012 2v17M9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4"/></svg>
                 </div>
-                <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.01em" }}>{s.nombre}</h3>
+                <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
+                  {s.nombre}
+                </h3>
               </div>
               <span style={{
-                fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6,
-                background: s.activa ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)",
-                color: s.activa ? "#4ade80" : "#f87171", border: `1px solid ${s.activa ? "rgba(34,197,94,0.2)" : "rgba(239,68,68,0.2)"}`
+                display: "inline-flex", alignItems: "center", gap: 5,
+                fontSize: 10, fontWeight: 700, padding: "4px 9px", borderRadius: 7,
+                background: s.activa ? "rgba(34,197,94,0.10)" : "rgba(100,116,139,0.10)",
+                color: s.activa ? "#4ade80" : "var(--text-faint)",
+                border: `1px solid ${s.activa ? "rgba(34,197,94,0.22)" : "rgba(100,116,139,0.22)"}`,
+                letterSpacing: "0.06em",
               }}>
+                <span style={{
+                  width: 5, height: 5, borderRadius: "50%",
+                  background: s.activa ? "#22c55e" : "#52525b",
+                  boxShadow: s.activa ? "0 0 5px #22c55e" : "none",
+                }} className={s.activa ? "animate-pulse-dot" : undefined} />
                 {s.activa ? "ACTIVA" : "INACTIVA"}
               </span>
             </div>
-            
-            <p style={{ fontSize: 12, color: "var(--text-muted)", lineHeight: 1.6, marginBottom: 20, minHeight: 38, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+
+            <p style={{
+              fontSize: 12, color: "var(--text-muted)", lineHeight: 1.6,
+              marginBottom: 16, minHeight: 38,
+              display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+            }}>
               {s.direccion || "Sin dirección registrada"}
             </p>
 
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 16, borderTop: "1px solid var(--border)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--text-muted)", fontSize: 11, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                {s.hora_apertura && s.hora_cierre
-                  ? `${s.hora_apertura.slice(0, 5)} – ${s.hora_cierre.slice(0, 5)}`
-                  : "Sin horario"}
+            {/* Stats inline: horario + tolerancia */}
+            <div style={{
+              display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0,
+              borderTop: "1px solid var(--border)",
+              marginTop: 4,
+            }}>
+              <div style={{ padding: "12px 0", borderRight: "1px solid var(--border)" }}>
+                <p style={{ fontSize: 9, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 3 }}>
+                  Horario
+                </p>
+                <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", fontVariantNumeric: "tabular-nums", display: "flex", alignItems: "center", gap: 5 }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: "var(--text-faint)" }}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  {s.hora_apertura && s.hora_cierre
+                    ? `${s.hora_apertura.slice(0, 5)} – ${s.hora_cierre.slice(0, 5)}`
+                    : <span style={{ color: "var(--text-faint)", fontWeight: 500 }}>Sin definir</span>}
+                </p>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--accent)", fontSize: 11, fontWeight: 600 }}>
-                Ver detalles
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="9 18 15 12 9 6"/></svg>
+              <div style={{ padding: "12px 0 12px 14px" }}>
+                <p style={{ fontSize: 9, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 3 }}>
+                  Tolerancia
+                </p>
+                <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
+                  {s.tolerancia_min != null
+                    ? `${s.tolerancia_min} min`
+                    : <span style={{ color: "var(--text-faint)", fontWeight: 500 }}>—</span>}
+                </p>
               </div>
+            </div>
+
+            {/* Indicador "Ver" que aparece al hover */}
+            <div className="sucursal-card__cta" style={{
+              position: "absolute", bottom: 14, right: 14,
+              display: "flex", alignItems: "center", gap: 4,
+              fontSize: 10, fontWeight: 700, color: "var(--accent-hover)",
+              opacity: 0, transform: "translateX(-4px)",
+              transition: "opacity 200ms, transform 200ms cubic-bezier(0.16,1,0.3,1)",
+              pointerEvents: "none",
+              textTransform: "uppercase", letterSpacing: "0.1em",
+            }}>
+              Ver
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
             </div>
           </div>
         ))}
       </div>
-      
+
       <style jsx>{`
-        .hover-card:hover {
-          transform: translateY(-4px);
-          border-color: var(--accent) !important;
-          box-shadow: 0 12px 30px rgba(0,0,0,0.4);
+        .sucursal-card:hover :global(.sucursal-card__cta) {
+          opacity: 1;
+          transform: translateX(0);
         }
       `}</style>
     </div>

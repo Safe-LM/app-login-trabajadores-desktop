@@ -18,7 +18,7 @@ sqlalchemy==2.0.23
 bcrypt==4.1.1
 
 # Cloud (Supabase)
-requests>=2.31.0
+requests>=2.33.1
 python-dotenv>=1.0.0
 supabase>=2.3.0
 httpx>=0.25.0

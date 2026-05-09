@@ -23,7 +23,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </>
       )}
       <div style={{ display: "flex", height: "100vh", background: "var(--bg-black)", overflow: "hidden" }}>
-        <SidebarNav userEmail={user.email ?? ""} empresaId={empresaId} />
+        <SidebarNav userEmail={user.email ?? ""} />
         <main style={{ flex: 1, overflow: "auto" }}>
           <Suspense fallback={<PageSkeleton />}>
             {children}

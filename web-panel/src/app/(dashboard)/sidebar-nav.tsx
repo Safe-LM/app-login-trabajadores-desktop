@@ -3,7 +3,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useState, useEffect } from "react";
-import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 
 const nav = [
   { href: "/dashboard",    label: "Dashboard",    icon: GridIcon,      group: "general" },
@@ -16,7 +15,7 @@ const nav = [
   { href: "/configuracion",  label: "Configuración",  icon: SettingsIcon,  group: "gestion" },
 ];
 
-export function SidebarNav({ userEmail, empresaId }: { userEmail: string; empresaId?: string }) {
+export function SidebarNav({ userEmail }: { userEmail: string }) {
   const pathname  = usePathname();
   const router    = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
@@ -95,9 +94,9 @@ export function SidebarNav({ userEmail, empresaId }: { userEmail: string; empres
           background: "var(--bg-black)",
           position: "sticky", top: 0, height: "100vh",
         }}>
-      {/* Logo + bell de notificaciones */}
+      {/* Logo */}
       <div style={{
-        height: "var(--header-height)", padding: "0 12px 0 16px",
+        height: "var(--header-height)", padding: "0 16px",
         display: "flex", alignItems: "center", gap: 10,
         borderBottom: "1px solid var(--border)", flexShrink: 0,
       }}>
@@ -109,7 +108,7 @@ export function SidebarNav({ userEmail, empresaId }: { userEmail: string; empres
         }}>
           <ShieldIcon />
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ minWidth: 0 }}>
           <p style={{ fontSize: 12, fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.03em", lineHeight: 1.15 }}>
             Safe Link
           </p>
@@ -117,7 +116,6 @@ export function SidebarNav({ userEmail, empresaId }: { userEmail: string; empres
             Monitoring
           </p>
         </div>
-        {empresaId && <NotificationCenter empresaId={empresaId} />}
       </div>
 
       {/* Nav */}

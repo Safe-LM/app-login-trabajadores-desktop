@@ -9,7 +9,12 @@ SetCompressor /SOLID lzma
 
 !define APP_NAME       "Safe Link Station"
 !define APP_NAME_SLUG  "SafeLinkStation"
-!define APP_VERSION    "5.1.0"
+; APP_VERSION puede sobrescribirse desde linea de comandos:
+;   makensis /DAPP_VERSION=5.2.0 installer.nsi
+; Si no se pasa, usa el default "5.1.0"
+!ifndef APP_VERSION
+  !define APP_VERSION  "5.1.0"
+!endif
 !define APP_PUBLISHER  "Safe Link Monitoring"
 !define APP_URL        "https://github.com/Safe-LM/app-login-trabajadores-desktop"
 !define APP_EXE        "SafeLink_Station.exe"

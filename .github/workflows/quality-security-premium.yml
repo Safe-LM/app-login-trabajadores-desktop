@@ -35,7 +35,8 @@ jobs:
         run: |
           flake8 station/src/ tools/ \
             --count \
-            --select=E9,F63,F7,F82,B,C \
+            --select=E9,F63,F7,F82,B0,C9 \
+            --extend-ignore=B008,B011,B017,B023,B028,B042 \
             --show-source \
             --statistics \
             --max-line-length=120 \

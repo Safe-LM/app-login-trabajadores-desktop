@@ -82,6 +82,20 @@ type RegistroRow = {
   notas: string | null;
 };
 
+export type Severidad = "info" | "warn" | "error" | "critical";
+
+export type NotificacionRow = {
+  id: string;
+  empresa_id: string;
+  tipo: string;
+  severidad: Severidad;
+  titulo: string;
+  mensaje: string | null;
+  metadata: Record<string, unknown>;
+  leida_en: string | null;
+  creada_en: string;
+};
+
 export interface Database {
   public: {
     Tables: {
@@ -113,6 +127,12 @@ export interface Database {
         Row: DispositivoRow;
         Insert: Partial<Omit<DispositivoRow, "id">> & Pick<DispositivoRow, "empresa_id" | "nombre">;
         Update: Partial<DispositivoRow>;
+        Relationships: [];
+      };
+      notificaciones: {
+        Row: NotificacionRow;
+        Insert: Partial<Omit<NotificacionRow, "id" | "creada_en">> & Pick<NotificacionRow, "empresa_id" | "tipo" | "severidad" | "titulo">;
+        Update: Partial<NotificacionRow>;
         Relationships: [];
       };
       registros_asistencia: {
@@ -209,6 +229,35 @@ export interface Database {
           p_nombre: string;
         };
         Returns: { ok: boolean; error?: string; dispositivo_id?: string };
+      };
+      crear_notificacion: {
+        Args: {
+          p_empresa_id: string;
+          p_tipo: string;
+          p_severidad: "info" | "warn" | "error" | "critical";
+          p_titulo: string;
+          p_mensaje?: string;
+          p_metadata?: Record<string, unknown>;
+          p_dedupe_key?: string;
+          p_dedupe_window_min?: number;
+        };
+        Returns: string | null;
+      };
+      marcar_notificaciones_leidas: {
+        Args: { p_empresa_id?: string };
+        Returns: number;
+      };
+      crear_notif_estacion: {
+        Args: {
+          p_api_key: string;
+          p_tipo: string;
+          p_severidad: "info" | "warn" | "error" | "critical";
+          p_titulo: string;
+          p_mensaje?: string;
+          p_metadata?: Record<string, unknown>;
+          p_dedupe_key?: string;
+        };
+        Returns: string | null;
       };
     };
     Enums: Record<string, never>;

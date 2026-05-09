@@ -3,18 +3,20 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useState, useEffect } from "react";
+import { NotificationCenter } from "@/components/notifications/NotificationCenter";
 
 const nav = [
   { href: "/dashboard",    label: "Dashboard",    icon: GridIcon,      group: "general" },
   { href: "/empleados",    label: "Empleados",    icon: UsersIcon,     group: "general" },
   { href: "/asistencia",   label: "Asistencia",   icon: ClipboardIcon, group: "general" },
   { href: "/sucursales",   label: "Sucursales",   icon: BuildingIcon,  group: "general" },
-  { href: "/dispositivos", label: "Estaciones",   icon: MonitorIcon,   group: "gestion" },
-  { href: "/reportes",     label: "Reportes",     icon: ChartIcon,     group: "gestion" },
-  { href: "/configuracion",label: "Configuración",icon: SettingsIcon,  group: "gestion" },
+  { href: "/dispositivos",   label: "Estaciones",     icon: MonitorIcon,   group: "gestion" },
+  { href: "/notificaciones", label: "Notificaciones", icon: BellIcon,      group: "gestion" },
+  { href: "/reportes",       label: "Reportes",       icon: ChartIcon,     group: "gestion" },
+  { href: "/configuracion",  label: "Configuración",  icon: SettingsIcon,  group: "gestion" },
 ];
 
-export function SidebarNav({ userEmail }: { userEmail: string }) {
+export function SidebarNav({ userEmail, empresaId }: { userEmail: string; empresaId?: string }) {
   const pathname  = usePathname();
   const router    = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
@@ -93,9 +95,9 @@ export function SidebarNav({ userEmail }: { userEmail: string }) {
           background: "var(--bg-black)",
           position: "sticky", top: 0, height: "100vh",
         }}>
-      {/* Logo */}
+      {/* Logo + bell de notificaciones */}
       <div style={{
-        height: "var(--header-height)", padding: "0 16px",
+        height: "var(--header-height)", padding: "0 12px 0 16px",
         display: "flex", alignItems: "center", gap: 10,
         borderBottom: "1px solid var(--border)", flexShrink: 0,
       }}>
@@ -107,7 +109,7 @@ export function SidebarNav({ userEmail }: { userEmail: string }) {
         }}>
           <ShieldIcon />
         </div>
-        <div>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontSize: 12, fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.03em", lineHeight: 1.15 }}>
             Safe Link
           </p>
@@ -115,6 +117,7 @@ export function SidebarNav({ userEmail }: { userEmail: string }) {
             Monitoring
           </p>
         </div>
+        {empresaId && <NotificationCenter empresaId={empresaId} />}
       </div>
 
       {/* Nav */}
@@ -272,6 +275,9 @@ function UsersIcon() {
 }
 function ClipboardIcon() {
   return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>;
+}
+function BellIcon() {
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>;
 }
 function MonitorIcon() {
   return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>;

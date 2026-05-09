@@ -51,6 +51,37 @@ def _log_to_supabase(tipo: str, detalle: dict):
         pass
 
 
+def _notify_panel(
+    tipo: str,
+    severidad: str,
+    titulo: str,
+    mensaje: Optional[str] = None,
+    metadata: Optional[dict] = None,
+    dedupe_key: Optional[str] = None,
+):
+    """Crea una notificación visible en el panel web vía RPC.
+
+    severidad: 'info' | 'warn' | 'error' | 'critical'
+    dedupe_key: si se provee, no se duplica dentro de los últimos 30 min.
+    """
+    api_key = get_station_api_key()
+    if not api_key:
+        return
+    try:
+        sb = get_supabase_client()
+        sb.rpc("crear_notif_estacion", {
+            "p_api_key":   api_key,
+            "p_tipo":      tipo,
+            "p_severidad": severidad,
+            "p_titulo":    titulo,
+            "p_mensaje":   mensaje,
+            "p_metadata":  metadata or {},
+            "p_dedupe_key": dedupe_key,
+        }).execute()
+    except Exception:
+        pass
+
+
 class SyncWorker(QThread):
     """Worker que corre en background y descarga empleados de Supabase."""
 
@@ -532,6 +563,14 @@ class SyncManager(QObject):
 
     def _on_error(self, msg: str):
         _log_to_supabase("sync_error", {"error": msg})
+        # Notificar al panel para que el admin lo vea sin entrar a logs
+        _notify_panel(
+            tipo="station_sync_error",
+            severidad="error",
+            titulo="Error de sincronización en estación",
+            mensaje=msg[:200] if msg else "Sin detalle",
+            dedupe_key=f"sync-error:{StationInfo.dispositivo_id or 'unknown'}",
+        )
         self.sync_error.emit(msg)
 
     def stop(self):

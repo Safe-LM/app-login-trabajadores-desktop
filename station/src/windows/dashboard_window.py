@@ -722,6 +722,19 @@ class DashboardWindow(QMainWindow):
             self._cam_thread = None
             self._js("setCamState('error');")
             self._js("setStatus('Error: no se pudo acceder a la cámara', 'bad');")
+            # Notificar al panel para que el admin se entere sin estar viendo la estacion
+            try:
+                from utils.sync_manager import _notify_panel
+                from utils.station_manager import StationInfo
+                _notify_panel(
+                    tipo="station_camera_error",
+                    severidad="error",
+                    titulo=f"Cámara no disponible · {StationInfo.nombre or 'Estación'}",
+                    mensaje="La estación no puede acceder a la cámara. Verifica conexión USB y permisos del SO.",
+                    dedupe_key=f"cam-error:{StationInfo.dispositivo_id or 'unknown'}",
+                )
+            except Exception:
+                pass
             return
         self._prep_count = 5
         self._prep_timer = QTimer(self)

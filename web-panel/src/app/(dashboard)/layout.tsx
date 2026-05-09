@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { PageSkeleton } from "@/components/Skeleton";
 import { NotificationProvider } from "@/components/notifications/NotificationProvider";
 import { PanelNotificationsWatcher } from "@/components/notifications/PanelNotificationsWatcher";
+import { BrowserPushBridge } from "@/components/notifications/BrowserPushBridge";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -15,9 +16,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <NotificationProvider>
-      {empresaId && <PanelNotificationsWatcher empresaId={empresaId} />}
+      {empresaId && (
+        <>
+          <PanelNotificationsWatcher empresaId={empresaId} />
+          <BrowserPushBridge empresaId={empresaId} />
+        </>
+      )}
       <div style={{ display: "flex", height: "100vh", background: "var(--bg-black)", overflow: "hidden" }}>
-        <SidebarNav userEmail={user.email ?? ""} />
+        <SidebarNav userEmail={user.email ?? ""} empresaId={empresaId} />
         <main style={{ flex: 1, overflow: "auto" }}>
           <Suspense fallback={<PageSkeleton />}>
             {children}

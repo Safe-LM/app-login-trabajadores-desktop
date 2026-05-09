@@ -160,26 +160,7 @@ export function SidebarNav({ userEmail }: { userEmail: string }) {
         <button
           onClick={handleLogout}
           disabled={loggingOut}
-          style={{
-            width: "100%", padding: "7px 10px",
-            background: "transparent",
-            border: "1px solid transparent",
-            borderRadius: 7, cursor: loggingOut ? "not-allowed" : "pointer",
-            display: "flex", alignItems: "center", gap: 8,
-            fontSize: 12, fontWeight: 500, color: "var(--text-faint)",
-            fontFamily: "inherit", transition: "color 150ms, background 150ms, border-color 150ms",
-            opacity: loggingOut ? 0.5 : 1,
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = "#f87171";
-            e.currentTarget.style.background = "rgba(239,68,68,0.06)";
-            e.currentTarget.style.borderColor = "rgba(239,68,68,0.12)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = "var(--text-faint)";
-            e.currentTarget.style.background = "transparent";
-            e.currentTarget.style.borderColor = "transparent";
-          }}
+          className="w-full px-2.5 py-[7px] rounded-[7px] flex items-center gap-2 text-xs font-medium text-text-faint bg-transparent border border-transparent transition-colors duration-150 hover:text-[#f87171] hover:bg-[rgba(239,68,68,0.06)] hover:border-[rgba(239,68,68,0.12)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer font-[inherit]"
         >
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>

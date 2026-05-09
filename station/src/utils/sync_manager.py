@@ -8,6 +8,7 @@ Corre al arrancar y cada 4 horas en background (QThread).
 
 import json
 import logging
+import pickle
 import time
 from pathlib import Path
 from typing import Optional

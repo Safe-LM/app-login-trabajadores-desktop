@@ -53,7 +53,7 @@ def check_for_updates() -> Tuple[bool, Optional[str], Optional[str]]:
     try:
         version_url = f"{UPDATE_SERVER_URL}/version.txt"
         req = Request(version_url, headers={"User-Agent": "SafeLink Station"})
-        with urlopen(req, timeout=10) as response:
+        with urlopen(req, timeout=10) as response:  # nosec B310 - URL hardcoded https
             remote_version = response.read().decode("utf-8").strip()
 
         local_version = get_local_version()
@@ -107,7 +107,8 @@ def download_update(download_url: str, progress_callback=None) -> Optional[str]:
     Returns:
         Ruta del archivo descargado o None si falla
     """
-    temp_dir = Path(os.environ.get("TEMP", "/tmp")) / "safelnk_updates"
+    import tempfile
+    temp_dir = Path(tempfile.gettempdir()) / "safelnk_updates"
     temp_dir.mkdir(parents=True, exist_ok=True)
 
     filename = download_url.split("/")[-1]
@@ -115,7 +116,7 @@ def download_update(download_url: str, progress_callback=None) -> Optional[str]:
 
     try:
         req = Request(download_url, headers={"User-Agent": "SafeLink Station"})
-        with urlopen(req, timeout=60) as response:
+        with urlopen(req, timeout=60) as response:  # nosec B310 - URL hardcoded https
             total_size = int(response.headers.get("Content-Length", 0))
             downloaded = 0
             chunk_size = 8192

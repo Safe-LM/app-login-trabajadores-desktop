@@ -73,4 +73,4 @@ class RegistroAsistencia(Base):
         return f"<Registro {self.tipo} #{self.trabajador_id} @ {self.timestamp}>"
 
 
-__all__ = ["Trabajador", "RegistroAsistencia", "Registro"]
+__all__ = ["Trabajador", "RegistroAsistencia"]

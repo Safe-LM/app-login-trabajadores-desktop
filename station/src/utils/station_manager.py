@@ -90,8 +90,12 @@ def get_hwid() -> str:
     try:
         # En Windows: reg query HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Cryptography /v MachineGuid
         if platform.system() == "Windows":
-            cmd = 'reg query "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography" /v MachineGuid'
-            out = subprocess.check_output(cmd, shell=True).decode()
+            out = subprocess.check_output(
+                ["reg", "query",
+                 r"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Cryptography",
+                 "/v", "MachineGuid"],
+                shell=False,
+            ).decode()
             guid = out.split()[-1]
             return hashlib.sha256(guid.encode()).hexdigest()[:16].upper()
         else:

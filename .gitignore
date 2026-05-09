@@ -21,7 +21,7 @@ build/
 dist/
 sdist/
 wheels/
-*.spec
+# *.spec  — los .spec de PyInstaller SÍ van a git (controlamos el build)
 station/build/
 station/dist/
 station/frontend/dist/

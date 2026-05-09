@@ -237,18 +237,10 @@ function EmpModal({
             )}
 
             <div style={{ display: "flex", gap: 12, marginTop: 30 }}>
-              <button onClick={onClose} style={{ flex: 1, padding: "14px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", transition: "200ms" }}>
+              <button onClick={onClose} className="btn btn-secondary btn-lg" style={{ flex: 1 }}>
                 Cancelar
               </button>
-              <button onClick={save} disabled={loading} style={{ 
-                flex: 2, padding: "14px", 
-                background: loading ? "rgba(37,99,235,0.5)" : "var(--accent)", 
-                color: "#fff", border: "none", borderRadius: 12, 
-                fontSize: 14, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer",
-                boxShadow: "0 10px 20px -10px var(--accent-glow)",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-                transition: "all 0.2s"
-              }}>
+              <button onClick={save} disabled={loading} className="btn btn-primary btn-lg" style={{ flex: 2 }}>
                 {loading && (
                   <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                     <path d="M21 12a9 9 0 11-6.219-8.56"/>
@@ -315,8 +307,8 @@ function DeleteModal({ emp, onClose, onOptimisticDelete, onError }: {
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={onClose} style={{ flex: 1, padding: "10px 0", background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 13, fontWeight: 500, color: "var(--text-muted)", cursor: "pointer", fontFamily: "inherit" }}>Cancelar</button>
-          <button onClick={confirm} style={{ flex: 1, padding: "10px 0", background: "rgba(239,68,68,.9)", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+          <button onClick={onClose} className="btn btn-secondary" style={{ flex: 1 }}>Cancelar</button>
+          <button onClick={confirm} className="btn btn-danger" style={{ flex: 1 }}>
             Sí, eliminar
           </button>
         </div>
@@ -459,11 +451,7 @@ export function EmpleadosClient({ empleados: initial, sucursales }: { empleados:
         <div style={{ display: "flex", gap: 10 }}>
           {/* import */}
           <input type="file" ref={fileExcelRef} hidden accept=".xlsx, .xls, .csv" onChange={(e) => e.target.files?.[0] && handleExcelImport(e.target.files[0])} />
-          <button 
-            onClick={() => setModal("import-info")}
-            style={{ padding: "8px 14px", background: "rgba(255,255,255,0.05)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 13, color: "var(--text-muted)", fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" }}
-            onMouseEnter={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.08)"}
-            onMouseLeave={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}>
+          <button onClick={() => setModal("import-info")} className="btn btn-secondary btn-sm">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             Importar Excel
           </button>
@@ -475,9 +463,7 @@ export function EmpleadosClient({ empleados: initial, sucursales }: { empleados:
               onFocus={(e) => e.currentTarget.style.borderColor = "var(--accent)"}
               onBlur={(e)  => e.currentTarget.style.borderColor = "var(--border)"} />
           </div>
-          <button onClick={() => setModal("create")} style={{ padding: "8px 16px", background: "var(--accent)", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit", boxShadow: "0 0 14px var(--accent-glow)", transition: "background 200ms" }}
-            onMouseEnter={(e) => e.currentTarget.style.background = "var(--accent-hover)"}
-            onMouseLeave={(e) => e.currentTarget.style.background = "var(--accent)"}>
+          <button onClick={() => setModal("create")} className="btn btn-primary btn-sm">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Nuevo Empleado
           </button>
@@ -546,14 +532,10 @@ export function EmpleadosClient({ empleados: initial, sucursales }: { empleados:
                 </td>
                 <td style={{ padding: "12px 16px" }}>
                   <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={() => openEdit(emp)} title="Editar" aria-label={`Editar ${emp.nombre} ${emp.apellido}`} style={{ width: 30, height: 30, borderRadius: 7, background: "var(--bg-elevated)", border: "1px solid var(--border)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-faint)", transition: "all 150ms" }}
-                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-faint)"; }}>
+                    <button onClick={() => openEdit(emp)} title="Editar" aria-label={`Editar ${emp.nombre} ${emp.apellido}`} className="btn btn-icon btn-sm btn-icon-edit">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     </button>
-                    <button onClick={() => openDelete(emp)} title="Eliminar" aria-label={`Eliminar ${emp.nombre} ${emp.apellido}`} style={{ width: 30, height: 30, borderRadius: 7, background: "var(--bg-elevated)", border: "1px solid var(--border)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-faint)", transition: "all 150ms" }}
-                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(239,68,68,.4)"; e.currentTarget.style.color = "#f87171"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-faint)"; }}>
+                    <button onClick={() => openDelete(emp)} title="Eliminar" aria-label={`Eliminar ${emp.nombre} ${emp.apellido}`} className="btn btn-icon btn-sm btn-icon-danger">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
                     </button>
                   </div>
@@ -602,10 +584,10 @@ function ImportInfoModal({ onClose, onSelect }: { onClose: () => void; onSelect:
         </div>
 
         <div style={{ display: "flex", gap: 14 }}>
-          <button onClick={onClose} style={{ flex: 1, padding: "16px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 14, color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer", transition: "200ms" }} onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.08)"} onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}>
+          <button onClick={onClose} className="btn btn-secondary btn-lg" style={{ flex: 1 }}>
             Cancelar
           </button>
-          <button onClick={onSelect} style={{ flex: 2, padding: "16px", background: "#22c55e", border: "none", borderRadius: 14, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: "0 10px 25px -5px rgba(34,197,94,0.4)", transition: "all 200ms" }} onMouseEnter={e => e.currentTarget.style.transform = "translateY(-2px)"} onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}>
+          <button onClick={onSelect} className="btn btn-success btn-lg" style={{ flex: 2 }}>
             Seleccionar Archivo
           </button>
         </div>

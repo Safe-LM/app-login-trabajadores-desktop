@@ -159,15 +159,7 @@ export default function RegistrarEstacionModal({ onClose, onDone, sucursales }: 
             </div>
           )}
 
-          <button onClick={handleSubmit} disabled={loading} style={{
-            marginTop: 4, padding: "12px 20px",
-            background: loading ? "rgba(37,99,235,0.4)" : "var(--accent)",
-            color: "#fff", border: "none", borderRadius: 9,
-            fontSize: 13, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer",
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-            fontFamily: "inherit", transition: "background 200ms",
-            boxShadow: loading ? "none" : "0 0 24px rgba(37,99,235,0.3)",
-          }}>
+          <button onClick={handleSubmit} disabled={loading} className="btn btn-primary btn-block" style={{ marginTop: 4 }}>
             {loading && <IconSpin />}
             {loading ? "Registrando..." : "Registrar estación"}
           </button>
@@ -184,11 +176,7 @@ export default function RegistrarEstacionModal({ onClose, onDone, sucursales }: 
               La estación detectará la activación en los próximos <strong style={{ color: "var(--text-muted)" }}>5 segundos</strong> y arrancará sola.
             </p>
           </div>
-          <button onClick={() => { onDone(); onClose(); }} style={{
-            padding: "12px 20px", background: "var(--accent)", color: "#fff",
-            border: "none", borderRadius: 9, fontSize: 13, fontWeight: 700,
-            cursor: "pointer", fontFamily: "inherit", boxShadow: "0 0 20px rgba(37,99,235,0.3)",
-          }}>
+          <button onClick={() => { onDone(); onClose(); }} className="btn btn-primary">
             Ver estaciones
           </button>
         </div>
@@ -217,25 +205,13 @@ export default function RegistrarEstacionModal({ onClose, onDone, sucursales }: 
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <button onClick={copyKey} style={{
-              padding: "11px 20px", borderRadius: 9, cursor: "pointer", fontFamily: "inherit",
-              background: copied ? "rgba(34,197,94,0.1)" : "var(--bg-elevated)",
-              border: `1px solid ${copied ? "rgba(34,197,94,0.25)" : "var(--border)"}`,
-              color: copied ? "#4ade80" : "var(--text-primary)",
-              fontSize: 13, fontWeight: 600,
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-              transition: "all 200ms",
-            }}>
+            <button onClick={copyKey} className={`btn ${copied ? "btn-success" : "btn-secondary"}`}>
               {copied
                 ? <><IconCheck size={13} /> ¡Copiado!</>
                 : <><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copiar API Key</>
               }
             </button>
-            <button onClick={() => { onDone(); onClose(); }} style={{
-              padding: "11px 20px", background: "var(--accent)", color: "#fff",
-              border: "none", borderRadius: 9, fontSize: 13, fontWeight: 700,
-              cursor: "pointer", fontFamily: "inherit", boxShadow: "0 0 20px rgba(37,99,235,0.3)",
-            }}>
+            <button onClick={() => { onDone(); onClose(); }} className="btn btn-primary">
               Ver estaciones
             </button>
           </div>

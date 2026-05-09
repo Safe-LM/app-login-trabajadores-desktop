@@ -429,18 +429,7 @@ function ConfigModal({ d, onClose, onOptimisticDelete, onOptimisticUpdate, sucur
           <p style={{ fontSize: 10, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: 8 }}>
             Comandos remotos
           </p>
-          <button onClick={handleSync} disabled={syncing} style={{
-            width: "100%", padding: "9px 14px",
-            background: syncing ? "rgba(37,99,235,0.15)" : "var(--bg-elevated)",
-            border: "1px solid var(--border)", borderRadius: 8,
-            color: syncing ? "var(--text-faint)" : "var(--text-muted)",
-            fontSize: 12, fontWeight: 600, cursor: syncing ? "not-allowed" : "pointer",
-            fontFamily: "inherit", display: "flex", alignItems: "center", gap: 8,
-            transition: "all 150ms",
-          }}
-            onMouseEnter={(e) => { if (!syncing) { e.currentTarget.style.borderColor = "var(--border-hover)"; e.currentTarget.style.color = "var(--text-primary)"; } }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = syncing ? "var(--text-faint)" : "var(--text-muted)"; }}
-          >
+          <button onClick={handleSync} disabled={syncing} className="btn btn-secondary btn-sm btn-block">
             {syncing
               ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="animate-spin-slow"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0110 10" strokeLinecap="round"/></svg>
               : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
@@ -453,31 +442,13 @@ function ConfigModal({ d, onClose, onOptimisticDelete, onOptimisticUpdate, sucur
             </p>
           )}
         </div>
-        <button onClick={save} disabled={saving || saved} style={{
-          padding: "11px 20px",
-          background: saved ? "rgba(34,197,94,0.12)" : saving ? "rgba(37,99,235,0.4)" : "var(--accent)",
-          color: saved ? "#4ade80" : "#fff",
-          border: saved ? "1px solid rgba(34,197,94,0.25)" : "none",
-          borderRadius: 9, fontSize: 13, fontWeight: 700,
-          cursor: saving || saved ? "not-allowed" : "pointer",
-          fontFamily: "inherit", transition: "all 200ms",
-          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-          boxShadow: saved || saving ? "none" : "0 0 20px rgba(37,99,235,0.25)",
-        }}>
+        <button onClick={save} disabled={saving || saved} className={`btn ${saved ? "btn-success" : "btn-primary"} btn-block`}>
           {saving && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="animate-spin-slow"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0110 10" strokeLinecap="round"/></svg>}
-          {saved ? "âœ“ Cambios guardados" : saving ? "Guardando..." : "Guardar cambios"}
+          {saved ? "✓ Cambios guardados" : saving ? "Guardando..." : "Guardar cambios"}
         </button>
         <div style={{ borderTop: "1px solid var(--border)", paddingTop: 14 }}>
           {!showDelete ? (
-            <button onClick={() => setShowDelete(true)} style={{
-              background: "none", border: "none", color: "#ef4444",
-              fontSize: 12, fontWeight: 500, cursor: "pointer", padding: 0,
-              display: "flex", alignItems: "center", gap: 5,
-              opacity: 0.7, transition: "opacity 150ms",
-            }}
-              onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
-              onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
-            >
+            <button onClick={() => setShowDelete(true)} className="btn btn-ghost btn-sm" style={{ color: "#ef4444", padding: 0 }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
               Eliminar esta estación
             </button>
@@ -487,17 +458,10 @@ function ConfigModal({ d, onClose, onOptimisticDelete, onOptimisticUpdate, sucur
                 ¿Confirmas eliminar <strong>{d.nombre}</strong>? Esta acción no se puede deshacer.
               </p>
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={handleDelete} disabled={deleting} style={{
-                  flex: 1, padding: "8px", background: "#ef4444", color: "#fff",
-                  border: "none", borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: "pointer",
-                }}>
+                <button onClick={handleDelete} disabled={deleting} className="btn btn-danger btn-sm" style={{ flex: 1 }}>
                   {deleting ? "Eliminando..." : "Sí, eliminar"}
                 </button>
-                <button onClick={() => setShowDelete(false)} style={{
-                  flex: 1, padding: "8px", background: "var(--bg-elevated)",
-                  color: "var(--text-muted)", border: "1px solid var(--border)",
-                  borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: "pointer",
-                }}>
+                <button onClick={() => setShowDelete(false)} className="btn btn-secondary btn-sm" style={{ flex: 1 }}>
                   Cancelar
                 </button>
               </div>
@@ -559,13 +523,7 @@ function EmptyState({ onNew }: { onNew: () => void }) {
       <p style={{ fontSize: 12, color: "var(--text-faint)", marginBottom: 24, lineHeight: 1.6, maxWidth: 360, margin: "0 auto 24px" }}>
         Crea tu primera estación y copia la API Key al archivo <code style={{ fontSize: 11, background: "rgba(255,255,255,0.05)", padding: "1px 5px", borderRadius: 4 }}>.env</code> de la máquina física.
       </p>
-      <button onClick={onNew} style={{
-        padding: "10px 22px", background: "var(--accent)", color: "#fff",
-        border: "none", borderRadius: 9, fontSize: 13, fontWeight: 700,
-        cursor: "pointer", fontFamily: "inherit",
-        boxShadow: "0 0 20px rgba(37,99,235,0.3)",
-        display: "inline-flex", alignItems: "center", gap: 7,
-      }}>
+      <button onClick={onNew} className="btn btn-primary">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Crear primera estación
       </button>
@@ -645,18 +603,7 @@ export function DispositivosClient({
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button onClick={() => setShowRegistrar(true)} style={{
-            padding: "9px 18px",
-            background: "var(--accent)", color: "#fff",
-            border: "none", borderRadius: 9,
-            fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
-            display: "flex", alignItems: "center", gap: 7,
-            boxShadow: "0 0 20px rgba(37,99,235,0.3)",
-            transition: "opacity 150ms",
-          }}
-            onMouseEnter={(e) => { e.currentTarget.style.opacity = "0.88"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.opacity = "1"; }}
-          >
+          <button onClick={() => setShowRegistrar(true)} className="btn btn-primary btn-sm">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Registrar estación
           </button>

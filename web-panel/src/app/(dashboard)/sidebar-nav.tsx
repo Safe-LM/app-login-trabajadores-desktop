@@ -32,6 +32,24 @@ export function SidebarNav({ userEmail }: { userEmail: string }) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Prefetch agresivo: pedimos todas las rutas del sidebar en idle.
+  // Cambiar de pagina se siente instantaneo despues del primer paint.
+  useEffect(() => {
+    const idle = (cb: () => void) => {
+      const w = window as Window & { requestIdleCallback?: (cb: () => void) => number };
+      if (typeof w.requestIdleCallback === "function") {
+        w.requestIdleCallback(cb);
+      } else {
+        setTimeout(cb, 200);
+      }
+    };
+    idle(() => {
+      for (const item of nav) {
+        if (item.href !== pathname) router.prefetch(item.href);
+      }
+    });
+  }, [pathname, router]);
+
   async function handleLogout() {
     setLoggingOut(true);
     const supabase = createClient();

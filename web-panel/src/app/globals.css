@@ -403,6 +403,20 @@ body {
   margin-bottom: var(--space-2);
 }
 
+/* ─── Tablet responsive ──────────────────────────────────────── */
+@media (max-width: 1024px) and (min-width: 769px) {
+  :root { --sidebar-width: 200px; }
+}
+
+/* Tablas y grids con scroll horizontal en pantallas chicas */
+@media (max-width: 768px) {
+  .table-wrap, .grid-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { min-width: 600px; }
+
+  /* Modales full-screen en movil */
+  .modal-content { max-width: 100% !important; max-height: 100vh; border-radius: 0 !important; }
+}
+
 /* ─── Sidebar responsive ─────────────────────────────────────── */
 .sidebar-burger {
   display: none;

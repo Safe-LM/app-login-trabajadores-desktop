@@ -1,86 +1,95 @@
-# Python
+# ─── Python ──────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
-.installed.cfg
 *.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# Virtual environments
+# ─── Virtual envs ────────────────────────────────────────────
 venv/
 env/
 ENV/
 .venv/
 
-# IDE
+# ─── Builds / artefactos ─────────────────────────────────────
+build/
+dist/
+sdist/
+wheels/
+*.spec
+station/build/
+station/dist/
+station/frontend/dist/
+station/frontend/node_modules/
+
+# ─── Web-panel (Next.js) ─────────────────────────────────────
+web-panel/.next/
+web-panel/out/
+web-panel/node_modules/
+web-panel/.vercel/
+
+# ─── IDE / editor ────────────────────────────────────────────
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
 
-# Sensible / secrets
-.env
-.env.local
-*.pem
-config_local.py
-
-# Base de datos local
-# *.db
-# *.sqlite
-# *.sqlite3
-
-# Modelos entrenados
-*.pt
-*.pth
-!data/models/models/*.onnx
-!database_fotos/*.pkl
-!database_fotos/json/*.json
-
-trained/
-build/
-dist/
-bin/
-
-# Fotos de empleados (Añadidas por petición del usuario)
-# fotos_empleados/
-# photos/
-# empleados_fotos/
-# database_fotos/
-# _archivo/yolo/yolo_dataset/
-# _archivo/datos_generados/
-# *.pdf
-# database_fotos/
-# **/employees_db.json
-
-# Logs
-*.log
-logs/
-
-# OS
+# ─── OS ──────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# PyInstaller
-*.spec
-build/
-dist/
+# ─── Secrets ─────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.pem
+config_local.py
 
-# Jupyter
+# ─── Datos locales de la estación (no van a git) ─────────────
+station/data/cache/
+station/data/db/
+station/data/*.json
+*.db
+*.sqlite
+*.sqlite3
+*.pkl
+
+# ─── Modelos ML pesados (descargar con station/download_models.py)
+*.pt
+*.pth
+*.onnx
+station/models/
+
+# ─── Logs ────────────────────────────────────────────────────
+*.log
+logs/
+
+# ─── Jupyter ─────────────────────────────────────────────────
 .ipynb_checkpoints/
 *.ipynb
+
+# ─── Supabase CLI temp ───────────────────────────────────────
+supabase/.temp/
+supabase/.branches/
+supabase/supabase/
+
+# ─── Claude / agents ─────────────────────────────────────────
+.claude/
+.agents/
+skills-lock.json
+
+# ─── Legacy (si vuelve a aparecer, no se sube) ───────────────
+backup_obsoleto/
+database_fotos/
+dashboard_nextjs/
+dashboard_web/
+models/
+_pdf_extract.txt
+app_loginTrabajadores.pdf

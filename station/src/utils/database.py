@@ -83,6 +83,11 @@ def get_raw_session() -> Session:
     return SessionLocal()
 
 
+def get_db_session() -> Session:
+    """Alias compatible con dashboard_window — devuelve session cruda."""
+    return SessionLocal()
+
+
 # ── Auto-migration ──────────────────────────────────────────────────────────
 def _migrate_sqlite():
     import sqlite3
@@ -110,3 +115,9 @@ def _migrate_sqlite():
 
 
 _migrate_sqlite()
+
+
+def init_db() -> None:
+    """Crea tablas faltantes y aplica migraciones de columnas en SQLite local."""
+    Base.metadata.create_all(bind=engine)
+    _migrate_sqlite()

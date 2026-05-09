@@ -1,0 +1,66 @@
+name: Supabase Migration Validator
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'supabase/migrations/**.sql'
+      - '.github/workflows/migration-validator.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'supabase/migrations/**.sql'
+  workflow_dispatch:
+
+jobs:
+  validate-sql:
+    name: Parse + dry-run en Postgres efimero
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install psql + pgvector
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client postgresql-15-pgvector
+          PGPASSWORD=postgres psql -h localhost -U postgres -d testdb -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
+      - name: Validar orden y nombres de migraciones
+        run: |
+          set -e
+          cd supabase/migrations
+          # Cada archivo .sql debe empezar con YYYYMMDD_
+          invalid=$(ls *.sql 2>/dev/null | grep -vE '^[0-9]{8}_' || true)
+          if [ -n "$invalid" ]; then
+            echo "Migraciones con formato invalido (esperado YYYYMMDD_nombre.sql):"
+            echo "$invalid"
+            exit 1
+          fi
+          echo "Formato OK: $(ls *.sql | wc -l) migraciones"
+
+      - name: Aplicar migraciones en Postgres efimero
+        run: |
+          set -e
+          for f in supabase/migrations/*.sql; do
+            echo "─── Aplicando $(basename $f) ───"
+            PGPASSWORD=postgres psql -h localhost -U postgres -d testdb -v ON_ERROR_STOP=1 -f "$f" || {
+              echo "ERROR aplicando $f"
+              exit 1
+            }
+          done
+          echo "Todas las migraciones aplicadas sin errores."

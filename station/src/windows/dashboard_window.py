@@ -783,12 +783,21 @@ class DashboardWindow(QMainWindow):
             self._js(f"setEmployeeInfo({info.get('nombre','N/A')!r},{info.get('apellido','')!r},{info.get('zona','N/A')!r},{info.get('sucursal','N/A')!r},{info.get('puesto','N/A')!r});")
 
             try:
-                from utils.employee_mapper import get_photo_path
                 from PyQt5.QtCore import QByteArray, QBuffer
                 from PyQt5.QtGui import QPixmap
-                eid = info.get("employee_id", 0)
-                photo_path = get_photo_path(eid)
-                if photo_path and Path(photo_path).exists():
+                # 1) Foto en caché local de la estación (formato SaaS: station/data/cache/<empresa>/photos/<uuid>.jpg)
+                photo_path: Optional[Path] = None
+                foto_local = info.get("foto_local")
+                if foto_local and Path(foto_local).exists():
+                    photo_path = Path(foto_local)
+                else:
+                    # 2) Fallback al mapper legacy (database_fotos/)
+                    from utils.employee_mapper import get_photo_path as _legacy_get_photo
+                    legacy_path = _legacy_get_photo(info.get("employee_id", 0))
+                    if legacy_path and Path(legacy_path).exists():
+                        photo_path = Path(legacy_path)
+
+                if photo_path is not None:
                     px = QPixmap(str(photo_path))
                     if not px.isNull():
                         ba = QByteArray(); buf2 = QBuffer(ba)
@@ -816,25 +825,42 @@ class DashboardWindow(QMainWindow):
             return
         try:
             from utils.database import get_db_session
-            from utils.models import RegistroAsistencia, Trabajador
-            from sqlalchemy import func
-            eid = info.get("employee_id", 0)
-            db  = get_db_session()
+            from utils.models import Trabajador
+            eid_raw = info.get("employee_id", "")
+            # En el flujo SaaS el employee_id es un UUID (string). El modelo legacy
+            # guarda Integer en SQLite — usamos hash estable para mapear UUID -> int local.
+            uuid_str = str(eid_raw)
             try:
-                trab = db.query(Trabajador).filter(Trabajador.employee_id == eid).first()
+                eid_int = int(eid_raw) if not isinstance(eid_raw, str) or eid_raw.isdigit() else (abs(hash(uuid_str)) % (10**9))
+            except Exception:
+                eid_int = abs(hash(uuid_str)) % (10**9)
+
+            db = get_db_session()
+            try:
+                trab = db.query(Trabajador).filter(Trabajador.employee_id == eid_int).first()
                 if not trab:
-                    parts = info.get("nombre", "").split()
-                    trab  = Trabajador(
-                        usuario=f"emp_{eid}", password_hash="",
-                        nombre=parts[0] if parts else "Empleado",
-                        apellido=" ".join(parts[1:]) if len(parts)>1 else "",
-                        sucursal=info.get("sucursal","N/A"), zona=info.get("zona","N/A"),
-                        puesto=info.get("puesto","N/A"), employee_id=eid, activo=True,
+                    nombre = info.get("nombre", "Empleado")
+                    apellido = info.get("apellido", "")
+                    if not apellido:
+                        parts = nombre.split()
+                        if len(parts) > 1:
+                            nombre, apellido = parts[0], " ".join(parts[1:])
+                    trab = Trabajador(
+                        usuario=f"emp_{eid_int}",
+                        password_hash="",
+                        nombre=nombre,
+                        apellido=apellido,
+                        sucursal=info.get("sucursal", "N/A"),
+                        zona=info.get("zona", "N/A"),
+                        puesto=info.get("puesto", "N/A"),
+                        employee_id=eid_int,
+                        activo=True,
                     )
                     db.add(trab); db.commit(); db.refresh(trab)
             finally:
                 db.close()
-            self._register_db(trab, conf, info, method)
+            # Pasamos el UUID original a _register_db para usarlo en el RPC de Supabase
+            self._register_db(trab, conf, info, method, supabase_empleado_uuid=uuid_str)
         except Exception as e:
             logger.error(f"auto_register: {e}")
 
@@ -871,7 +897,7 @@ class DashboardWindow(QMainWindow):
         if self.trabajador:
             self._register_db(self.trabajador, conf, None, "manual")
 
-    def _register_db(self, trab, conf, info, method):
+    def _register_db(self, trab, conf, info, method, supabase_empleado_uuid: Optional[str] = None):
         """
         1. Guarda en SQLite local (siempre, funciona offline).
         2. Sube a Supabase via RPC registrar_asistencia_station (si hay internet).
@@ -946,27 +972,24 @@ class DashboardWindow(QMainWindow):
             try:
                 api_key = get_station_api_key()
                 sb = get_supabase_client()
-                if api_key and sb and trab.employee_id:
-                    emp_data = sb.table("empleados").select("id").eq("employee_id", trab.employee_id).execute()
-                    if emp_data.data:
-                        result = sb.rpc("registrar_asistencia_station", {
-                            "p_api_key": api_key,
-                            "p_empleado_id": emp_data.data[0]["id"],
-                            "p_tipo": tipo,
-                            "p_confianza": float(conf),
-                            "p_notas": method or "",
-                        }).execute()
-                        if result.data and result.data.get("ok"):
-                            ok_cloud = True
-                            # Marcar como sincronizado en SQLite
-                            db2 = get_db_session()
-                            try:
-                                r = db2.query(RegistroAsistencia).filter(RegistroAsistencia.id == reg.id).first()
-                                if r:
-                                    r.sincronizado = True
-                                    db2.commit()
-                            finally:
-                                db2.close()
+                if api_key and sb and supabase_empleado_uuid:
+                    result = sb.rpc("registrar_asistencia_station", {
+                        "p_api_key": api_key,
+                        "p_empleado_id": supabase_empleado_uuid,
+                        "p_tipo": tipo,
+                        "p_confianza": float(conf),
+                        "p_notas": method or "",
+                    }).execute()
+                    if result.data and result.data.get("ok"):
+                        ok_cloud = True
+                        db2 = get_db_session()
+                        try:
+                            r = db2.query(RegistroAsistencia).filter(RegistroAsistencia.id == reg.id).first()
+                            if r:
+                                r.sincronizado = True
+                                db2.commit()
+                        finally:
+                            db2.close()
             except Exception as es:
                 logger.warning(f"Supabase sync fallo (se reintentará): {es}")
 
@@ -980,8 +1003,8 @@ class DashboardWindow(QMainWindow):
             # 5. Intentar flush de cola offline en background
             QTimer.singleShot(2000, self._flush_offline_queue)
 
-            # 6. Resetear UI después de 6 segundos
-            QTimer.singleShot(6000, self._reset_after_attendance)
+            # 6. Cerrar la estación tras 4 segundos (la asistencia se confirmó)
+            QTimer.singleShot(4000, self._close_station_after_attendance)
 
         except Exception as e:
             logger.error(f"_register_db: {e}")
@@ -996,6 +1019,16 @@ class DashboardWindow(QMainWindow):
         self._js("resetEmployee();")
         self._js("setBadgeText('');")
         self._js("setStatus('Buscando rostro...', 'warn');")
+
+    def _close_station_after_attendance(self):
+        """Cierra completamente la estación tras confirmar la asistencia."""
+        from PyQt5.QtWidgets import QApplication
+        logger.info("Asistencia confirmada — cerrando estación")
+        try:
+            self.close()
+        except Exception:
+            pass
+        QApplication.quit()
 
     def _load_last_registration(self):
         try:

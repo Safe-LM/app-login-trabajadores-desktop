@@ -32,9 +32,13 @@ for _p in Path(__file__).resolve().parents:
         load_dotenv(_env, override=True)
         break
 
-from PyQt5.QtCore import QTimer  # noqa: E402
+from PyQt5.QtCore import Qt, QCoreApplication, QTimer  # noqa: E402
+
+QCoreApplication.setAttribute(Qt.AA_ShareOpenGLContexts)
+
 from PyQt5.QtGui import QIcon  # noqa: E402
 from PyQt5.QtWidgets import QApplication, QMessageBox  # noqa: E402
+from PyQt5 import QtWebEngineWidgets  # noqa: E402,F401  (preload requerido)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -79,59 +83,20 @@ def _start_background_services(app: QApplication):
     antes de empezar a tirar consultas.
     """
     try:
-        from services.sync_manager import get_sync_manager
+        from utils.sync_manager import get_sync_manager
 
         sync = get_sync_manager()
-        sync.connection_changed.connect(
-            lambda online: logger.info("Conectividad cloud: %s", "online" if online else "offline")
-        )
-        sync.sync_progress.connect(
-            lambda subidos, restantes: logger.info(
-                "Sync: %s subidos, %s pendientes", subidos, restantes
-            )
-            if subidos
-            else None
-        )
+        sync.sync_done.connect(lambda count: logger.info("Sync OK: %s empleados", count))
+        sync.sync_error.connect(lambda msg: logger.warning("Sync error: %s", msg))
         sync.start()
         app._sync_manager = sync
         logger.info("SyncManager iniciado")
     except Exception as e:
         logger.error("No se pudo iniciar SyncManager: %s", e)
 
-    try:
-        from services.realtime_listener import get_realtime_listener
-        from utils.station_manager import StationInfo
-
-        if StationInfo.empresa_id:
-            listener = get_realtime_listener()
-            listener.empleado_changed.connect(
-                lambda evt, rec: logger.info("Realtime empleados %s: %s", evt, rec.get("id", "?"))
-            )
-            listener.dispositivo_changed.connect(
-                lambda evt, rec: logger.info("Realtime dispositivos %s", evt)
-            )
-            listener.start(StationInfo.empresa_id)
-            app._realtime = listener
-            logger.info("RealtimeListener suscrito (empresa=%s)", StationInfo.empresa_id)
-        else:
-            logger.info("RealtimeListener pospuesto: sin empresa_id (esperando heartbeat)")
-            # Reintentar cuando llegue el primer heartbeat OK
-            try:
-                from utils.station_manager import get_station
-
-                def _retry(state, _msg):
-                    if state == "online" and StationInfo.empresa_id and not getattr(app, "_realtime", None):
-                        from services.realtime_listener import get_realtime_listener
-                        l = get_realtime_listener()
-                        l.start(StationInfo.empresa_id)
-                        app._realtime = l
-                        logger.info("RealtimeListener tardío suscrito")
-
-                get_station().status_changed.connect(_retry)
-            except Exception:
-                pass
-    except Exception as e:
-        logger.error("No se pudo iniciar RealtimeListener: %s", e)
+    # RealtimeListener: el dashboard_window ya levanta su propio listener
+    # (RealtimeCommandListener) para escuchar comandos del panel. No
+    # duplicamos suscripción aquí.
 
 
 # ─────────────────────────────────────────────────────────────────────────────

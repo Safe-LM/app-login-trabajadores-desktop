@@ -533,6 +533,18 @@ class SyncManager(QObject):
         _log_to_supabase("sync_error", {"error": msg})
         self.sync_error.emit(msg)
 
+    def stop(self):
+        """Detiene el timer periódico y espera a que el worker activo termine."""
+        if self._timer is not None:
+            try:
+                self._timer.stop()
+            except Exception:
+                pass
+            self._timer = None
+        if self._worker and self._worker.isRunning():
+            self._worker.quit()
+            self._worker.wait(3000)
+
     def get_cache_dir(self) -> Optional[Path]:
         """Retorna el directorio de caché de la empresa actual."""
         empresa_id = StationInfo.empresa_id

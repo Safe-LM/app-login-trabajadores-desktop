@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { StatCard } from "@/components/ui/StatCard";
 
 type AsistenciaHoy = {
   empresa_id: string;
@@ -103,16 +104,37 @@ export function DashboardClient({ initial }: { initial: AsistenciaHoy[] }) {
         </div>
       </div>
 
-      {/* Stat cards — responsive grid */}
-      <div style={{
+      {/* Stat cards — premium con icons + animacion stagger */}
+      <div className="stagger-fade-up" style={{
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-        gap: 12, marginBottom: 20,
+        gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+        gap: 14, marginBottom: 22,
       }}>
-        <StatCard label="Total"     value={total}     accent="#3b82f6" />
-        <StatCard label="Presentes" value={presentes} accent="#22c55e" />
-        <StatCard label="Ausentes"  value={ausentes}  accent="#ef4444" />
-        <StatCard label="Salieron"  value={salieron}  accent="#eab308" />
+        <StatCard
+          label="Total"
+          value={total}
+          color="blue"
+          icon={<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>}
+        />
+        <StatCard
+          label="Presentes"
+          value={presentes}
+          color="green"
+          icon={<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+          delta={total > 0 ? { value: pct, label: "del total" } : null}
+        />
+        <StatCard
+          label="Ausentes"
+          value={ausentes}
+          color="red"
+          icon={<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>}
+        />
+        <StatCard
+          label="Salieron"
+          value={salieron}
+          color="yellow"
+          icon={<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>}
+        />
       </div>
 
       {/* Progress bar */}
@@ -134,15 +156,21 @@ export function DashboardClient({ initial }: { initial: AsistenciaHoy[] }) {
       )}
 
       {/* Activity Table */}
-      <div className="card" style={{ overflow: "hidden" }}>
+      <div className="card animate-fade-up" style={{ overflow: "hidden", animationDelay: "120ms", animationFillMode: "backwards" }}>
         <div style={{
-          padding: "14px 20px",
+          padding: "16px 22px",
           borderBottom: "1px solid var(--border)",
           display: "flex", justifyContent: "space-between", alignItems: "center",
+          background: "linear-gradient(180deg, rgba(255,255,255,0.015) 0%, transparent 100%)",
         }}>
-          <h2 className="heading-3">Empleados hoy</h2>
-          <span className="badge badge-neutral">
-            {asistencias.length} registro{asistencias.length !== 1 ? "s" : ""}
+          <div>
+            <h2 className="heading-3" style={{ marginBottom: 2 }}>Actividad reciente</h2>
+            <p className="text-muted-sm" style={{ fontSize: 11 }}>
+              Empleados registrados hoy en las estaciones
+            </p>
+          </div>
+          <span className="badge badge-neutral" style={{ fontVariantNumeric: "tabular-nums" }}>
+            {asistencias.length} {asistencias.length === 1 ? "registro" : "registros"}
           </span>
         </div>
 
@@ -189,32 +217,6 @@ export function DashboardClient({ initial }: { initial: AsistenciaHoy[] }) {
           <EmptyState />
         )}
       </div>
-    </div>
-  );
-}
-
-function StatCard({ label, value, accent }: { label: string; value: number; accent: string }) {
-  return (
-    <div
-      className="card"
-      style={{
-        padding: "16px 18px",
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      <span style={{
-        position: "absolute", top: 0, left: 0, right: 0, height: 2,
-        background: `linear-gradient(90deg, transparent, ${accent}, transparent)`,
-        opacity: 0.5,
-      }} />
-      <p className="text-eyebrow" style={{ color: accent, marginBottom: 6 }}>{label}</p>
-      <p style={{
-        fontSize: 30, fontWeight: 700, color: "var(--text-primary)",
-        letterSpacing: "-0.03em", fontVariantNumeric: "tabular-nums", lineHeight: 1,
-      }}>
-        {value}
-      </p>
     </div>
   );
 }

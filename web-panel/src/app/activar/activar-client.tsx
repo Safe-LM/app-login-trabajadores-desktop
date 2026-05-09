@@ -46,8 +46,7 @@ export function ActivarClient({
   useEffect(() => {
     if (!initialToken) return;
     (async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error: rpcErr } = await (supabase as any).rpc(
+      const { data, error: rpcErr } = await supabase.rpc(
         "validar_token_provisioning",
         { p_token: initialToken }
       );
@@ -77,8 +76,7 @@ export function ActivarClient({
     setStep("activating");
     setError("");
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error: rpcErr } = await (supabase as any).rpc(
+    const { data, error: rpcErr } = await supabase.rpc(
       "activar_token_provisioning",
       {
         p_token:       token.toUpperCase(),

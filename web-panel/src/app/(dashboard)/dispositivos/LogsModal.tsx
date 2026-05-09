@@ -33,8 +33,7 @@ export default function LogsModal({ d, onClose }: { d: Dispositivo; onClose: () 
     let cancelled = false;
 
     async function fetchLogs() {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase as any).rpc("get_logs_dispositivo", {
+      const { data } = await supabase.rpc("get_logs_dispositivo", {
         p_dispositivo_id: d.id,
         p_limit: 50,
       });

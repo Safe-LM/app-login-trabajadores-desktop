@@ -86,8 +86,6 @@ export async function POST(request: NextRequest) {
       );
 
       const edgeData = await edgeRes.json();
-      console.log("Edge function result:", edgeData);
-
       if (!edgeData.ok) {
         console.error("Edge function error:", edgeData.error);
         // No bloqueamos - el empleado quedó creado, embedding se puede generar después

@@ -155,7 +155,62 @@ export interface Database {
         Relationships: [];
       };
     };
-    Functions: Record<string, never>;
+    Functions: {
+      vincular_estacion_hwid: {
+        Args: {
+          p_user_id: string;
+          p_hwid: string | null;
+          p_nombre: string;
+          p_sucursal_id: string | null;
+        };
+        Returns: { ok: boolean; error?: string; dispositivo_id?: string; api_key?: string };
+      };
+      crear_empresa_onboarding: {
+        Args: {
+          p_user_id: string;
+          p_nombre: string;
+          p_slug: string;
+          p_timezone: string;
+          p_sucursal: string | null;
+          p_ciudad: string | null;
+        };
+        Returns: { ok: boolean; error?: string; empresa_id?: string };
+      };
+      enviar_comando_estacion: {
+        Args: {
+          p_dispositivo_id: string;
+          p_tipo: string;
+          p_payload: Record<string, unknown>;
+        };
+        Returns: { ok: boolean; error?: string; comando_id?: string };
+      };
+      get_logs_dispositivo: {
+        Args: { p_dispositivo_id: string; p_limit?: number };
+        Returns: { logs: Array<{ id: string; tipo: string; detalle: Record<string, unknown>; creado_en: string }> };
+      };
+      notificar_sync_empleados: {
+        Args: { p_empresa_id: string };
+        Returns: { ok: boolean };
+      };
+      validar_token_provisioning: {
+        Args: { p_token: string };
+        Returns: {
+          ok: boolean;
+          error?: string;
+          hwid_short?: string;
+          expires_at?: string;
+        };
+      };
+      activar_token_provisioning: {
+        Args: {
+          p_token: string;
+          p_empresa_id: string;
+          p_sucursal_id: string;
+          p_nombre: string;
+        };
+        Returns: { ok: boolean; error?: string; dispositivo_id?: string };
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

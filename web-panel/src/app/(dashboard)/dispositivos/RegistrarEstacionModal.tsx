@@ -50,9 +50,8 @@ export default function RegistrarEstacionModal({ onClose, onDone, sucursales }: 
       const userId = userData.user?.id;
 
       if (isZeroTouch) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data, error: rpcErr } = await (supabase as any).rpc("vincular_estacion_hwid", {
-          p_user_id:     userId,
+        const { data, error: rpcErr } = await supabase.rpc("vincular_estacion_hwid", {
+          p_user_id:     userId ?? "",
           p_hwid:        hwidClean,
           p_nombre:      nombre.trim(),
           p_sucursal_id: sucursalId || null,

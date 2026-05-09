@@ -20,8 +20,7 @@ export async function POST(request: NextRequest) {
     + "-" + Date.now().toString(36);
 
   // Usar funcion SECURITY DEFINER que bypasea RLS
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any).rpc("crear_empresa_onboarding", {
+  const { data, error } = await supabase.rpc("crear_empresa_onboarding", {
     p_user_id:  user.id,
     p_nombre:   empresa.nombre.trim(),
     p_slug:     slug,

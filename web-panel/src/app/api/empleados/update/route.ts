@@ -75,8 +75,6 @@ export async function POST(request: NextRequest) {
       );
 
       const edgeData = await edgeRes.json();
-      console.log("Edge function result (update):", edgeData);
-
       if (!edgeData.ok) {
         console.error("Edge function error:", edgeData.error);
       }

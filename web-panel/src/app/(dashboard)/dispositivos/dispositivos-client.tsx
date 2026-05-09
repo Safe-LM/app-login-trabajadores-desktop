@@ -369,8 +369,7 @@ function ConfigModal({ d, onClose, onOptimisticDelete, onOptimisticUpdate, sucur
   async function handleSync() {
     setSyncing(true); setSyncMsg(null);
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error: rpcErr } = await (supabase as any).rpc("enviar_comando_estacion", {
+      const { data, error: rpcErr } = await supabase.rpc("enviar_comando_estacion", {
         p_dispositivo_id: d.id,
         p_tipo: "sync_empleados",
         p_payload: {},

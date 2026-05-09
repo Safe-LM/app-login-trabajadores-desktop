@@ -9,8 +9,7 @@ export async function POST(request: NextRequest) {
   const { nombre, sucursal_id } = await request.json();
   if (!nombre?.trim()) return NextResponse.json({ error: "Nombre requerido" }, { status: 400 });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any).rpc("vincular_estacion_hwid", {
+  const { data, error } = await supabase.rpc("vincular_estacion_hwid", {
     p_user_id:     user.id,
     p_nombre:      nombre.trim(),
     p_sucursal_id: sucursal_id || null,

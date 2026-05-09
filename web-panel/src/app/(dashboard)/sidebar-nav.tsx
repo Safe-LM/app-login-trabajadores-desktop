@@ -160,12 +160,33 @@ export function SidebarNav({ userEmail }: { userEmail: string }) {
         <button
           onClick={handleLogout}
           disabled={loggingOut}
-          className="w-full px-2.5 py-[7px] rounded-[7px] flex items-center gap-2 text-xs font-medium text-text-faint bg-transparent border border-transparent transition-colors duration-150 hover:text-[#f87171] hover:bg-[rgba(239,68,68,0.06)] hover:border-[rgba(239,68,68,0.12)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer font-[inherit]"
+          className="logout-btn group"
+          aria-label="Cerrar sesión"
         >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
-          </svg>
-          {loggingOut ? "Cerrando..." : "Cerrar sesión"}
+          <span className="logout-btn__icon">
+            {loggingOut ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="animate-spin">
+                <circle cx="12" cy="12" r="10" strokeOpacity="0.25"/>
+                <path d="M12 2a10 10 0 0110 10" strokeLinecap="round"/>
+              </svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+            )}
+          </span>
+          <span className="logout-btn__label">
+            {loggingOut ? "Cerrando sesión..." : "Cerrar sesión"}
+          </span>
+          {!loggingOut && (
+            <span className="logout-btn__arrow" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </span>
+          )}
         </button>
       </div>
     </aside>

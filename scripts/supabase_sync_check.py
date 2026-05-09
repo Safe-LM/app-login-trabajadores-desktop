@@ -1,18 +1,21 @@
 """
-Verificación de integridad del schema Supabase — Safe Link Monitoring.
+Verificacion de integridad del schema Supabase — Safe Link Monitoring SaaS.
 Ejecutado por GitHub Actions en cada push a main.
 
+Valida el schema multitenant SaaS v1 (migracion 20260429_multitenant_saas_v1.sql)
+y migraciones posteriores (provisioning, hwid_lock, embeddings, realtime).
+
 Checks:
-  1. Conexión con Supabase
-  2. Tablas requeridas existen y son accesibles
-  3. Columnas críticas presentes en cada tabla
-  4. Vistas v_asistencias_detalle y v_estado_empleados_hoy accesibles
-  5. Sincronización de conteo empleados (solo si JSON local existe)
+  1. Conexion con Supabase
+  2. Tablas SaaS requeridas (empresas, sucursales, empleados, embeddings_faciales,
+     dispositivos, registros_asistencia)
+  3. Columnas criticas en empleados y registros_asistencia
+  4. Vista v_asistencias_hoy accesible
+  5. Extension pgvector instalada (verificada indirectamente via embeddings)
 """
 
 import os
 import sys
-import json
 from pathlib import Path
 
 try:
@@ -23,22 +26,22 @@ except ImportError as _e:
     sys.exit(1)
 
 root_dir = Path(__file__).resolve().parent.parent
-sys.path.append(str(root_dir / "src"))
-
 load_dotenv(root_dir / ".env")
 
-# Columnas que deben existir (verificadas con SELECT)
-EMPLEADOS_COLS = "id, employee_id, nombre, apellido, puesto, zona, sucursal, activo"
-ASISTENCIAS_COLS = (
-    "id, empleado_id, tipo, timestamp, confianza, "
-    "reconocimiento_facial, metodo, ubicacion, notas"
-)
+# ---------------------------------------------------------------------------
+# Schema esperado (SaaS multitenant v1)
+# ---------------------------------------------------------------------------
 
-# Vistas requeridas
-REQUIRED_VIEWS = [
-    "v_asistencias_detalle",
-    "v_estado_empleados_hoy",
-]
+REQUIRED_TABLES = {
+    "empresas":             "id, nombre, slug, plan, activa, max_empleados, max_estaciones, timezone",
+    "sucursales":           "id, empresa_id, nombre, zona, ciudad, activa",
+    "empleados":            "id, empresa_id, sucursal_id, nombre, apellido, employee_code, puesto, activo, enrollado",
+    "embeddings_faciales":  "id, empleado_id, empresa_id, modelo_version, es_augmentado",
+    "dispositivos":         "id, empresa_id, sucursal_id, nombre, api_key, activo",
+    "registros_asistencia": "id, empresa_id, empleado_id, dispositivo_id, tipo, timestamp, confianza, reconocimiento_facial, sincronizado",
+}
+
+REQUIRED_VIEWS = ["v_asistencias_hoy"]
 
 errors: list[str] = []
 warnings: list[str] = []
@@ -46,14 +49,14 @@ warnings: list[str] = []
 
 def check(label: str, ok: bool, msg: str = ""):
     if ok:
-        print(f"  ✅ {label}")
+        print(f"  [OK] {label}")
     else:
-        print(f"  ❌ {label}" + (f": {msg}" if msg else ""))
+        print(f"  [FAIL] {label}" + (f": {msg}" if msg else ""))
         errors.append(label)
 
 
 def warn(label: str, msg: str = ""):
-    print(f"  ⚠️  {label}" + (f": {msg}" if msg else ""))
+    print(f"  [WARN] {label}" + (f": {msg}" if msg else ""))
     warnings.append(label)
 
 
@@ -62,136 +65,79 @@ def main():
     key = os.environ.get("SUPABASE_KEY", "").strip()
 
     if not url or not key:
-        print("❌ SUPABASE_URL o SUPABASE_KEY no configurados. Abortando.")
+        print("[FAIL] SUPABASE_URL o SUPABASE_KEY no configurados. Abortando.")
         sys.exit(1)
 
     # ------------------------------------------------------------------
-    # 1. Conexión
+    # 1. Conexion
     # ------------------------------------------------------------------
-    print("\n[1/5] Conexión con Supabase...")
+    print("\n[1/4] Conexion con Supabase...")
     try:
         sb: Client = create_client(url, key)
-        print("  ✅ Cliente creado correctamente.")
+        print("  [OK] Cliente creado correctamente.")
     except Exception as e:
-        print(f"  ❌ Error de conexión: {e}")
+        print(f"  [FAIL] Error de conexion: {e}")
         sys.exit(1)
 
     # ------------------------------------------------------------------
-    # 2. Tabla empleados — columnas críticas
+    # 2. Tablas SaaS — existen y columnas criticas accesibles
     # ------------------------------------------------------------------
-    print("\n[2/5] Verificando tabla 'empleados'...")
-    try:
-        sb.table("empleados").select(EMPLEADOS_COLS).limit(1).execute()
-        check("Columnas base de empleados", True)
-    except Exception as e:
-        check("Columnas base de empleados", False, str(e))
-
-    # Columnas v2 (opcionales aún si la migración no se aplicó)
-    for col in ("activo", "turno", "hora_entrada_default", "updated_at"):
+    print("\n[2/4] Verificando tablas SaaS multitenant...")
+    for table, cols in REQUIRED_TABLES.items():
         try:
-            sb.table("empleados").select(col).limit(1).execute()
-            check(f"Columna empleados.{col} (v2)", True)
+            sb.table(table).select(cols).limit(1).execute()
+            check(f"Tabla '{table}' con columnas base", True)
         except Exception as e:
-            warn(f"Columna empleados.{col} no encontrada (aplica 20260320_schema_v2.sql)", str(e))
+            check(f"Tabla '{table}' con columnas base", False, str(e))
 
     # ------------------------------------------------------------------
-    # 3. Tabla asistencias — columnas críticas
+    # 3. Vistas
     # ------------------------------------------------------------------
-    print("\n[3/5] Verificando tabla 'asistencias'...")
-    try:
-        sb.table("asistencias").select(ASISTENCIAS_COLS).limit(1).execute()
-        check("Columnas base de asistencias", True)
-    except Exception as e:
-        check("Columnas base de asistencias", False, str(e))
-
-    for col in ("reconocimiento_facial", "metodo", "notas", "dispositivo", "sincronizado_en"):
-        try:
-            sb.table("asistencias").select(col).limit(1).execute()
-            check(f"Columna asistencias.{col} (v2)", True)
-        except Exception as e:
-            warn(f"Columna asistencias.{col} no encontrada (aplica 20260320_schema_v2.sql)", str(e))
-
-    # ------------------------------------------------------------------
-    # 4. Vistas
-    # ------------------------------------------------------------------
-    print("\n[4/5] Verificando vistas...")
+    print("\n[3/4] Verificando vistas...")
     for view in REQUIRED_VIEWS:
         try:
             sb.from_(view).select("*").limit(1).execute()
             check(f"Vista '{view}' accesible", True)
         except Exception as e:
-            warn(f"Vista '{view}' no disponible (aplica 20260320_schema_v2.sql)", str(e))
-
-    # Vista legacy (debe existir siempre)
-    try:
-        sb.from_("v_asistencias_con_nombre").select("*").limit(1).execute()
-        check("Vista 'v_asistencias_con_nombre' (legado)", True)
-    except Exception as e:
-        check("Vista 'v_asistencias_con_nombre' (legado)", False, str(e))
+            check(f"Vista '{view}' accesible", False, str(e))
 
     # ------------------------------------------------------------------
-    # 5. Sincronización de conteo (solo si JSON local existe)
+    # 4. Tablas de provisioning / monitoring (advertencias, no bloquean)
     # ------------------------------------------------------------------
-    print("\n[5/5] Verificando sincronización de empleados...")
-    json_path = root_dir / "database_fotos" / "json" / "employees_db.json"
-    if not json_path.exists():
-        warn(
-            "employees_db.json no encontrado en el runner",
-            "Normal en CI — el archivo de fotos no se commitea al repo",
-        )
-    else:
+    print("\n[4/4] Verificando tablas de provisioning (opcionales)...")
+    optional_tables = [
+        ("station_pairing_codes",   "20260501_smart_pairing.sql"),
+        ("station_provisioning",    "20260503_provisioning.sql"),
+        ("station_heartbeats",      "20260430_station_monitoring.sql"),
+    ]
+    for table, migration in optional_tables:
         try:
-            with open(json_path, "r", encoding="utf-8") as f:
-                local_employees = json.load(f)
-            local_count = len(local_employees)
-
-            res = sb.table("empleados").select("id", count="exact").execute()
-            cloud_count = res.count or 0
-
-            print(f"  📊 Empleados locales (JSON): {local_count}")
-            print(f"  📊 Empleados en nube:        {cloud_count}")
-
-            if local_count != cloud_count:
-                diff = abs(local_count - cloud_count)
-                # Diferencia pequeña (≤5) → warning, no error
-                if diff <= 5:
-                    warn(
-                        f"Diferencia de {diff} empleados entre local y nube",
-                        "Posible sincronización pendiente",
-                    )
-                else:
-                    check(
-                        f"Conteo empleados ({local_count} local vs {cloud_count} nube)",
-                        False,
-                        f"Diferencia de {diff}. Ejecuta 'python scripts/massive_cleanup.py'",
-                    )
-            else:
-                check("Conteo empleados sincronizado", True)
+            sb.table(table).select("*").limit(1).execute()
+            check(f"Tabla '{table}'", True)
         except Exception as e:
-            warn("Error verificando conteo de empleados", str(e))
+            warn(f"Tabla '{table}' no encontrada (aplica {migration})", str(e))
 
     # ------------------------------------------------------------------
     # Resultado final
     # ------------------------------------------------------------------
     print("\n" + "=" * 60)
     if errors:
-        print(f"❌ {len(errors)} error(es) crítico(s):")
+        print(f"[FAIL] {len(errors)} error(es) critico(s):")
         for e in errors:
-            print(f"   • {e}")
+            print(f"   - {e}")
         if warnings:
-            print(f"⚠️  {len(warnings)} advertencia(s) (no bloquean CI):")
+            print(f"[WARN] {len(warnings)} advertencia(s) (no bloquean CI):")
             for w in warnings:
-                print(f"   • {w}")
-        print("\n💡 Aplica la migración 20260320_schema_v2.sql en Supabase SQL Editor.")
+                print(f"   - {w}")
+        print("\nAplica las migraciones pendientes desde supabase/migrations/ en orden.")
         sys.exit(1)
     else:
         if warnings:
-            print(f"✅ Sin errores críticos. {len(warnings)} advertencia(s):")
+            print(f"[OK] Sin errores criticos. {len(warnings)} advertencia(s):")
             for w in warnings:
-                print(f"   • {w}")
-            print("\n💡 Para eliminar advertencias aplica 20260320_schema_v2.sql.")
+                print(f"   - {w}")
         else:
-            print("✅ Todas las verificaciones pasaron correctamente.")
+            print("[OK] Todas las verificaciones pasaron correctamente.")
         sys.exit(0)
 
 

@@ -1,4 +1,4 @@
-name: ☁️ Supabase Cloud Sync Check
+name: Supabase Cloud Sync Check
 
 on:
   push:
@@ -9,31 +9,28 @@ on:
 
 jobs:
   supabase-verify:
-    name: 🛡️ Supabase Sync Validator
+    name: Supabase Schema Validator (SaaS multitenant)
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout código
+      - name: Checkout codigo
         uses: actions/checkout@v4
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.11'
 
-      - name: Instalar dependencias de Supabase
-        run: pip install supabase>=2.3.0 python-dotenv>=1.0.0
+      - name: Instalar dependencias
+        run: pip install "supabase>=2.3.0" "python-dotenv>=1.0.0"
 
-      - name: Ejecutar verificación de sincronización
+      - name: Ejecutar verificacion de schema
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          echo "☁️ Iniciando validación de nube..."
-          if [ -z "${{ secrets.SUPABASE_URL }}" ] || [ -z "${{ secrets.SUPABASE_KEY }}" ]; then
-            echo "⚠️ ADVERTENCIA: No se han configurado los secretos SUPABASE_URL y SUPABASE_KEY en GitHub."
-            echo "Skipping check to avoid failure."
+          if [ -z "${SUPABASE_URL}" ] || [ -z "${SUPABASE_KEY}" ]; then
+            echo "Secretos SUPABASE_URL/SUPABASE_KEY no configurados — skipping."
             exit 0
           fi
           python scripts/supabase_sync_check.py
-          echo "✅ Nube e integridad de datos verificadas"

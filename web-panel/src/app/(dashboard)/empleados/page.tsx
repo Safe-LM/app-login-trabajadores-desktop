@@ -2,7 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { EmpleadosClient } from "./empleados-client";
 
-export const revalidate = 60;
+// Realtime aplica cambios CRUD al instante; SSR cada 5 min como fallback.
+export const revalidate = 300;
 
 type Empleado = {
   id: string;

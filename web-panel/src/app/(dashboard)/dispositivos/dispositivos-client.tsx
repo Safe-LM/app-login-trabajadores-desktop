@@ -1036,7 +1036,19 @@ export function DispositivosClient({
     const supabase = createClient();
     const channel = supabase
       .channel("dispositivos-watch")
-      .on("postgres_changes", { event: "*", schema: "public", table: "dispositivos" }, refresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "dispositivos" }, (payload) => {
+        // Aplicacion fina al estado local — sin full refetch
+        if (payload.eventType === "INSERT") {
+          // INSERT trae datos parciales; pedimos un refresh ligero solo en este caso
+          refresh();
+        } else if (payload.eventType === "UPDATE") {
+          const updated = payload.new as Partial<Dispositivo> & { id: string };
+          setDispositivos((prev) => prev.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)));
+        } else if (payload.eventType === "DELETE") {
+          const deleted = payload.old as { id: string };
+          setDispositivos((prev) => prev.filter((d) => d.id !== deleted.id));
+        }
+      })
       .subscribe((s) => setRealtimeOk(s === "SUBSCRIBED"));
     return () => { supabase.removeChannel(channel); };
   }, [refresh]);

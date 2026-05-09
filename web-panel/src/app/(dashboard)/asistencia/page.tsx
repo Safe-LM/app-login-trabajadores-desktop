@@ -3,7 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { AsistenciaClient } from "./asistencia-client";
 
-export const revalidate = 20;
+// Realtime hidrata nuevos registros al instante; SSR solo cada 5 min como fallback.
+export const revalidate = 300;
 
 export default async function AsistenciaPage() {
   const supabase = await createClient();

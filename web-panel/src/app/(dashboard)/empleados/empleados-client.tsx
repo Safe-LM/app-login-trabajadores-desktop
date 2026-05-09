@@ -308,19 +308,45 @@ export function EmpleadosClient({ empleados: initial, sucursales }: { empleados:
 
   const refresh = () => startT(() => { router.refresh(); });
 
-  // Realtime: cuando una estación marca un empleado como enrollado, se actualiza el badge sin refresh
+  // Realtime: aplica cambios CRUD al instante sin recargar la pagina.
+  // - INSERT: si otro admin/dispositivo crea un empleado, aparece en la lista.
+  // - UPDATE: cambios de cualquier campo (incluido enrollado por estaciones).
+  // - DELETE: removido en otra sesion -> desaparece de la lista.
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
-      .channel("empleados-enrollment")
+      .channel("empleados-realtime")
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "empleados" },
-        (payload) => {
-          const updated = payload.new as { id: string; enrollado: boolean };
-          setEmpleados((prev) =>
-            prev.map((e) => (e.id === updated.id ? { ...e, enrollado: updated.enrollado } : e))
-          );
+        { event: "*", schema: "public", table: "empleados" },
+        async (payload) => {
+          if (payload.eventType === "UPDATE") {
+            const updated = payload.new as Partial<Empleado> & { id: string };
+            setEmpleados((prev) =>
+              prev.map((e) => (e.id === updated.id ? { ...e, ...updated } : e))
+            );
+          } else if (payload.eventType === "DELETE") {
+            const deleted = payload.old as { id: string };
+            setEmpleados((prev) => prev.filter((e) => e.id !== deleted.id));
+          } else if (payload.eventType === "INSERT") {
+            const ins = payload.new as { id: string };
+            // Hidratar el join sucursales para mostrar el nombre
+            const supabase = createClient();
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data } = await (supabase as any)
+              .from("empleados")
+              .select("id, nombre, apellido, puesto, employee_code, enrollado, activo, sucursal_id, sucursales(nombre)")
+              .eq("id", ins.id)
+              .single();
+            if (data) {
+              setEmpleados((prev) => {
+                if (prev.some((e) => e.id === data.id)) return prev;
+                return [...prev, data as Empleado].sort((a, b) =>
+                  (a.apellido ?? "").localeCompare(b.apellido ?? "")
+                );
+              });
+            }
+          }
         }
       )
       .subscribe();

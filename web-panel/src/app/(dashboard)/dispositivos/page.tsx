@@ -2,7 +2,8 @@
 import { redirect } from "next/navigation";
 import { DispositivosClient } from "./dispositivos-client";
 
-export const revalidate = 30;
+// Realtime aplica cambios en vivo; revalidamos solo cada 5 min como fallback.
+export const revalidate = 300;
 
 type Dispositivo = {
   id: string;

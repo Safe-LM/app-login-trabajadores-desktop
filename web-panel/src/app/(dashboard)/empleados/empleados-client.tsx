@@ -473,34 +473,62 @@ export function EmpleadosClient({ empleados: initial, sucursales }: { empleados:
       />
 
       {/* table */}
-      <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
+      <div className="card animate-fade-up" style={{ overflow: "hidden", animationDelay: "60ms", animationFillMode: "backwards" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
-            <tr style={{ borderBottom: "1px solid var(--border)" }}>
+            <tr style={{
+              borderBottom: "1px solid var(--border)",
+              background: "linear-gradient(180deg, rgba(255,255,255,0.015) 0%, transparent 100%)",
+            }}>
               {["Empleado", "Puesto", "Sucursal", "Enrollado", "Estado", ""].map((h) => (
-                <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 10, fontWeight: 600, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.07em", whiteSpace: "nowrap" }}>{h}</th>
+                <th key={h} style={{ padding: "12px 18px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.1em", whiteSpace: "nowrap" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ padding: "48px 20px", textAlign: "center", color: "var(--text-faint)", fontSize: 13 }}>
-                  {search ? "Sin resultados para esa búsqueda." : "No hay empleados registrados."}
+                <td colSpan={6} style={{ padding: "60px 20px", textAlign: "center" }}>
+                  <div style={{
+                    width: 52, height: 52, borderRadius: 14,
+                    background: "linear-gradient(135deg, rgba(37,99,235,0.08) 0%, rgba(37,99,235,0.02) 100%)",
+                    border: "1px solid var(--border)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    margin: "0 auto 14px", color: "var(--text-faint)",
+                  }}>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                    </svg>
+                  </div>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>
+                    {search ? "Sin resultados" : "Sin empleados aún"}
+                  </p>
+                  <p style={{ fontSize: 12, color: "var(--text-faint)" }}>
+                    {search ? "Prueba con otro término de búsqueda." : "Crea el primer empleado o importa desde Excel."}
+                  </p>
                 </td>
               </tr>
-            ) : filtered.map((emp) => (
-              <tr key={emp.id} style={{ borderBottom: "1px solid rgba(255,255,255,.04)", transition: "background 120ms" }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,.025)")}
-                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                <td style={{ padding: "12px 16px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ width: 34, height: 34, borderRadius: 8, background: "var(--accent)", opacity: .85, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
-                      {emp.nombre[0]}{emp.apellido[0]}
+            ) : filtered.map((emp, i) => (
+              <tr key={emp.id} className="emp-row" style={{
+                borderBottom: i < filtered.length - 1 ? "1px solid rgba(255,255,255,.04)" : "none",
+                transition: "background 120ms, box-shadow 120ms",
+                position: "relative",
+              }}>
+                <td style={{ padding: "14px 18px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: "50%",
+                      background: `linear-gradient(135deg, hsl(${(emp.nombre.charCodeAt(0) * 13) % 360}, 60%, 55%) 0%, hsl(${(emp.apellido.charCodeAt(0) * 17) % 360}, 60%, 45%) 100%)`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0,
+                      boxShadow: "0 4px 10px -4px rgba(0,0,0,0.5)",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                    }}>
+                      {emp.nombre[0]?.toUpperCase()}{emp.apellido[0]?.toUpperCase()}
                     </div>
                     <div>
                       <p style={{ fontWeight: 600, color: "var(--text-primary)" }}>{emp.nombre} {emp.apellido}</p>
-                      {emp.employee_code && <p style={{ fontSize: 11, color: "var(--text-faint)" }}>#{emp.employee_code}</p>}
+                      {emp.employee_code && <p style={{ fontSize: 11, color: "var(--text-faint)", fontVariantNumeric: "tabular-nums" }}>#{emp.employee_code}</p>}
                     </div>
                   </div>
                 </td>

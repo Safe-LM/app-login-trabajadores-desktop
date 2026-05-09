@@ -1,12 +1,26 @@
 name: Station Installer (Windows .exe)
 
-# Compila el bundle PyInstaller + frontend React + instalador NSIS
-# y publica todo como GitHub Release cuando se pushea un tag station-v*.
+# Compila el bundle PyInstaller + frontend React + instalador NSIS.
+#
+# Triggers:
+#   - Push a main: build de validacion (artifact 30d, NO crea release)
+#   - PR a main: validar que el build sigue funcionando
+#   - Push de tag station-v*: build de release (publica en GitHub Releases)
+#   - Manual (workflow_dispatch): pruebas con version custom
 
 on:
   push:
+    branches: [main]
+    paths:
+      - 'station/**'
+      - '.github/workflows/station-installer.yml'
     tags:
       - 'station-v*'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'station/**'
+      - '.github/workflows/station-installer.yml'
   workflow_dispatch:
     inputs:
       version:
@@ -24,19 +38,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # ─── Calcular version desde tag o input ────────────────────────
+      # ─── Calcular version segun trigger ────────────────────────────
+      # - Tag station-v5.1.0    -> 5.1.0          (release oficial)
+      # - workflow_dispatch     -> input.version  (prueba manual)
+      # - push a main / PR      -> 0.0.0-{sha}    (build de validacion)
       - name: Calcular version
         id: version
         shell: pwsh
         run: |
+          $sha = "${{ github.sha }}".Substring(0, 7)
           if ("${{ github.event_name }}" -eq "workflow_dispatch") {
             $v = "${{ github.event.inputs.version }}"
-          } else {
-            # tag formato station-v5.1.0 -> 5.1.0
+            $isRelease = "true"
+          } elseif ("${{ github.ref_type }}" -eq "tag") {
             $v = "${{ github.ref_name }}".Replace("station-v", "")
+            $isRelease = "true"
+          } else {
+            # Push a main o PR: version efimera para validar build
+            $v = "0.0.0-$sha"
+            $isRelease = "false"
           }
           Write-Output "version=$v" >> $env:GITHUB_OUTPUT
-          Write-Output "Version: $v"
+          Write-Output "is_release=$isRelease" >> $env:GITHUB_OUTPUT
+          Write-Output "Version: $v (release: $isRelease)"
 
       # ─── Setup ─────────────────────────────────────────────────────
       - name: Setup Python 3.10

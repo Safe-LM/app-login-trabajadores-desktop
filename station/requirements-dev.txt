@@ -1,0 +1,22 @@
+# ─────────────────────────────────────────────────────────────────────
+# Safe Link Station — Dependencias DEV (entrenamiento offline + tests)
+# NO se instalan en el .exe del cliente. Solo en maquinas de
+# investigacion o entrenamiento masivo.
+# ─────────────────────────────────────────────────────────────────────
+
+-r requirements.txt
+
+# Reconocimiento facial avanzado (entrenamiento)
+torch>=2.0.0
+torchvision>=0.15.0
+ultralytics>=8.0.0
+scikit-image>=0.20.0
+scikit-learn>=1.3.0
+albumentations>=1.3.0,<2.0.0
+
+# Conexion directa a Postgres (no necesaria en runtime, solo dev/scripts)
+psycopg2-binary>=2.9.0
+
+# Tests
+pytest>=8.0.0
+pytest-qt>=4.4.0

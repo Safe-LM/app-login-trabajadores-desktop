@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const nav = [
   { href: "/dashboard",    label: "Dashboard",    icon: GridIcon,      group: "general" },
@@ -18,6 +18,19 @@ export function SidebarNav({ userEmail }: { userEmail: string }) {
   const pathname  = usePathname();
   const router    = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Cierra el drawer al cambiar de ruta
+  useEffect(() => { setMobileOpen(false); }, [pathname]);
+
+  // Cierra con Escape
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setMobileOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -30,13 +43,37 @@ export function SidebarNav({ userEmail }: { userEmail: string }) {
   const gestion = nav.filter(n => n.group === "gestion");
 
   return (
-    <aside style={{
-      width: "var(--sidebar-width)", flexShrink: 0,
-      borderRight: "1px solid var(--border)",
-      display: "flex", flexDirection: "column",
-      background: "var(--bg-black)",
-      position: "sticky", top: 0, height: "100vh",
-    }}>
+    <>
+      {/* Boton hamburguesa (solo movil) */}
+      <button
+        type="button"
+        aria-label="Abrir menu"
+        onClick={() => setMobileOpen(true)}
+        className="sidebar-burger"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+
+      {/* Backdrop (solo movil cuando esta abierto) */}
+      {mobileOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={mobileOpen ? "sidebar sidebar--open" : "sidebar"}
+        style={{
+          width: "var(--sidebar-width)", flexShrink: 0,
+          borderRight: "1px solid var(--border)",
+          display: "flex", flexDirection: "column",
+          background: "var(--bg-black)",
+          position: "sticky", top: 0, height: "100vh",
+        }}>
       {/* Logo */}
       <div style={{
         height: "var(--header-height)", padding: "0 16px",
@@ -132,6 +169,7 @@ export function SidebarNav({ userEmail }: { userEmail: string }) {
         </button>
       </div>
     </aside>
+    </>
   );
 }
 

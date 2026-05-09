@@ -2,6 +2,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 type Registro = {
   id: string;
@@ -58,21 +59,24 @@ export function AsistenciaClient({ registros: initial }: { registros: Registro[]
 
   return (
     <div style={{ padding: "28px 32px", maxWidth: 1200, margin: "0 auto" }} className="animate-fade-up">
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.03em", color: "var(--text-primary)", marginBottom: 2 }}>Asistencia</h1>
-          <p style={{ fontSize: 12, color: "var(--text-muted)" }}>Historial de registros y auditoría</p>
-        </div>
-        <div style={{ display: "flex", gap: 10 }}>
+      <PageHeader
+        title="Asistencia"
+        subtitle="Historial de registros y auditoría"
+        icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>}
+        iconColor="#22c55e"
+        stats={[
+          { label: "Registros", value: filtered.length },
+        ]}
+        actions={
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text-faint)", textTransform: "uppercase" }}>Filtrar por fecha</label>
+            <label style={{ fontSize: 10, fontWeight: 600, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Filtrar por fecha</label>
             <input type="date" value={dateFilter} onChange={e => setDateFilter(e.target.value)} style={{
               padding: "8px 12px", background: "var(--bg-elevated)", border: "1px solid var(--border)",
-              borderRadius: 8, fontSize: 13, color: "var(--text-primary)", outline: "none", colorScheme: "dark"
+              borderRadius: 8, fontSize: 13, color: "var(--text-primary)", outline: "none", colorScheme: "dark",
             }} />
           </div>
-        </div>
-      </div>
+        }
+      />
 
       <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
         <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>

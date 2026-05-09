@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useNotifications } from "@/components/notifications/NotificationProvider";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 type Sucursal = {
   id: string;
@@ -31,35 +32,36 @@ export function SucursalesClient({ sucursales: initial }: { sucursales: Sucursal
       {selected && <ModalSucursal sucursal={selected} onClose={() => setSelected(null)} onDone={() => router.refresh()} />}
 
       <div style={{ padding: "28px 32px", maxWidth: 1200, margin: "0 auto" }} className="animate-fade-up">
-        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 32, gap: 20 }}>
-        <div>
-          <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.04em", color: "var(--text-primary)", marginBottom: 4 }}>Sucursales</h1>
-          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Gestiona los puntos físicos de registro y sus dispositivos</p>
-        </div>
-        <div style={{ display: "flex", gap: 12 }}>
-           <div style={{ position: "relative" }}>
-            <svg style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-faint)" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input 
-              value={search} 
-              onChange={e => setSearch(e.target.value)} 
-              placeholder="Buscar sucursal..." 
-              style={{ 
-                padding: "10px 14px 10px 36px", background: "var(--bg-elevated)", border: "1px solid var(--border)", 
-                borderRadius: 10, fontSize: 13, color: "var(--text-primary)", outline: "none", width: 240
-              }} 
-            />
-          </div>
-          <button onClick={() => setShowCrear(true)} style={{
-            padding: "10px 20px", background: "var(--accent)", color: "#fff",
-            border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700,
-            cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
-            boxShadow: "0 4px 20px var(--accent-glow)", transition: "transform 0.2s"
-          }} onMouseEnter={e => e.currentTarget.style.transform = "translateY(-2px)"} onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Nueva Sucursal
-          </button>
-        </div>
-      </div>
+        <PageHeader
+          title="Sucursales"
+          subtitle="Gestiona los puntos físicos de registro y sus dispositivos"
+          icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M3 7v1a3 3 0 006 0V7m0 1a3 3 0 006 0V7m0 1a3 3 0 006 0V7M4 21V4a2 2 0 012-2h12a2 2 0 012 2v17M9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4"/></svg>}
+          iconColor="#a78bfa"
+          stats={[
+            { label: "Total", value: sucursales.length },
+            { label: "Activas", value: sucursales.filter(s => s.activa).length },
+          ]}
+          actions={
+            <>
+              <div style={{ position: "relative" }}>
+                <svg style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-faint)" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Buscar sucursal..."
+                  style={{
+                    padding: "9px 14px 9px 36px", background: "var(--bg-elevated)", border: "1px solid var(--border)",
+                    borderRadius: 9, fontSize: 13, color: "var(--text-primary)", outline: "none", width: 240,
+                  }}
+                />
+              </div>
+              <button onClick={() => setShowCrear(true)} className="btn btn-primary btn-sm">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Nueva Sucursal
+              </button>
+            </>
+          }
+        />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 20 }}>
         {filtered.map((s) => (

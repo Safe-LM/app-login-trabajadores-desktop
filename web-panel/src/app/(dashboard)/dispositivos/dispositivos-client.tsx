@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 import { useNotifications } from "@/components/notifications/NotificationProvider";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Modal, FieldLabel, btnGhost, inputStyle, type Dispositivo, type Sucursal } from "./_shared";
 // Lazy-load: estos modales solo se abren ocasionalmente. Sacarlos del bundle
 // inicial baja el JS de la pagina principal ~30%.
@@ -582,33 +583,33 @@ export function DispositivosClient({
         onOptimisticUpdate={(updated) => setDispositivos((prev) => prev.map((x) => x.id === updated.id ? { ...x, ...updated } : x))}
       />}
       {logsDevice    && <LogsModal   d={logsDevice} onClose={() => setLogsDevice(null)} />}
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }} className="animate-fade-up">
-        <div>
-          <h1 style={{ fontSize: 21, fontWeight: 800, letterSpacing: "-0.04em", color: "var(--text-primary)", marginBottom: 3, lineHeight: 1.2 }}>
-            Estaciones
-          </h1>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{
-              width: 6, height: 6, borderRadius: "50%",
-              background: realtimeOk ? "#22c55e" : "#52525b",
-              transition: "background 400ms",
-              boxShadow: realtimeOk ? "0 0 8px rgba(34,197,94,0.6)" : "none",
-            }} className={realtimeOk ? "animate-pulse-dot" : undefined} />
-            <span style={{ fontSize: 11, color: "var(--text-faint)" }}>
-              {realtimeOk ? "Tiempo real activo" : "Conectando..."}
-            </span>
-            <span style={{ fontSize: 11, color: "var(--text-faint)" }}>Â·</span>
-            <span style={{ fontSize: 11, color: "var(--text-faint)" }}>{total} estación{total !== 1 ? "es" : ""}</span>
-          </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <PageHeader
+        title="Estaciones"
+        subtitle={
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <span
+              style={{
+                width: 6, height: 6, borderRadius: "50%",
+                background: realtimeOk ? "#22c55e" : "#52525b",
+                boxShadow: realtimeOk ? "0 0 8px rgba(34,197,94,0.6)" : "none",
+              }}
+              className={realtimeOk ? "animate-pulse-dot" : undefined}
+            />
+            {realtimeOk ? "Tiempo real activo" : "Conectando..."}
+          </span>
+        }
+        icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>}
+        iconColor="#3b82f6"
+        stats={[
+          { label: "Total", value: total },
+        ]}
+        actions={
           <button onClick={() => setShowRegistrar(true)} className="btn btn-primary btn-sm">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Registrar estación
           </button>
-        </div>
-      </div>
+        }
+      />
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 24 }} className="animate-fade-up">
         <StatCard label="En línea"   value={online}  color="#22c55e" total={total} icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>} />

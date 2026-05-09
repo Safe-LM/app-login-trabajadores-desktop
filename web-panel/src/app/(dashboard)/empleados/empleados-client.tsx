@@ -3,6 +3,7 @@ import { useState, useTransition, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useNotifications } from "@/components/notifications/NotificationProvider";
+import { PageHeader } from "@/components/ui/PageHeader";
 // XLSX se carga bajo demanda dentro de handleExcelImport — pesa ~300KB
 
 type Sucursal = { id: string; nombre: string };
@@ -442,33 +443,34 @@ export function EmpleadosClient({ empleados: initial, sucursales }: { empleados:
         />
       )}
 
-      {/* header */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.03em", color: "var(--text-primary)", marginBottom: 2 }}>Empleados</h1>
-          <p style={{ fontSize: 12, color: "var(--text-muted)" }}>{empleados.length} empleados registrados</p>
-        </div>
-        <div style={{ display: "flex", gap: 10 }}>
-          {/* import */}
-          <input type="file" ref={fileExcelRef} hidden accept=".xlsx, .xls, .csv" onChange={(e) => e.target.files?.[0] && handleExcelImport(e.target.files[0])} />
-          <button onClick={() => setModal("import-info")} className="btn btn-secondary btn-sm">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            Importar Excel
-          </button>
-
-          {/* search */}
-          <div style={{ position: "relative" }}>
-            <svg style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-faint)", pointerEvents: "none" }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar personal..." style={{ paddingLeft: 32, paddingRight: 12, paddingTop: 8, paddingBottom: 8, background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 13, color: "var(--text-primary)", outline: "none", fontFamily: "inherit", width: 220, transition: "border-color 150ms" }}
-              onFocus={(e) => e.currentTarget.style.borderColor = "var(--accent)"}
-              onBlur={(e)  => e.currentTarget.style.borderColor = "var(--border)"} />
-          </div>
-          <button onClick={() => setModal("create")} className="btn btn-primary btn-sm">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Nuevo Empleado
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Empleados"
+        subtitle="Personal registrado en el sistema"
+        icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>}
+        stats={[
+          { label: "Total", value: empleados.length },
+          { label: "Activos", value: empleados.filter(e => e.activo).length },
+        ]}
+        actions={
+          <>
+            <input type="file" ref={fileExcelRef} hidden accept=".xlsx, .xls, .csv" onChange={(e) => e.target.files?.[0] && handleExcelImport(e.target.files[0])} />
+            <button onClick={() => setModal("import-info")} className="btn btn-secondary btn-sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Importar Excel
+            </button>
+            <div style={{ position: "relative" }}>
+              <svg style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-faint)", pointerEvents: "none" }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar personal..." style={{ paddingLeft: 32, paddingRight: 12, paddingTop: 8, paddingBottom: 8, background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 13, color: "var(--text-primary)", outline: "none", fontFamily: "inherit", width: 220, transition: "border-color 150ms" }}
+                onFocus={(e) => e.currentTarget.style.borderColor = "var(--accent)"}
+                onBlur={(e)  => e.currentTarget.style.borderColor = "var(--border)"} />
+            </div>
+            <button onClick={() => setModal("create")} className="btn btn-primary btn-sm">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Nuevo Empleado
+            </button>
+          </>
+        }
+      />
 
       {/* table */}
       <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>

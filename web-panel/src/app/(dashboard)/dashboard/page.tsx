@@ -3,7 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { DashboardClient } from "./dashboard-client";
 
-export const revalidate = 30;
+// Realtime con debounce actualiza filas afectadas en vivo; SSR solo
+// cada 5 min como fallback (cambio de fecha, primera carga, etc.).
+export const revalidate = 300;
 
 type AsistenciaHoy = {
   empresa_id: string;

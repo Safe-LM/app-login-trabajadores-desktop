@@ -1,7 +1,6 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
 
 type AsistenciaHoy = {
   empresa_id: string;
@@ -16,22 +15,58 @@ type AsistenciaHoy = {
 export function DashboardClient({ initial }: { initial: AsistenciaHoy[] }) {
   const [asistencias, setAsistencias] = useState(initial);
   const [realtimeOk, setRealtimeOk] = useState(false);
-  const router = useRouter();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { setAsistencias(initial); }, [initial]);
 
+  // Realtime granular: en vez de router.refresh() (full SSR), refrescamos
+  // solo las filas afectadas en la vista v_asistencias_hoy. Si llegan
+  // muchos eventos seguidos (hora pico), debounce a 400ms para batchear.
   useEffect(() => {
     const supabase = createClient();
+    const pendingEmpleados = new Set<string>();
+
+    async function flushUpdates() {
+      if (pendingEmpleados.size === 0) return;
+      const ids = Array.from(pendingEmpleados);
+      pendingEmpleados.clear();
+
+      const { data } = await supabase
+        .from("v_asistencias_hoy")
+        .select("*")
+        .in("empleado_id", ids);
+
+      if (!data) return;
+      const updates = data as AsistenciaHoy[];
+
+      setAsistencias((prev) => {
+        const map = new Map(prev.map((a) => [a.empleado_id, a]));
+        for (const u of updates) map.set(u.empleado_id, u);
+        return Array.from(map.values());
+      });
+    }
+
     const channel = supabase
       .channel("dashboard-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "registros_asistencia" }, () => {
-        router.refresh();
-      })
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "registros_asistencia" },
+        (payload) => {
+          const row = (payload.new || payload.old) as { empleado_id?: string };
+          if (row?.empleado_id) pendingEmpleados.add(row.empleado_id);
+          if (debounceRef.current) clearTimeout(debounceRef.current);
+          debounceRef.current = setTimeout(flushUpdates, 400);
+        }
+      )
       .subscribe((status) => {
         setRealtimeOk(status === "SUBSCRIBED");
       });
-    return () => { supabase.removeChannel(channel); };
-  }, [router]);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const presentes = asistencias.filter((a) => a.estado === "presente").length;
   const salieron  = asistencias.filter((a) => a.estado === "salio").length;

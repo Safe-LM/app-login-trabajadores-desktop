@@ -233,17 +233,33 @@ function StatusBadge({ estado }: { estado: string }) {
 
 function EmptyState() {
   return (
-    <div className="empty-state" style={{ borderRadius: 0, border: "none", padding: "60px 20px" }}>
-      <div className="empty-state-icon">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <div style={{ padding: "70px 20px", textAlign: "center" }}>
+      <div style={{
+        position: "relative",
+        width: 64, height: 64, borderRadius: 16,
+        background: "linear-gradient(135deg, rgba(37,99,235,0.10) 0%, rgba(37,99,235,0.02) 100%)",
+        border: "1px solid rgba(37,99,235,0.20)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        margin: "0 auto 18px", color: "var(--accent-hover)",
+        boxShadow: "0 10px 30px -12px rgba(37,99,235,0.5)",
+      }}>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
           <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
           <line x1="3" y1="10" x2="21" y2="10"/>
         </svg>
+        {/* Pulse rings concentricos */}
+        <span style={{
+          position: "absolute", inset: -6, borderRadius: 20,
+          border: "1px solid rgba(37,99,235,0.18)",
+          animation: "pulse-ring 2.4s cubic-bezier(0.16,1,0.3,1) infinite",
+        }} />
       </div>
-      <p className="heading-3">Sin registros aún</p>
-      <p className="text-muted-sm" style={{ maxWidth: 320 }}>
-        Cuando los empleados se registren en las estaciones, aparecerán aquí en tiempo real.
+      <p style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginBottom: 6, letterSpacing: "-0.02em" }}>
+        Esperando primera marcación
+      </p>
+      <p style={{ fontSize: 12, color: "var(--text-faint)", maxWidth: 340, margin: "0 auto", lineHeight: 1.6 }}>
+        Cuando los empleados se identifiquen en las estaciones, los registros aparecerán aquí en tiempo real.
       </p>
     </div>
   );

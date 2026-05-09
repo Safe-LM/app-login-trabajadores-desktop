@@ -122,8 +122,28 @@ export function AsistenciaClient({ registros: initial }: { registros: Registro[]
           </div>
         ) : (
           <div style={{ padding: "80px 20px", textAlign: "center" }}>
-            <p style={{ fontSize: 14, fontWeight: 600, color: "var(--text-muted)", marginBottom: 4 }}>No se encontraron registros</p>
-            <p style={{ fontSize: 12, color: "var(--text-faint)" }}>Intenta con otro filtro de fecha o rango.</p>
+            <div style={{
+              width: 56, height: 56, borderRadius: 14,
+              background: "linear-gradient(135deg, rgba(34,197,94,0.10) 0%, rgba(34,197,94,0.02) 100%)",
+              border: "1px solid rgba(34,197,94,0.18)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              margin: "0 auto 16px", color: "#4ade80",
+              boxShadow: "0 8px 22px -10px rgba(34,197,94,0.4)",
+            }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+            </div>
+            <p style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)", marginBottom: 5 }}>
+              {dateFilter ? "Sin registros para esta fecha" : "Aún no hay registros"}
+            </p>
+            <p style={{ fontSize: 12, color: "var(--text-faint)", maxWidth: 320, margin: "0 auto" }}>
+              {dateFilter
+                ? "Prueba con otra fecha o limpia el filtro para ver toda la actividad."
+                : "Cuando los empleados se identifiquen en una estación, sus registros aparecerán aquí en tiempo real."}
+            </p>
           </div>
         )}
       </div>

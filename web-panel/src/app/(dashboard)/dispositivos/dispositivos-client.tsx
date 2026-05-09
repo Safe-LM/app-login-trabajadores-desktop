@@ -505,26 +505,42 @@ function StatCard({ label, value, color, icon, total }: {
 /* ── Empty state ── */
 function EmptyState({ onNew }: { onNew: () => void }) {
   return (
-    <div style={{
-      background: "var(--bg-card)", border: "1px solid var(--border)",
-      borderRadius: 14, padding: "56px 32px", textAlign: "center",
-      animation: "fadeUp 0.4s cubic-bezier(0.16,1,0.3,1) both",
+    <div className="card animate-fade-up" style={{
+      padding: "64px 32px", textAlign: "center", position: "relative", overflow: "hidden",
     }}>
+      {/* Background pattern grid sutil */}
+      <div aria-hidden="true" style={{
+        position: "absolute", inset: 0,
+        backgroundImage: "radial-gradient(circle at 1px 1px, rgba(37,99,235,0.06) 1px, transparent 0)",
+        backgroundSize: "20px 20px",
+        opacity: 0.5,
+        pointerEvents: "none",
+      }} />
       <div style={{
-        width: 52, height: 52, borderRadius: 14,
-        background: "var(--bg-elevated)", border: "1px solid var(--border)",
+        position: "relative",
+        width: 64, height: 64, borderRadius: 16,
+        background: "linear-gradient(135deg, rgba(37,99,235,0.14) 0%, rgba(37,99,235,0.04) 100%)",
+        border: "1px solid rgba(37,99,235,0.25)",
         display: "flex", alignItems: "center", justifyContent: "center",
-        margin: "0 auto 18px",
+        margin: "0 auto 20px", color: "var(--accent-hover)",
+        boxShadow: "0 12px 30px -10px rgba(37,99,235,0.5)",
       }}>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
         </svg>
+        <span style={{
+          position: "absolute", inset: -6, borderRadius: 20,
+          border: "1px solid rgba(37,99,235,0.18)",
+          animation: "pulse-ring 2.4s cubic-bezier(0.16,1,0.3,1) infinite",
+        }} />
       </div>
-      <p style={{ fontSize: 15, fontWeight: 700, color: "var(--text-muted)", marginBottom: 6 }}>Sin estaciones registradas</p>
-      <p style={{ fontSize: 12, color: "var(--text-faint)", marginBottom: 24, lineHeight: 1.6, maxWidth: 360, margin: "0 auto 24px" }}>
-        Crea tu primera estación y copia la API Key al archivo <code style={{ fontSize: 11, background: "rgba(255,255,255,0.05)", padding: "1px 5px", borderRadius: 4 }}>.env</code> de la máquina física.
+      <p style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginBottom: 6, letterSpacing: "-0.02em", position: "relative" }}>
+        Sin estaciones registradas
       </p>
-      <button onClick={onNew} className="btn btn-primary">
+      <p style={{ fontSize: 12, color: "var(--text-faint)", marginBottom: 22, lineHeight: 1.65, maxWidth: 380, margin: "0 auto 22px", position: "relative" }}>
+        Crea tu primera estación y copia la API Key al archivo <code style={{ fontSize: 11, background: "rgba(255,255,255,0.06)", padding: "2px 6px", borderRadius: 5, color: "#60a5fa", border: "1px solid rgba(37,99,235,0.15)" }}>.env</code> de la máquina física.
+      </p>
+      <button onClick={onNew} className="btn btn-primary" style={{ position: "relative" }}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Crear primera estación
       </button>

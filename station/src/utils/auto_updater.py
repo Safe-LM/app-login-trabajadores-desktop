@@ -1,11 +1,19 @@
 """
 Auto-Updater Module para SafeLink Station.
-Verifica actualizaciones en startup and descarga en background.
+Verifica actualizaciones en startup y descarga en background.
+
+Fuente de updates: GitHub Releases del repo del proyecto.
+Estructura esperada por release:
+  - SafeLinkStation_Setup_X.Y.Z.exe  (instalador NSIS)
+  - version.txt                       (numero de version)
+  - SHA256SUMS.txt                    (hash para verificar integridad)
+
+Para desactivar auto-update: AUTO_UPDATE_ENABLED=false en .env
 """
 
-import os
-import json
+import hashlib
 import logging
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -15,13 +23,26 @@ from urllib.error import URLError, HTTPError
 
 logger = logging.getLogger(__name__)
 
-# Configuración
-UPDATE_SERVER_URL = "https://updates.safelnk.com"
+# Repo de GitHub donde estan los releases (sobrescribible via env)
+GITHUB_REPO = os.environ.get(
+    "SAFELINK_UPDATE_REPO",
+    "Safe-LM/app-login-trabajadores-desktop",
+)
+RELEASE_LATEST = f"https://github.com/{GITHUB_REPO}/releases/latest/download"
+
+# Archivos del release
 LOCAL_VERSION_FILE = "version.txt"
 CHECK_INTERVAL_HOURS = 24
 
-# Versión actual del app
-CURRENT_VERSION = "1.0.0"
+# Version actual del app — se sobrescribe en runtime con version.txt
+# si existe en el directorio de instalacion.
+CURRENT_VERSION = "5.1.0"
+
+
+def is_enabled() -> bool:
+    """Permite al usuario desactivar updates con AUTO_UPDATE_ENABLED=false en .env"""
+    val = os.environ.get("AUTO_UPDATE_ENABLED", "true").strip().lower()
+    return val not in ("false", "0", "no", "off")
 
 
 def get_install_id() -> str:
@@ -45,21 +66,25 @@ def get_local_version() -> str:
 
 def check_for_updates() -> Tuple[bool, Optional[str], Optional[str]]:
     """
-    Verifica si hay una nueva versión disponible.
+    Verifica si hay una nueva version en GitHub Releases.
 
     Returns:
         (hay_update, nueva_version, download_url)
     """
+    if not is_enabled():
+        return False, None, None
+
     try:
-        version_url = f"{UPDATE_SERVER_URL}/version.txt"
+        version_url = f"{RELEASE_LATEST}/version.txt"
         req = Request(version_url, headers={"User-Agent": "SafeLink Station"})
-        with urlopen(req, timeout=10) as response:  # nosec B310 - URL hardcoded https
+        with urlopen(req, timeout=10) as response:  # nosec B310 - URL hardcoded https GitHub
             remote_version = response.read().decode("utf-8").strip()
 
         local_version = get_local_version()
 
         if _compare_versions(remote_version, local_version) > 0:
-            download_url = f"{UPDATE_SERVER_URL}/SafeLink_v{remote_version}_Setup.exe"
+            installer_name = f"SafeLinkStation_Setup_{remote_version}.exe"
+            download_url = f"{RELEASE_LATEST}/{installer_name}"
             return True, remote_version, download_url
 
         return False, None, None
@@ -70,6 +95,32 @@ def check_for_updates() -> Tuple[bool, Optional[str], Optional[str]]:
     except Exception as e:
         logger.error(f"Error inesperado verificando updates: {e}")
         return False, None, None
+
+
+def fetch_expected_sha256(installer_filename: str) -> Optional[str]:
+    """Descarga SHA256SUMS.txt y devuelve el hash esperado para el installer."""
+    try:
+        req = Request(f"{RELEASE_LATEST}/SHA256SUMS.txt", headers={"User-Agent": "SafeLink Station"})
+        with urlopen(req, timeout=10) as response:  # nosec B310 - URL hardcoded https GitHub
+            content = response.read().decode("utf-8")
+        for line in content.splitlines():
+            parts = line.strip().split(None, 1)
+            if len(parts) == 2 and parts[1] == installer_filename:
+                return parts[0].lower()
+        return None
+    except Exception as e:
+        logger.warning(f"No se pudo obtener SHA256SUMS.txt: {e}")
+        return None
+
+
+def verify_file_sha256(path: str, expected: str) -> bool:
+    """Compara el SHA256 de un archivo con el esperado."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            h.update(chunk)
+    actual = h.hexdigest().lower()
+    return actual == expected.lower()
 
 
 def _compare_versions(remote: str, local: str) -> int:
@@ -96,16 +147,17 @@ def _compare_versions(remote: str, local: str) -> int:
     return 0
 
 
-def download_update(download_url: str, progress_callback=None) -> Optional[str]:
+def download_update(download_url: str, progress_callback=None, verify: bool = True) -> Optional[str]:
     """
-    Descarga el instalador de actualización.
+    Descarga el instalador y opcionalmente verifica su SHA256.
 
     Args:
         download_url: URL del archivo a descargar
-        progress_callback: Función opcional (bytes_descargados, total_bytes)
+        progress_callback: callback(bytes_descargados, total_bytes)
+        verify: si True, descarga SHA256SUMS.txt y valida el archivo
 
     Returns:
-        Ruta del archivo descargado o None si falla
+        Ruta del archivo descargado, o None si fallo o el hash no coincide.
     """
     import tempfile
     temp_dir = Path(tempfile.gettempdir()) / "safelnk_updates"
@@ -116,7 +168,7 @@ def download_update(download_url: str, progress_callback=None) -> Optional[str]:
 
     try:
         req = Request(download_url, headers={"User-Agent": "SafeLink Station"})
-        with urlopen(req, timeout=60) as response:  # nosec B310 - URL hardcoded https
+        with urlopen(req, timeout=60) as response:  # nosec B310 - URL hardcoded https GitHub
             total_size = int(response.headers.get("Content-Length", 0))
             downloaded = 0
             chunk_size = 8192
@@ -132,6 +184,18 @@ def download_update(download_url: str, progress_callback=None) -> Optional[str]:
                         progress_callback(downloaded, total_size)
 
         logger.info(f"Update descargado: {dest_path}")
+
+        if verify:
+            expected = fetch_expected_sha256(filename)
+            if expected is None:
+                logger.warning("SHA256SUMS.txt no disponible — saltando verificacion")
+            elif not verify_file_sha256(str(dest_path), expected):
+                logger.error("Hash SHA256 NO coincide. Borrando descarga.")
+                dest_path.unlink(missing_ok=True)
+                return None
+            else:
+                logger.info("Hash SHA256 verificado correctamente")
+
         return str(dest_path)
 
     except Exception as e:
@@ -141,28 +205,35 @@ def download_update(download_url: str, progress_callback=None) -> Optional[str]:
         return None
 
 
-def install_update(installer_path: str) -> bool:
+def install_update(installer_path: str, silent: bool = False) -> bool:
     """
-    Ejecuta el instalador de actualización.
+    Ejecuta el instalador NSIS de actualizacion.
 
     Args:
         installer_path: Ruta al archivo .exe del instalador
+        silent: si True, instalar en modo silencioso (/S de NSIS).
+                False muestra el wizard normal — recomendado para que
+                el usuario confirme y vea el progreso.
 
     Returns:
-        True si se ejecutó exitosamente (la app se cerrará)
+        True si el proceso se inicio. La app debe cerrarse despues.
     """
     try:
-        logger.info(f"Iniciando instalador de actualización: {installer_path}")
+        logger.info(f"Iniciando instalador de actualizacion: {installer_path}")
 
         if sys.platform == "win32":
-            # En Windows, ejecutar el installer y cerrar la app
+            args = [installer_path]
+            if silent:
+                args.append("/S")  # Modo silencioso de NSIS
+            # creationflags 0x00000008 = DETACHED_PROCESS (no bloquea al padre)
+            DETACHED_PROCESS = 0x00000008
             subprocess.Popen(
-                [installer_path, "/VERYSILENT", "/CLOSEAPPLICATIONS"],
-                creationflags=subprocess.DETACHED_PROCESS
+                args,
+                creationflags=DETACHED_PROCESS,
+                close_fds=True,
             )
             return True
         else:
-            # En otros OS, solo abrir
             subprocess.Popen(["open", installer_path])
             return True
 

@@ -98,6 +98,47 @@ def _start_background_services(app: QApplication):
     # (RealtimeCommandListener) para escuchar comandos del panel. No
     # duplicamos suscripción aquí.
 
+    # Auto-update check (en background, no bloquea startup)
+    QTimer.singleShot(15_000, lambda: _check_for_update_async(app))
+
+
+def _check_for_update_async(app: QApplication):
+    """Verifica si hay nueva version en GitHub Releases y notifica al panel."""
+    try:
+        from utils.auto_updater import (
+            get_auto_updater, is_enabled, get_local_version,
+        )
+        if not is_enabled():
+            return
+
+        updater = get_auto_updater()
+        if updater.check_and_notify():
+            logger.info(
+                "Update disponible: v%s (local: v%s)",
+                updater.new_version, get_local_version(),
+            )
+            # Notificar al panel para que el admin lo vea
+            try:
+                from utils.sync_manager import _notify_panel
+                from utils.station_manager import StationInfo
+                _notify_panel(
+                    tipo="station_update_available",
+                    severidad="info",
+                    titulo=f"Actualización disponible · {StationInfo.nombre or 'Estación'}",
+                    mensaje=f"Nueva versión v{updater.new_version}. La estación se actualizará en el próximo reinicio.",
+                    metadata={
+                        "current_version": get_local_version(),
+                        "new_version": updater.new_version,
+                    },
+                    dedupe_key=f"update:{updater.new_version}:{StationInfo.dispositivo_id or 'unknown'}",
+                )
+            except Exception:
+                pass
+            # Guardar el handle para que dashboard pueda decidir descargar
+            app._updater = updater
+    except Exception as e:
+        logger.warning("Auto-update check fallo: %s", e)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Lanzamiento del Dashboard

@@ -546,12 +546,12 @@ export function EmpleadosClient({ empleados: initial, sucursales }: { empleados:
                 </td>
                 <td style={{ padding: "12px 16px" }}>
                   <div style={{ display: "flex", gap: 6 }}>
-                    <button onClick={() => openEdit(emp)} title="Editar" style={{ width: 30, height: 30, borderRadius: 7, background: "var(--bg-elevated)", border: "1px solid var(--border)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-faint)", transition: "all 150ms" }}
+                    <button onClick={() => openEdit(emp)} title="Editar" aria-label={`Editar ${emp.nombre} ${emp.apellido}`} style={{ width: 30, height: 30, borderRadius: 7, background: "var(--bg-elevated)", border: "1px solid var(--border)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-faint)", transition: "all 150ms" }}
                       onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--accent)"; e.currentTarget.style.color = "var(--accent)"; }}
                       onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-faint)"; }}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     </button>
-                    <button onClick={() => openDelete(emp)} title="Eliminar" style={{ width: 30, height: 30, borderRadius: 7, background: "var(--bg-elevated)", border: "1px solid var(--border)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-faint)", transition: "all 150ms" }}
+                    <button onClick={() => openDelete(emp)} title="Eliminar" aria-label={`Eliminar ${emp.nombre} ${emp.apellido}`} style={{ width: 30, height: 30, borderRadius: 7, background: "var(--bg-elevated)", border: "1px solid var(--border)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-faint)", transition: "all 150ms" }}
                       onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(239,68,68,.4)"; e.currentTarget.style.color = "#f87171"; }}
                       onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-faint)"; }}>
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>

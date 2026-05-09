@@ -85,6 +85,7 @@ export function SidebarNav({ userEmail }: { userEmail: string }) {
 
       <aside
         className={mobileOpen ? "sidebar sidebar--open" : "sidebar"}
+        aria-label="Navegación principal"
         style={{
           width: "var(--sidebar-width)", flexShrink: 0,
           borderRight: "1px solid var(--border)",

@@ -20,7 +20,7 @@ bcrypt==4.1.1
 # Cloud (Supabase)
 requests>=2.31.0
 python-dotenv>=1.0.0
-supabase>=2.3.0
+supabase>=2.30.0
 httpx>=0.25.0
 
 # Utilidades

@@ -1,0 +1,143 @@
+name: Web Panel Release Notes
+
+# Cuando release-please publica un release web-panel-v*, este workflow:
+#   1. Lee el web-panel/CHANGELOG.md
+#   2. Genera release notes ricas con el script generate_release_body.py
+#   3. Actualiza el body del release con los cambios reales
+#
+# El deploy a Vercel ya lo maneja vercel-production.yml (push a main).
+# Aqui solo nos enfocamos en pulir la pagina del release.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (ej. 0.1.2)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  update-release-notes:
+    name: Actualizar release notes del web-panel
+    runs-on: ubuntu-latest
+    # Solo para releases del web-panel
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.release.tag_name, 'web-panel-v')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calcular version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            v="${{ github.event.inputs.version }}"
+            tag="web-panel-v$v"
+          else
+            tag="${{ github.event.release.tag_name }}"
+            v="${tag#web-panel-v}"
+          fi
+          echo "version=$v" >> $GITHUB_OUTPUT
+          echo "tag=$tag" >> $GITHUB_OUTPUT
+          echo "Version: $v (tag: $tag)"
+
+      - name: Tag previo
+        id: prev
+        shell: bash
+        run: |
+          # Buscar tag web-panel-v* anterior (ordenado semver)
+          previous=$(git tag --list "web-panel-v*" --sort=-v:refname | grep -v "^${{ steps.version.outputs.tag }}$" | head -1 || true)
+          echo "previous=$previous" >> $GITHUB_OUTPUT
+          echo "Previous tag: $previous"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Generar release notes con script compartido
+        id: notes
+        shell: bash
+        run: |
+          # No hay .exe para web-panel — pasamos placeholders al script
+          # y luego limpiamos las secciones que no aplican.
+          mkdir -p /tmp/wp
+          # SHA256SUMS.txt vacio (no aplica)
+          echo "" > /tmp/wp/SHA256SUMS.txt
+          # Crear un installer-path simbolico (el script solo lee size)
+          touch /tmp/wp/web-panel.placeholder
+
+          python .github/scripts/generate_release_body.py \
+            --version "${{ steps.version.outputs.version }}" \
+            --tag "${{ steps.version.outputs.tag }}" \
+            --previous-tag "${{ steps.prev.outputs.previous }}" \
+            --installer-path "/tmp/wp/web-panel.placeholder" \
+            --sha256-file "/tmp/wp/SHA256SUMS.txt" \
+            --commit-sha "${{ github.sha }}" \
+            --build-run-id "${{ github.run_id }}" \
+            --repo "${{ github.repository }}" \
+            --changelog-path "web-panel/CHANGELOG.md" \
+            --output /tmp/wp/raw_body.md
+
+          # Sustituir el body con uno especifico para web-panel
+          # (eliminamos seccion de descarga porque no hay .exe que bajar)
+          cat > release_body.md <<EOF
+          > **Safe Link Web Panel** — versión \`${{ steps.version.outputs.version }}\` publicada el \`$(date +%Y-%m-%d)\`
+          > Build SHA: \`$(echo ${{ github.sha }} | cut -c1-7)\` · CI run [#${{ github.run_id }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+          ## 🌐 Acceso
+
+          El panel web se actualiza automáticamente vía Vercel cuando se publica un release.
+          Solo recarga tu navegador para ver los cambios:
+
+          - **Producción**: [panel.safelink.app](https://panel.safelink.app) (o tu dominio configurado)
+
+          ## 📝 Cambios en esta versión
+
+          $(python .github/scripts/extract_changelog.py web-panel/CHANGELOG.md "${{ steps.version.outputs.version }}" 2>/dev/null || echo "_(Ver [\`web-panel/CHANGELOG.md\`](./web-panel/CHANGELOG.md))_")
+
+          ## 🔄 Cómo aplicar la actualización
+
+          **Para usuarios del panel**: el cambio es automático, solo recarga la página.
+
+          **Para administradores que self-hostean**:
+          \`\`\`bash
+          cd web-panel
+          git pull
+          npm install
+          npm run build
+          # Reiniciar el servidor
+          \`\`\`
+
+          ---
+
+          <details>
+          <summary>🛠️ Información técnica del build</summary>
+
+          - **Commit**: [\`${{ github.sha }}\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+          - **Workflow run**: [#${{ github.run_id }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          - **Stack**: Next.js 15 · TypeScript · Tailwind · Supabase
+
+          </details>
+
+          🐛 ¿Encontraste un bug? [Reporta en Issues](https://github.com/${{ github.repository }}/issues/new/choose)
+          EOF
+
+          echo "body_path=release_body.md" >> $GITHUB_OUTPUT
+
+      - name: Actualizar GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: 🌐 Safe Link Web Panel v${{ steps.version.outputs.version }}
+          body_path: ${{ steps.notes.outputs.body_path }}
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,21 +1,29 @@
 name: Notify Panel — New Release
 
-# Despues de que un release station-v* se publica, inserta una
-# notificacion en la tabla 'notificaciones' de Supabase para CADA
-# empresa con estaciones registradas. Asi el admin se entera al
-# instante de que hay version nueva sin esperar a que la estacion
-# detecte el update.
+# Cuando se publica un release station-v* o web-panel-v*, inserta
+# una notificacion en la tabla 'notificaciones' de Supabase para CADA
+# empresa con estaciones registradas. El tipo de notificacion varia
+# segun el componente para que el admin del panel sepa que actualizar:
+#
+#   station-v*    -> tipo: system_release_available (severidad: info)
+#                    "Nueva version de la estacion disponible"
+#   web-panel-v*  -> tipo: panel_release_available  (severidad: info)
+#                    "El panel se actualizo con mejoras"
 
 on:
   release:
     types: [published]
   workflow_dispatch:
     inputs:
+      component:
+        description: 'Componente'
+        required: true
+        type: choice
+        options:
+          - station
+          - web-panel
       version:
         description: 'Version del release (ej. 5.2.0)'
-        required: true
-      tag:
-        description: 'Tag (ej. station-v5.2.0)'
         required: true
 
 permissions:
@@ -25,27 +33,38 @@ jobs:
   notify:
     name: Notificar a empresas via Supabase
     runs-on: ubuntu-latest
-    # Solo si el release es de la estacion (station-v*)
     if: |
       github.event_name == 'workflow_dispatch' ||
-      startsWith(github.event.release.tag_name, 'station-v')
+      startsWith(github.event.release.tag_name, 'station-v') ||
+      startsWith(github.event.release.tag_name, 'web-panel-v')
     steps:
       - uses: actions/checkout@v4
 
-      - name: Calcular version
+      - name: Detectar componente y version
         id: ver
         shell: bash
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            component="${{ github.event.inputs.component }}"
             version="${{ github.event.inputs.version }}"
-            tag="${{ github.event.inputs.tag }}"
+            tag="${component}-v${version}"
           else
             tag="${{ github.event.release.tag_name }}"
-            version="${tag#station-v}"
+            if [[ "$tag" == station-v* ]]; then
+              component="station"
+              version="${tag#station-v}"
+            elif [[ "$tag" == web-panel-v* ]]; then
+              component="web-panel"
+              version="${tag#web-panel-v}"
+            else
+              echo "Tag desconocido: $tag — skipping"
+              exit 0
+            fi
           fi
-          echo "version=$version" >> $GITHUB_OUTPUT
-          echo "tag=$tag"           >> $GITHUB_OUTPUT
-          echo "Version: $version (tag: $tag)"
+          echo "component=$component" >> $GITHUB_OUTPUT
+          echo "version=$version"     >> $GITHUB_OUTPUT
+          echo "tag=$tag"              >> $GITHUB_OUTPUT
+          echo "Componente: $component, version: $version, tag: $tag"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -59,9 +78,10 @@ jobs:
         env:
           SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          VERSION: ${{ steps.ver.outputs.version }}
-          TAG:     ${{ steps.ver.outputs.tag }}
-          REPO:    ${{ github.repository }}
+          COMPONENT: ${{ steps.ver.outputs.component }}
+          VERSION:   ${{ steps.ver.outputs.version }}
+          TAG:       ${{ steps.ver.outputs.tag }}
+          REPO:      ${{ github.repository }}
         run: |
           if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
             echo "Secrets SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY no configurados — skipping"

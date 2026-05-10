@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Manual de instalación
+    url: https://github.com/Safe-LM/app-login-trabajadores-desktop/blob/main/docs/MANUAL_INSTALACION.md
+    about: Antes de reportar, revisa la sección de problemas comunes
+  - name: 🚀 Releases / descargas
+    url: https://github.com/Safe-LM/app-login-trabajadores-desktop/releases
+    about: Descargar la última versión del instalador
+  - name: 💬 Soporte por email
+    url: mailto:soporte@safelink.app
+    about: Para clientes con contrato — respuesta en 24h

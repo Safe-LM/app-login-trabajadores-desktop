@@ -1,0 +1,104 @@
+name: 🐛 Reporte de bug
+description: Algo no funciona como debería
+title: "[BUG] "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por reportar un bug. Por favor llena los campos para que podamos reproducirlo y arreglarlo rápido.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Componente afectado
+      options:
+        - Estación (PyQt5 — el .exe que corre en la PC)
+        - Panel web (browser)
+        - Instalador (durante el setup)
+        - Sincronización (estación ↔ Supabase)
+        - Reconocimiento facial
+        - Otro
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Versión
+      description: |
+        Para la estación: revisa los logs (`C:\Program Files\Safe Link Station\logs\`).
+        El primer log al arrancar dice algo como `Safe Link Station — 5.2.0 (build 2026-05-09 abc1234)`.
+      placeholder: ej. 5.2.0 (build 2026-05-09 abc1234)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Sistema operativo
+      options:
+        - Windows 11 (x64)
+        - Windows 10 (x64)
+        - Otro (especificar en descripción)
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Descripción del bug
+      description: ¿Qué pasó? ¿Qué esperabas que pasara?
+      placeholder: |
+        Cuando hago X, pasa Y. Esperaba que pasara Z.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Pasos para reproducir
+      description: Lista numerada de pasos que llevan al bug
+      placeholder: |
+        1. Abrir la estación
+        2. Esperar a que sincronice
+        3. Pasar la cara enfrente de la cámara
+        4. ❌ Aparece error "..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs relevantes
+      description: |
+        Pega las últimas 30-50 líneas de los logs.
+        Para la estación: `C:\Program Files\Safe Link Station\logs\station_*.log`
+        Para el panel: F12 en el browser → Console
+      render: shell
+      placeholder: |
+        09:30:15 [INFO] Safe Link Station — 5.2.0 (build...)
+        09:30:16 [ERROR] ...
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots / videos
+      description: Si aplica, arrastra imágenes aquí
+
+  - type: input
+    id: empresa
+    attributes:
+      label: Empresa / cliente
+      description: (Opcional) Para clientes con contrato — ayuda a priorizar
+      placeholder: ej. ACME Corp
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Antes de enviar
+      options:
+        - label: Revisé el [manual de instalación](../blob/main/docs/MANUAL_INSTALACION.md) y la sección de problemas comunes
+          required: true
+        - label: Verifiqué que estoy en la versión más reciente ([releases](../releases))
+          required: false

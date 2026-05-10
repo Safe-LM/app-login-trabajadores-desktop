@@ -1,0 +1,53 @@
+name: ✨ Solicitud de funcionalidad
+description: Sugerir una mejora o funcionalidad nueva
+title: "[FEATURE] "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Tu idea ayuda a mejorar el producto. Cuanto más concreta, mejor.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema que resuelve
+      description: ¿Qué dolor/limitación tienes hoy?
+      placeholder: |
+        Cuando intento X, no puedo hacer Y. Hoy tengo que hacer un workaround Z que es lento/molesto.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solución propuesta
+      description: ¿Cómo te imaginas que funcione idealmente?
+      placeholder: |
+        Que el panel tuviera un botón "X" en la pantalla Y que haga Z.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+      description: ¿Qué otras formas pensaste? ¿Por qué descartaste cada una?
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Prioridad para tu operación
+      options:
+        - 🔥 Crítico — me bloquea para usar el sistema
+        - ⚠️ Importante — pierdo tiempo significativo sin esto
+        - 💡 Nice-to-have — sería más cómodo
+    validations:
+      required: true
+
+  - type: input
+    id: empresa
+    attributes:
+      label: Empresa / cliente
+      description: (Opcional) Para clientes con contrato
+      placeholder: ej. ACME Corp

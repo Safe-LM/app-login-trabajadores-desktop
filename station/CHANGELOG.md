@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.2.1](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.2.0...station-v5.2.1) (2026-05-10)
+
+
+### 🐛 Correcciones
+
+* **installer:** compactar layout del wizard para que todos los campos quepan ([cf6caf4](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/cf6caf4253b5f9b78b3e26876df9b409cef2f3fd))
+
 ## [5.2.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.1.0...station-v5.2.0) (2026-05-10)
 
 

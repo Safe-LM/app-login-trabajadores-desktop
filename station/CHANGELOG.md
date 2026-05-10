@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.3.2](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.3.1...station-v5.3.2) (2026-05-10)
+
+
+### 🐛 Correcciones
+
+* **station:** permission denied al sincronizar en build instalado ([e1ed9e5](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/e1ed9e5bdc67590fe56c6390e4e65dfb91a12981))
+
 ## [5.3.1](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.3.0...station-v5.3.1) (2026-05-10)
 
 

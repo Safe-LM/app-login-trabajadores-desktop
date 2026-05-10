@@ -17,6 +17,7 @@
       "include-component-in-tag": true,
       "include-v-in-tag": true,
       "changelog-path": "CHANGELOG.md",
+      "exclude-paths": ["web-panel"],
       "extra-files": [
         { "type": "generic", "path": "version.txt" }
       ],
@@ -42,6 +43,7 @@
       "include-component-in-tag": true,
       "include-v-in-tag": true,
       "changelog-path": "CHANGELOG.md",
+      "exclude-paths": ["station", ".github", "docs", "scripts", "supabase", "tools"],
       "changelog-sections": [
         { "type": "feat",     "section": "✨ Nuevas funcionalidades", "hidden": false },
         { "type": "fix",      "section": "🐛 Correcciones",          "hidden": false },

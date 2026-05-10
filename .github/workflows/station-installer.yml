@@ -195,20 +195,43 @@ jobs:
             station/installer/SHA256SUMS.txt
           retention-days: 30
 
-      # ─── Calcular tamano del .exe + leer hash para mostrar en notas ─
-      - name: Preparar metadatos del release
+      # ─── Generar release notes inteligentes ────────────────────────
+      # Llamamos al script generate_release_body.py que detecta:
+      #  - BREAKING CHANGES (commits con !) -> banner rojo
+      #  - Cambios al installer -> banner naranja
+      #  - Cambios a station/web-panel -> seccion "Para usuarios..."
+      #  - Estadisticas (commits, contribuidores)
+      #  - Tabla de descarga con tamano + SHA256
+      #  - Cambios extraidos del CHANGELOG.md generado por release-please
+      - name: Generar release notes inteligentes
         if: startsWith(github.ref, 'refs/tags/station-v')
-        id: meta
+        id: notes
         shell: pwsh
         run: |
+          # Necesitamos historia completa para git log con tags
+          git fetch --tags --unshallow 2>$null
           $version = "${{ steps.version.outputs.version }}"
-          $exe = Get-Item "station/installer/SafeLinkStation_Setup_$version.exe"
-          $sizeMB = [math]::Round($exe.Length / 1MB, 1)
-          $hash = (Get-Content "station/installer/SHA256SUMS.txt" -Raw).Split()[0]
-          $buildDate = Get-Date -Format "yyyy-MM-dd"
-          Write-Output "size_mb=$sizeMB" >> $env:GITHUB_OUTPUT
-          Write-Output "sha256=$hash" >> $env:GITHUB_OUTPUT
-          Write-Output "build_date=$buildDate" >> $env:GITHUB_OUTPUT
+          $tag = "${{ github.ref_name }}"
+          # Tag anterior (puede no existir si es el primer release)
+          $previousTag = (git tag --list "station-v*" --sort=-v:refname |
+                          Where-Object { $_ -ne $tag } |
+                          Select-Object -First 1)
+          if (-not $previousTag) { $previousTag = "" }
+          Write-Output "Previous tag: $previousTag"
+
+          python .github/scripts/generate_release_body.py `
+            --version "$version" `
+            --tag "$tag" `
+            --previous-tag "$previousTag" `
+            --installer-path "station/installer/SafeLinkStation_Setup_$version.exe" `
+            --sha256-file "station/installer/SHA256SUMS.txt" `
+            --commit-sha "${{ github.sha }}" `
+            --build-run-id "${{ github.run_id }}" `
+            --repo "${{ github.repository }}" `
+            --changelog-path "CHANGELOG.md" `
+            --output release_body.md
+
+          Write-Output "body_path=release_body.md" >> $env:GITHUB_OUTPUT
 
       # ─── Release a GitHub (solo en push de tag) ────────────────────
       - name: Crear/actualizar GitHub Release
@@ -217,73 +240,13 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: 🚀 Safe Link Station v${{ steps.version.outputs.version }}
-          generate_release_notes: true
+          body_path: ${{ steps.notes.outputs.body_path }}
+          # generate_release_notes:false porque ya generamos el body
+          # con nuestro script (mas rico y contextual)
+          generate_release_notes: false
           files: |
             station/installer/SafeLinkStation_Setup_*.exe
             station/installer/version.txt
             station/installer/SHA256SUMS.txt
-          body: |
-            > Safe Link Station — versión `${{ steps.version.outputs.version }}` publicada el `${{ steps.meta.outputs.build_date }}`
-            > Build SHA: `${{ github.sha }}`
-
-            ## 📥 Descargar
-
-            | Plataforma | Archivo | Tamaño | SHA256 |
-            |---|---|---|---|
-            | 🪟 Windows 10/11 (x64) | [`SafeLinkStation_Setup_${{ steps.version.outputs.version }}.exe`](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/SafeLinkStation_Setup_${{ steps.version.outputs.version }}.exe) | ${{ steps.meta.outputs.size_mb }} MB | `${{ steps.meta.outputs.sha256 }}` |
-
-            ## 🚀 Instalación rápida
-
-            1. Descarga `SafeLinkStation_Setup_${{ steps.version.outputs.version }}.exe`
-            2. Doble click → "Más información" → "Ejecutar de todas formas"
-            3. Sigue el wizard (3 minutos)
-            4. Copia tu API Key del [panel web](https://panel.safelink.app)
-
-            📖 **Manual completo:** [docs/MANUAL_INSTALACION.md](https://github.com/${{ github.repository }}/blob/main/docs/MANUAL_INSTALACION.md)
-
-            ## 🔍 Verificar integridad de la descarga
-
-            ```powershell
-            certutil -hashfile SafeLinkStation_Setup_${{ steps.version.outputs.version }}.exe SHA256
-            ```
-
-            Compara con: `${{ steps.meta.outputs.sha256 }}`
-
-            ## 🔄 Actualización automática
-
-            Las estaciones existentes detectarán esta versión en los próximos
-            15 segundos del próximo arranque y notificarán al admin en el panel
-            (sección **Notificaciones**) para confirmar la actualización.
-
-            Para desactivar auto-update agrega a tu `.env`:
-            ```
-            AUTO_UPDATE_ENABLED=false
-            ```
-
-            ## 📝 Cambios
-
-            <!-- generate_release_notes:true rellena esta seccion automaticamente con
-                 los commits + PRs desde el ultimo tag categorizados por type. -->
-
-            ---
-
-            <details>
-            <summary>🛠️ Información técnica del build</summary>
-
-            - **Commit**: [`${{ github.sha }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
-            - **Build date**: `${{ steps.meta.outputs.build_date }}`
-            - **Workflow run**: [#${{ github.run_number }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-            - **Compare**: [previo...${{ github.ref_name }}](https://github.com/${{ github.repository }}/compare/main...${{ github.ref_name }})
-
-            </details>
-
-            ---
-
-            ⚠️ **Sin firma digital**: el `.exe` no está firmado con un certificado
-            (cuando crezcamos a +50 clientes lo agregamos). Windows mostrará "Editor
-            desconocido" — es normal, click en "Más información" → "Ejecutar".
-
-            🐛 ¿Encontraste un bug? [Reporta en Issues](https://github.com/${{ github.repository }}/issues/new)
-
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

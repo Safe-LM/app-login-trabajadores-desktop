@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.3.3](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.3.2...station-v5.3.3) (2026-05-10)
+
+
+### 🐛 Correcciones
+
+* **station:** HUD del video (esquinas + scan line) no se renderizaba ([bacf0fd](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/bacf0fdca0535ed9e2387c651b4bb54df169698c))
+
 ## [5.3.2](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.3.1...station-v5.3.2) (2026-05-10)
 
 

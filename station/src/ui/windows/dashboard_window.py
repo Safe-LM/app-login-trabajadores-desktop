@@ -558,8 +558,11 @@ class DashboardWindow(QMainWindow):
         s = min(tw / w, th / h)
         nw, nh = int(w * s), int(h * s)
         resized = cv2.resize(frame, (nw, nh), interpolation=cv2.INTER_LINEAR)
-        rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
-        qimg = QImage(rgb.data, nw, nh, 3 * nw, QImage.Format_RGB888)
+        rgb = np.ascontiguousarray(cv2.cvtColor(resized, cv2.COLOR_BGR2RGB))
+        # .copy() fuerza a QImage a poseer su propio buffer — sin esto, el
+        # ndarray puede liberarse antes de que Qt pinte (visible en builds
+        # PyInstaller como bandas horizontales en el video).
+        qimg = QImage(rgb.data, nw, nh, 3 * nw, QImage.Format_RGB888).copy()
 
         # QPainter HUD overlay
         painter = QPainter(qimg)

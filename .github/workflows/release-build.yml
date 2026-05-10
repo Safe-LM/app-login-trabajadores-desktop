@@ -13,6 +13,11 @@ name: Release - Versioning
 on:
   push:
     branches: [main]
+  # Tambien correr cuando se publica un release manualmente o desde
+  # release-please — esto permite re-disparar los jobs trigger-*
+  # despues si el release-please job ya termino antes del fix del CI.
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -22,8 +27,54 @@ permissions:
   actions: write   # para workflow_dispatch via gh CLI
 
 jobs:
+  # Si el trigger fue 'release.published', saltamos release-please y
+  # disparamos directamente el workflow correspondiente segun el tag.
+  manual-release-trigger:
+    name: Re-disparar workflows hijos (release published manual)
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detectar componente y disparar workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${{ github.event.release.tag_name }}"
+          if [[ "$tag" == station-v* ]]; then
+            version="${tag#station-v}"
+            echo "Disparando station-installer.yml para $tag"
+            gh workflow run station-installer.yml \
+              --repo "${{ github.repository }}" \
+              --ref main \
+              --field version="$version"
+            gh workflow run notify-release.yml \
+              --repo "${{ github.repository }}" \
+              --ref main \
+              --field component=station \
+              --field version="$version"
+          elif [[ "$tag" == web-panel-v* ]]; then
+            version="${tag#web-panel-v}"
+            echo "Disparando web-panel-release.yml para $tag"
+            gh workflow run web-panel-release.yml \
+              --repo "${{ github.repository }}" \
+              --ref main \
+              --field version="$version"
+            gh workflow run notify-release.yml \
+              --repo "${{ github.repository }}" \
+              --ref main \
+              --field component=web-panel \
+              --field version="$version"
+          else
+            echo "Tag no reconocido: $tag — skipping"
+          fi
+
   release-please:
     name: Release Please
+    if: github.event_name != 'release'
     runs-on: ubuntu-latest
     outputs:
       releases_created:    ${{ steps.release.outputs.releases_created }}

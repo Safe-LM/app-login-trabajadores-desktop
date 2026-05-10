@@ -81,7 +81,6 @@ jobs:
           Write-Output "tag_name=$tagName" >> $env:GITHUB_OUTPUT
           Write-Output "is_release=$isRelease" >> $env:GITHUB_OUTPUT
           Write-Output "Version: $v (tag: $tagName, release: $isRelease)"
-          Write-Output "Version: $v (release: $isRelease)"
 
       # ─── Setup ─────────────────────────────────────────────────────
       - name: Setup Python 3.10

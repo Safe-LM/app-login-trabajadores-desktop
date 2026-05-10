@@ -222,6 +222,30 @@ Ver [`CHANGELOG.md`](../CHANGELOG.md) en la raíz del repo.
 
 ---
 
+## 🔔 Notificación automática a clientes
+
+Cuando se publica un release `station-v*`, el workflow `notify-release.yml`:
+
+1. Lee la lista de empresas con al menos una estación activa
+2. Inserta una notificación en `notificaciones` por cada empresa
+3. La notificación aparece en `/notificaciones` del panel web al instante
+4. Tipo: `system_release_available`, severidad: `info`
+5. Dedupe: misma versión a la misma empresa solo una vez en 24h
+
+### Secrets requeridos
+
+En GitHub → Settings → Secrets and variables → Actions:
+
+| Secret | Valor | Para qué |
+|---|---|---|
+| `SUPABASE_URL` | `https://ctmpsokjdguygjqmxyob.supabase.co` | URL del proyecto |
+| `SUPABASE_SERVICE_ROLE_KEY` | (de Supabase → Settings → API) | Bypass RLS para insertar a todas las empresas |
+
+> ⚠️ **NUNCA** commitees la service role key. Solo va en GitHub Secrets.
+
+Si los secrets no están configurados, el workflow hace skip silencioso
+(no rompe el release).
+
 ## 🤝 Recursos
 
 - [Conventional Commits](https://www.conventionalcommits.org/es/)

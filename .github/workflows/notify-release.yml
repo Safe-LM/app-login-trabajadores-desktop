@@ -1,0 +1,70 @@
+name: Notify Panel — New Release
+
+# Despues de que un release station-v* se publica, inserta una
+# notificacion en la tabla 'notificaciones' de Supabase para CADA
+# empresa con estaciones registradas. Asi el admin se entera al
+# instante de que hay version nueva sin esperar a que la estacion
+# detecte el update.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version del release (ej. 5.2.0)'
+        required: true
+      tag:
+        description: 'Tag (ej. station-v5.2.0)'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    name: Notificar a empresas via Supabase
+    runs-on: ubuntu-latest
+    # Solo si el release es de la estacion (station-v*)
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      startsWith(github.event.release.tag_name, 'station-v')
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Calcular version
+        id: ver
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            version="${{ github.event.inputs.version }}"
+            tag="${{ github.event.inputs.tag }}"
+          else
+            tag="${{ github.event.release.tag_name }}"
+            version="${tag#station-v}"
+          fi
+          echo "version=$version" >> $GITHUB_OUTPUT
+          echo "tag=$tag"           >> $GITHUB_OUTPUT
+          echo "Version: $version (tag: $tag)"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install supabase-py
+        run: pip install "supabase>=2.3.0"
+
+      - name: Insertar notificacion para todas las empresas
+        env:
+          SUPABASE_URL:              ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          VERSION: ${{ steps.ver.outputs.version }}
+          TAG:     ${{ steps.ver.outputs.tag }}
+          REPO:    ${{ github.repository }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "Secrets SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY no configurados — skipping"
+            exit 0
+          fi
+          python .github/scripts/notify_release.py

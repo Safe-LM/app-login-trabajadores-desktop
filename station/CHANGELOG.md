@@ -1,5 +1,13 @@
 # Changelog
 
+## [5.3.5](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.3.4...station-v5.3.5) (2026-05-10)
+
+
+### 🐛 Correcciones
+
+* **station:** forzar bump a 5.3.5 con todos los fixes acumulados ([9914ee9](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/9914ee91bc6700fbe0d500daf4d875aa6d53dfcd))
+* **station:** hardening del .exe instalado en Program Files ([66ba80e](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/66ba80eff09613ccaaac814006a65998aac1e5bf))
+
 ## [5.3.4](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.3.3...station-v5.3.4) (2026-05-10)
 
 

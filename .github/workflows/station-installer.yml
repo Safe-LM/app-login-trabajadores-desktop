@@ -19,17 +19,34 @@ name: Station Installer (Windows .exe)
 # anti-loop). Por eso usamos 'release.published' como trigger principal.
 
 on:
+  # release.published: caso real de produccion. release-please publica
+  # el release -> nosotros enganchamos para compilar y adjuntar el .exe.
   release:
     types: [published]
+
+  # Push de tag manual (git tag + git push). Mantenido por compatibilidad.
   push:
     tags:
       - 'station-v*'
+    # Tambien build de VALIDACION en cada push a main que toque station/
+    # NO publica release (steps de release tienen if: is_release == true
+    # que solo es true en release.published / tag / dispatch).
+    # Asi el workflow aparece en los checks de cada commit a main.
+    branches: [main]
+    paths:
+      - 'station/**'
+      - '.github/workflows/station-installer.yml'
+      - '.github/scripts/generate_release_body.py'
+
+  # PR a main: validar que el build sigue funcionando antes de mergear
   pull_request:
     branches: [main]
     paths:
       - 'station/**'
       - '.github/workflows/station-installer.yml'
       - '.github/scripts/generate_release_body.py'
+
+  # Manual: pruebas con version custom o re-publicar release sin tag
   workflow_dispatch:
     inputs:
       version:
@@ -46,6 +63,16 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Necesitamos historia completa de tags + ramas para que el
+          # script de release notes pueda extraer el CHANGELOG actualizado
+          # por release-please. Si solo cloneamos la HEAD por defecto
+          # (depth: 1) podemos perder commits del PR de release-please
+          # que actualizo CHANGELOG.md hace segundos.
+          fetch-depth: 0
+          # Clonar la rama main (donde release-please ya mergeo el CHANGELOG)
+          # explicitamente, en vez del SHA default del workflow run
+          ref: main
 
       # ─── Calcular version segun trigger ────────────────────────────
       # - release.published     -> tag_name del release (caso real prod)

@@ -6,7 +6,8 @@
   "bump-patch-for-minor-pre-major": true,
   "draft": false,
   "prerelease": false,
-  "separate-pull-requests": true,
+  "separate-pull-requests": false,
+  "group-pull-request-title-pattern": "chore(release): ${version}",
   "packages": {
     "station": {
       "release-type": "simple",

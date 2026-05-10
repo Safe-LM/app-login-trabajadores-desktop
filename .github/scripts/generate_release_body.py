@@ -140,22 +140,46 @@ def _detect_breaking(commits: list[dict]) -> bool:
 
 
 def _get_contributors(previous_tag: str, commit_sha: str) -> list[str]:
+    """Devuelve usernames de GitHub (no nombres reales).
+
+    GitHub usa emails 'noreply' del estilo:
+        129129126+AldonDC@users.noreply.github.com
+    Extraemos el username 'AldonDC' del email para que el @mention
+    funcione en el release body. Si no es noreply, usamos el nombre.
+    """
     if not previous_tag:
         return []
     try:
         out = subprocess.run(
-            ["git", "log", f"{previous_tag}..{commit_sha}", "--pretty=format:%an"],
+            ["git", "log", f"{previous_tag}..{commit_sha}", "--pretty=format:%ae|%an"],
             capture_output=True, text=True, check=True, encoding="utf-8",
         )
     except Exception:
         return []
+
     seen = set()
     result = []
-    for name in out.stdout.splitlines():
+    # Pattern case-insensitive porque algunos emails llegan en minusculas
+    pattern = re.compile(r"^\d+\+([\w-]+)@users\.noreply\.github\.com$", re.IGNORECASE)
+    for line in out.stdout.splitlines():
+        if "|" not in line:
+            continue
+        email, name = line.split("|", 1)
+        email = email.strip()
         name = name.strip()
-        if name and name not in seen and "github-actions" not in name.lower():
-            seen.add(name)
-            result.append(name)
+        if not email or not name:
+            continue
+        # Excluir bots
+        if "github-actions" in email.lower() or "[bot]" in name.lower() or "release-please" in email.lower():
+            continue
+        # Extraer username del email noreply de GitHub (preserva case original)
+        m = pattern.match(email)
+        username = m.group(1) if m else name
+        # Dedupe case-insensitive
+        key = username.lower()
+        if key not in seen:
+            seen.add(key)
+            result.append(username)
     return result
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.3.1](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.3.0...station-v5.3.1) (2026-05-10)
+
+
+### 🐛 Correcciones
+
+* **station:** video se renderiza con bandas grises en build empaquetado ([24ea760](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/24ea760c961abd193ca0f145c14ceabeeedfc95b))
+
 ## [5.3.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.2.3...station-v5.3.0) (2026-05-10)
 
 

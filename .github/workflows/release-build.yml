@@ -1,25 +1,49 @@
 name: Release - Versioning
 
-# Release-please genera el changelog y crea releases automaticas via
-# Conventional Commits. La compilacion del .exe la hace
-# station-build-windows.yml cuando se pushea un tag station-v*.
+# release-please corre en cada push a main:
+#   1. Si hay commits con feat/fix/perf desde el ultimo release,
+#      abre/actualiza un PR llamado "chore(release): X.Y.Z" con el
+#      changelog generado y la version bumpeada (semver).
+#   2. Cuando mergeas el PR -> crea tag automatico (station-vX.Y.Z)
+#      -> dispara station-installer.yml -> publica el .exe.
+#
+# Usa manifest mode para soportar multiples paquetes (station + web-panel)
+# con versiones independientes en .github/.release-please-manifest.json
+# y configuracion en .github/release-please-config.json.
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 jobs:
   release-please:
+    name: Release Please
     runs-on: ubuntu-latest
     outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
+      releases_created:    ${{ steps.release.outputs.releases_created }}
+      station_released:    ${{ steps.release.outputs['station--release_created'] }}
+      station_tag:         ${{ steps.release.outputs['station--tag_name'] }}
+      station_version:     ${{ steps.release.outputs['station--version'] }}
+      web_panel_released:  ${{ steps.release.outputs['web-panel--release_created'] }}
+      web_panel_tag:       ${{ steps.release.outputs['web-panel--tag_name'] }}
+      web_panel_version:   ${{ steps.release.outputs['web-panel--version'] }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
         with:
-          release-type: python
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: .github/release-please-config.json
+          manifest-file: .github/.release-please-manifest.json
+
+      - name: Mostrar releases
+        if: steps.release.outputs.releases_created == 'true'
+        run: |
+          echo "Releases creados en este run:"
+          echo "  station:   ${{ steps.release.outputs['station--release_created'] }} (${{ steps.release.outputs['station--tag_name'] }})"
+          echo "  web-panel: ${{ steps.release.outputs['web-panel--release_created'] }} (${{ steps.release.outputs['web-panel--tag_name'] }})"

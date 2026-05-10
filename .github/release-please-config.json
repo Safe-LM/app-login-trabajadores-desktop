@@ -1,0 +1,56 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "simple",
+  "include-component-in-tag": true,
+  "include-v-in-tag": true,
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": true,
+  "draft": false,
+  "prerelease": false,
+  "packages": {
+    "station": {
+      "release-type": "simple",
+      "package-name": "station",
+      "component": "station",
+      "tag-separator": "-",
+      "include-component-in-tag": true,
+      "include-v-in-tag": true,
+      "changelog-path": "CHANGELOG.md",
+      "changelog-sections": [
+        { "type": "feat",     "section": "✨ Nuevas funcionalidades", "hidden": false },
+        { "type": "fix",      "section": "🐛 Correcciones",          "hidden": false },
+        { "type": "perf",     "section": "⚡ Performance",            "hidden": false },
+        { "type": "refactor", "section": "♻️ Refactors",              "hidden": false },
+        { "type": "revert",   "section": "⏪ Reverts",                "hidden": false },
+        { "type": "docs",     "section": "📝 Documentación",          "hidden": true  },
+        { "type": "style",    "section": "🎨 Estilo",                 "hidden": true  },
+        { "type": "chore",    "section": "🧹 Tareas",                 "hidden": true  },
+        { "type": "test",     "section": "🧪 Tests",                  "hidden": true  },
+        { "type": "build",    "section": "📦 Build",                  "hidden": true  },
+        { "type": "ci",       "section": "👷 CI/CD",                  "hidden": true  }
+      ]
+    },
+    "web-panel": {
+      "release-type": "node",
+      "package-name": "safelink-web-panel",
+      "component": "web-panel",
+      "tag-separator": "-",
+      "include-component-in-tag": true,
+      "include-v-in-tag": true,
+      "changelog-path": "CHANGELOG.md",
+      "changelog-sections": [
+        { "type": "feat",     "section": "✨ Nuevas funcionalidades", "hidden": false },
+        { "type": "fix",      "section": "🐛 Correcciones",          "hidden": false },
+        { "type": "perf",     "section": "⚡ Performance",            "hidden": false },
+        { "type": "refactor", "section": "♻️ Refactors",              "hidden": false },
+        { "type": "revert",   "section": "⏪ Reverts",                "hidden": false },
+        { "type": "docs",     "section": "📝 Documentación",          "hidden": true  },
+        { "type": "style",    "section": "🎨 Estilo",                 "hidden": true  },
+        { "type": "chore",    "section": "🧹 Tareas",                 "hidden": true  },
+        { "type": "test",     "section": "🧪 Tests",                  "hidden": true  },
+        { "type": "build",    "section": "📦 Build",                  "hidden": true  },
+        { "type": "ci",       "section": "👷 CI/CD",                  "hidden": true  }
+      ]
+    }
+  }
+}

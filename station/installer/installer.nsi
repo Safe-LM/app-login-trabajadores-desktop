@@ -79,6 +79,16 @@ Var ChkAutostart
 Var ChkAutostartState
 
 ; ─── Pagina de configuracion ─────────────────────────────────────────
+; Layout compacto para que TODOS los campos quepan en la pagina del
+; wizard sin necesidad de scroll. Espaciado vertical: 18u por campo.
+;
+;   0u  - 16u: Intro (2 lineas)
+;  20u  - 31u: Label "Nombre"   + TextBox
+;  44u  - 55u: Label "API Key"  + TextBox
+;  68u  - 79u: Label "URL"      + TextBox
+;  92u  - 103u: Label "Anon Key" + TextBox
+; 116u - 122u: Checkbox autostart
+; Total: ~125u, cabe en los ~140u disponibles del wizard.
 Function ConfigPage
   !insertmacro MUI_HEADER_TEXT "Configuracion inicial" \
     "Vincula esta estacion con tu cuenta de Safe Link Monitoring."
@@ -89,37 +99,37 @@ Function ConfigPage
     Abort
   ${EndIf}
 
-  ; Intro
-  ${NSD_CreateLabel} 0 0 100% 28u \
-    "Estos datos te los proporciona el panel web. Si los dejas en blanco, podras configurarlos despues editando .env"
+  ; Intro (2 lineas)
+  ${NSD_CreateLabel} 0 0 100% 16u \
+    "Datos del panel web. Dejalos vacios si quieres configurarlos despues editando .env"
   Pop $LblIntro
 
   ; Nombre de la estacion
-  ${NSD_CreateLabel} 0 38u 100% 10u "Nombre de la estacion (ej: Sucursal Norte):"
+  ${NSD_CreateLabel} 0 20u 100% 9u "Nombre de la estacion:"
   Pop $LblNombre
-  ${NSD_CreateText} 0 50u 100% 12u "Estacion-1"
+  ${NSD_CreateText} 0 30u 100% 11u "Estacion-1"
   Pop $TxtNombre
 
   ; API Key
-  ${NSD_CreateLabel} 0 70u 100% 10u "API Key (la genera el panel al crear la estacion):"
+  ${NSD_CreateLabel} 0 44u 100% 9u "API Key (slm_...):"
   Pop $LblApiKey
-  ${NSD_CreateText} 0 82u 100% 12u ""
+  ${NSD_CreateText} 0 54u 100% 11u ""
   Pop $TxtApiKey
 
   ; Supabase URL
-  ${NSD_CreateLabel} 0 102u 100% 10u "URL Supabase:"
+  ${NSD_CreateLabel} 0 68u 100% 9u "URL Supabase:"
   Pop $LblSupabaseUrl
-  ${NSD_CreateText} 0 114u 100% 12u "https://ctmpsokjdguygjqmxyob.supabase.co"
+  ${NSD_CreateText} 0 78u 100% 11u "https://ctmpsokjdguygjqmxyob.supabase.co"
   Pop $TxtSupabaseUrl
 
   ; Supabase Anon Key
-  ${NSD_CreateLabel} 0 134u 100% 10u "Supabase Anon Key (publica):"
+  ${NSD_CreateLabel} 0 92u 100% 9u "Supabase Anon Key (publica, eyJ...):"
   Pop $LblSupabaseKey
-  ${NSD_CreateText} 0 146u 100% 12u ""
+  ${NSD_CreateText} 0 102u 100% 11u ""
   Pop $TxtSupabaseKey
 
   ; Checkbox: arrancar al iniciar Windows
-  ${NSD_CreateCheckbox} 0 168u 100% 10u "Iniciar automaticamente con Windows"
+  ${NSD_CreateCheckbox} 0 118u 100% 10u "Iniciar automaticamente con Windows"
   Pop $ChkAutostart
   ${NSD_Check} $ChkAutostart
 

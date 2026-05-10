@@ -559,10 +559,11 @@ class DashboardWindow(QMainWindow):
         nw, nh = int(w * s), int(h * s)
         resized = cv2.resize(frame, (nw, nh), interpolation=cv2.INTER_LINEAR)
         rgb = np.ascontiguousarray(cv2.cvtColor(resized, cv2.COLOR_BGR2RGB))
-        # .copy() fuerza a QImage a poseer su propio buffer — sin esto, el
-        # ndarray puede liberarse antes de que Qt pinte (visible en builds
-        # PyInstaller como bandas horizontales en el video).
-        qimg = QImage(rgb.data, nw, nh, 3 * nw, QImage.Format_RGB888).copy()
+        # QImage apunta al buffer del ndarray. El HUD se pinta encima
+        # mientras 'rgb' sigue vivo en este scope. Al final hacemos
+        # .copy() para que el QPixmap herede un buffer independiente
+        # (sin esto, el GC del .exe libera 'rgb' y se ve corrupto).
+        qimg = QImage(rgb.data, nw, nh, 3 * nw, QImage.Format_RGB888)
 
         # QPainter HUD overlay
         painter = QPainter(qimg)
@@ -607,7 +608,9 @@ class DashboardWindow(QMainWindow):
                 f"border-radius:{TOKENS['radius_lg']}px;background:#000;"
                 f"border:1px solid {SHARED['border']};"
             )
-        lbl.setPixmap(QPixmap.fromImage(qimg))
+        # .copy() AHORA — despues de pintar el HUD: garantiza que el
+        # QPixmap final tenga su propio buffer independiente del ndarray.
+        lbl.setPixmap(QPixmap.fromImage(qimg.copy()))
 
     # ── Recognition ─────────────────────────────────────────────────────────
 

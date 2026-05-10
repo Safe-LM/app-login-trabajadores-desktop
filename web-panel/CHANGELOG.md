@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.1.1...web-panel-v0.1.2) (2026-05-10)
+
+
+### 🐛 Correcciones
+
+* **web-panel:** test del flujo de release del panel ([25f86e2](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/25f86e204c492e28b8210235319f662740e03328))
+
 ## [0.1.1](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.1.0...web-panel-v0.1.1) (2026-05-10)
 
 

@@ -3,17 +3,24 @@ name: Station Installer (Windows .exe)
 # Compila el bundle PyInstaller + frontend React + instalador NSIS.
 #
 # Triggers:
-#   - Push a main: build de validacion (artifact 30d, NO crea release)
+#   - release.published (station-v*): el caso REAL de produccion.
+#     release-please mergea su PR -> crea tag -> publica release ->
+#     nosotros enganchamos a 'release.published' para compilar y
+#     adjuntar el .exe al release que ya existe.
+#   - Push de tag station-v* manual: compatibilidad con tags creados
+#     a mano (git tag + git push)
 #   - PR a main: validar que el build sigue funcionando
-#   - Push de tag station-v*: build de release (publica en GitHub Releases)
 #   - Manual (workflow_dispatch): pruebas con version custom
+#
+# IMPORTANTE: NO usamos 'push.branches: main' porque combinar tags +
+# paths en el mismo push hace que GitHub aplique el filtro a los tags.
+# Y NO podemos depender SOLO de 'push.tags' porque cuando release-please
+# crea el tag con GITHUB_TOKEN, GitHub NO dispara workflows (medida
+# anti-loop). Por eso usamos 'release.published' como trigger principal.
 
 on:
-  # IMPORTANTE: cuando combinas 'branches' + 'paths' + 'tags' en el
-  # mismo trigger, GitHub aplica el filtro 'paths' tambien al tag.
-  # Solucion: dejamos solo 'tags' y 'pull_request' aqui (son los
-  # criticos para release). El build de validacion en push a main
-  # va por la ruta de check_suite o lo testeamos via PR.
+  release:
+    types: [published]
   push:
     tags:
       - 'station-v*'
@@ -41,27 +48,39 @@ jobs:
       - uses: actions/checkout@v4
 
       # ─── Calcular version segun trigger ────────────────────────────
-      # - Tag station-v5.1.0    -> 5.1.0          (release oficial)
-      # - workflow_dispatch     -> input.version  (prueba manual)
-      # - push a main / PR      -> 0.0.0-{sha}    (build de validacion)
+      # - release.published     -> tag_name del release (caso real prod)
+      # - Tag station-v5.1.0    -> 5.1.0 (release oficial via push tag)
+      # - workflow_dispatch     -> input.version (prueba manual)
+      # - PR                    -> 0.0.0-{sha} (build de validacion)
       - name: Calcular version
         id: version
         shell: pwsh
         run: |
           $sha = "${{ github.sha }}".Substring(0, 7)
-          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+          $eventName = "${{ github.event_name }}"
+          if ($eventName -eq "release") {
+            $tag = "${{ github.event.release.tag_name }}"
+            $v = $tag.Replace("station-v", "")
+            $tagName = $tag
+            $isRelease = "true"
+          } elseif ($eventName -eq "workflow_dispatch") {
             $v = "${{ github.event.inputs.version }}"
+            $tagName = "station-v$v"
             $isRelease = "true"
           } elseif ("${{ github.ref_type }}" -eq "tag") {
             $v = "${{ github.ref_name }}".Replace("station-v", "")
+            $tagName = "${{ github.ref_name }}"
             $isRelease = "true"
           } else {
-            # Push a main o PR: version efimera para validar build
+            # PR: version efimera para validar build
             $v = "0.0.0-$sha"
+            $tagName = ""
             $isRelease = "false"
           }
           Write-Output "version=$v" >> $env:GITHUB_OUTPUT
+          Write-Output "tag_name=$tagName" >> $env:GITHUB_OUTPUT
           Write-Output "is_release=$isRelease" >> $env:GITHUB_OUTPUT
+          Write-Output "Version: $v (tag: $tagName, release: $isRelease)"
           Write-Output "Version: $v (release: $isRelease)"
 
       # ─── Setup ─────────────────────────────────────────────────────
@@ -206,14 +225,14 @@ jobs:
       #  - Tabla de descarga con tamano + SHA256
       #  - Cambios extraidos del CHANGELOG.md generado por release-please
       - name: Generar release notes inteligentes
-        if: startsWith(github.ref, 'refs/tags/station-v')
+        if: steps.version.outputs.is_release == 'true'
         id: notes
         shell: pwsh
         run: |
           # Necesitamos historia completa para git log con tags
           git fetch --tags --unshallow 2>$null
           $version = "${{ steps.version.outputs.version }}"
-          $tag = "${{ github.ref_name }}"
+          $tag = "${{ steps.version.outputs.tag_name }}"
           # Tag anterior (puede no existir si es el primer release)
           $previousTag = (git tag --list "station-v*" --sort=-v:refname |
                           Where-Object { $_ -ne $tag } |
@@ -235,12 +254,15 @@ jobs:
 
           Write-Output "body_path=release_body.md" >> $env:GITHUB_OUTPUT
 
-      # ─── Release a GitHub (solo en push de tag) ────────────────────
+      # ─── Adjuntar .exe al GitHub Release ────────────────────────────
+      # Si el release ya existe (caso normal: release-please lo creo),
+      # actualizamos el body y agregamos los assets.
+      # Si NO existe (caso: tag pusheado a mano), softprops lo crea.
       - name: Crear/actualizar GitHub Release
-        if: startsWith(github.ref, 'refs/tags/station-v')
+        if: steps.version.outputs.is_release == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ steps.version.outputs.tag_name }}
           name: 🚀 Safe Link Station v${{ steps.version.outputs.version }}
           body_path: ${{ steps.notes.outputs.body_path }}
           # generate_release_notes:false porque ya generamos el body

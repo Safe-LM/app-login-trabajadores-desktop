@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.3.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.2.3...station-v5.3.0) (2026-05-10)
+
+
+### ✨ Nuevas funcionalidades
+
+* **station:** helper get_short_version() para mostrar version compacta ([206b8cd](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/206b8cd7a443289015c8f91fc335542badfb2018))
+
 ## [5.2.3](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.2.2...station-v5.2.3) (2026-05-10)
 
 

@@ -47,6 +47,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Log build info al arrancar — ayuda a debugging remoto
+try:
+    from build_info import get_full_version, get_dict as _get_build_dict
+    logger.info("Safe Link Station — %s", get_full_version())
+    _BUILD_INFO = _get_build_dict()
+except ImportError:
+    logger.info("Safe Link Station — modo desarrollo (sin build_info)")
+    _BUILD_INFO = {"version": "dev", "commit_sha": "local", "build_date": "today"}
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Config persistente

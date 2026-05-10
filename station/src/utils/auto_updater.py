@@ -34,9 +34,13 @@ RELEASE_LATEST = f"https://github.com/{GITHUB_REPO}/releases/latest/download"
 LOCAL_VERSION_FILE = "version.txt"
 CHECK_INTERVAL_HOURS = 24
 
-# Version actual del app — se sobrescribe en runtime con version.txt
-# si existe en el directorio de instalacion.
-CURRENT_VERSION = "5.1.0"
+# Version actual: tomada de build_info.py inyectado por CI.
+# Si el archivo no existe (dev mode), default a placeholder.
+try:
+    from build_info import VERSION as _BUILD_VERSION
+    CURRENT_VERSION = _BUILD_VERSION
+except ImportError:
+    CURRENT_VERSION = "5.1.0-dev"
 
 
 def is_enabled() -> bool:

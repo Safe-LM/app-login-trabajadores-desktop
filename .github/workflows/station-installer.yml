@@ -105,6 +105,17 @@ jobs:
           }
         continue-on-error: true
 
+      # Inyectar version + commit + fecha en build_info.py (lo lee la app
+      # al arrancar y lo muestra en logs / acerca de / heartbeat)
+      - name: Inyectar build info
+        working-directory: station
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $sha     = "${{ github.sha }}".Substring(0, 7)
+          $run     = "${{ github.run_number }}"
+          python inject_build_info.py --version $version --sha $sha --run $run
+
       - name: Compilar bundle con PyInstaller
         working-directory: station
         run: pyinstaller SafeLink_Station.spec --noconfirm --clean

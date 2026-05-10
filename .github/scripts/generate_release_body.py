@@ -54,12 +54,16 @@ def main() -> int:
     installer = Path(args.installer_path)
     size_mb = round(installer.stat().st_size / 1024 / 1024, 1) if installer.exists() else 0.0
 
-    # SHA256
+    # SHA256 — robusto contra archivos vacios o sin contenido valido
     sha256 = "(no disponible)"
     sha_file = Path(args.sha256_file)
     if sha_file.exists():
-        first_line = sha_file.read_text(encoding="utf-8").strip().splitlines()[0]
-        sha256 = first_line.split()[0] if first_line else "(no disponible)"
+        content = sha_file.read_text(encoding="utf-8").strip()
+        lines = content.splitlines() if content else []
+        if lines:
+            parts = lines[0].split()
+            if parts:
+                sha256 = parts[0]
 
     # Commits desde el tag anterior
     commits = _get_commits(args.previous_tag, args.commit_sha)

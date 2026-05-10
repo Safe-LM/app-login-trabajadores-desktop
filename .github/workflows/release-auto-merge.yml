@@ -1,0 +1,76 @@
+name: Auto-merge Release PR
+
+# Mergea automaticamente el PR de release-please cuando todos los
+# checks han pasado. Asi el flujo completo (commit -> release -> .exe
+# publicado) es 100% automatico.
+#
+# GUARD: si quieres revisar manualmente un PR de release, agrega la
+# label "manual-review" y este workflow lo respeta (no mergea).
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled, ready_for_review]
+  check_suite:
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    name: Auto-merge si es de release-please
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verificar si es PR de release-please
+        id: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Soporte: dispatch via pull_request o check_suite
+            let prs = [];
+            if (context.payload.pull_request) {
+              prs = [context.payload.pull_request];
+            } else if (context.payload.check_suite) {
+              prs = context.payload.check_suite.pull_requests || [];
+            }
+
+            for (const pr of prs) {
+              const isBot = pr.user?.login === "github-actions[bot]" ||
+                            pr.user?.login === "release-please[bot]";
+              const isReleaseTitle = pr.title?.startsWith("chore(release)") ||
+                                     pr.title?.startsWith("chore: release") ||
+                                     pr.title?.startsWith("chore(main): release");
+              const hasManualLabel = (pr.labels || []).some(
+                l => l.name === "manual-review" || l.name === "do-not-merge"
+              );
+
+              core.info(`PR #${pr.number}: ${pr.title}`);
+              core.info(`  isBot: ${isBot}, isReleaseTitle: ${isReleaseTitle}, manualLabel: ${hasManualLabel}`);
+
+              if (isReleaseTitle && !hasManualLabel) {
+                core.setOutput("pr_number", pr.number);
+                core.setOutput("should_merge", "true");
+                return;
+              }
+            }
+            core.setOutput("should_merge", "false");
+
+      - name: Habilitar auto-merge en el PR
+        if: steps.check.outputs.should_merge == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR=${{ steps.check.outputs.pr_number }}
+          echo "Activando auto-merge en PR #$PR"
+          # --auto: GitHub esperara a que pasen los checks y mergeara solo
+          # --squash: un commit limpio en main
+          gh pr merge "$PR" \
+            --repo "${{ github.repository }}" \
+            --auto \
+            --squash \
+            --delete-branch || echo "Auto-merge ya estaba activo o el PR ya se mergeo"
+
+      - name: Skip
+        if: steps.check.outputs.should_merge != 'true'
+        run: echo "No es un PR de release-please o tiene label manual-review — skipping"

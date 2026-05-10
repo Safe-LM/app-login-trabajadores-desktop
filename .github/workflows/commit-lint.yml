@@ -1,0 +1,101 @@
+name: Commit Lint (Conventional Commits)
+
+# Valida que los commits y el titulo del PR sigan el formato
+# de Conventional Commits para que release-please pueda
+# categorizarlos correctamente en el changelog.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  validate-pr-title:
+    name: Validar titulo del PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validar formato Conventional Commits
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Tipos permitidos (matchea release-please-config.json)
+          types: |
+            feat
+            fix
+            perf
+            refactor
+            revert
+            docs
+            style
+            chore
+            test
+            build
+            ci
+          # Scopes opcionales (sirven para filtrar en CHANGELOG)
+          scopes: |
+            station
+            web-panel
+            installer
+            ci
+            supabase
+            docs
+            deps
+          # Permitir scope vacio (ej: "fix: typo")
+          requireScope: false
+          # Subject debe empezar minuscula (Conventional Commits estandar)
+          subjectPattern: ^[a-z].+$
+          subjectPatternError: |
+            El subject del PR debe empezar con minuscula.
+            Ejemplos validos:
+              feat(station): nueva pantalla de provisioning
+              fix(web-panel): toast no se cerraba
+              chore: deps update
+            En vez de:
+              Feat(station): Nueva Pantalla...
+
+  validate-commits:
+    name: Validar commits del PR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar commitlint
+        run: |
+          npm install --no-save \
+            @commitlint/cli@19 \
+            @commitlint/config-conventional@19
+
+      - name: Crear commitlint config
+        run: |
+          cat > commitlint.config.js <<'EOF'
+          module.exports = {
+            extends: ['@commitlint/config-conventional'],
+            rules: {
+              'type-enum': [2, 'always', [
+                'feat', 'fix', 'perf', 'refactor', 'revert',
+                'docs', 'style', 'chore', 'test', 'build', 'ci'
+              ]],
+              'subject-case': [0],
+              'header-max-length': [2, 'always', 120],
+            },
+          };
+          EOF
+
+      - name: Lint commits del PR
+        run: |
+          npx commitlint \
+            --from "${{ github.event.pull_request.base.sha }}" \
+            --to "${{ github.event.pull_request.head.sha }}" \
+            --verbose

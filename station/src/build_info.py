@@ -29,3 +29,8 @@ def get_dict() -> dict:
         "build_date": BUILD_DATE,
         "build_run":  BUILD_RUN,
     }
+
+
+def get_short_version() -> str:
+    """Version compacta para mostrar en UI: '5.2.0 · abc1234'."""
+    return f"{VERSION} · {COMMIT_SHA}"

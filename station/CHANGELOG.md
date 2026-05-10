@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.2.3](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.2.2...station-v5.2.3) (2026-05-10)
+
+
+### 🐛 Correcciones
+
+* **web-panel:** test scope path scoping ([f8cf9a2](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/f8cf9a2e3ac4dd0b138438e90b4e19428cfa8230))
+
 ## [5.2.2](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.2.1...station-v5.2.2) (2026-05-10)
 
 

@@ -47,7 +47,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   }, []);
 
   const notify = useCallback<Ctx["notify"]>((input) => {
-    const id = crypto.randomUUID();
+    // Fallback: crypto.randomUUID requiere contexto seguro (https / localhost).
+    // En Safari < 15.4 o iframes http puede no existir y rompe TODO el panel
+    // (NotificationProvider envuelve la app). Defensivo:
+    const id =
+      (typeof globalThis !== "undefined" && globalThis.crypto?.randomUUID?.()) ||
+      `n-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
     const next: Notification = { id, ...input };
     setNotifications(prev => {
       const filtered = next.dedupeKey

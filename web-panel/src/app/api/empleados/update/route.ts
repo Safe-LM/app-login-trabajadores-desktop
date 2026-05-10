@@ -52,7 +52,14 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const { error } = await sb.from("empleados").update(updateData).eq("id", id);
+  // Defensa en profundidad: filtrar tambien por empresa_id para que
+  // un admin no pueda modificar empleados de otra empresa aunque
+  // conozca el id (defense-in-depth sobre la RLS).
+  const { error } = await sb
+    .from("empleados")
+    .update(updateData)
+    .eq("id", id)
+    .eq("empresa_id", empresaId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // Generar nuevo embedding si hay nueva foto

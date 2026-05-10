@@ -118,6 +118,25 @@ export function SidebarNav({ userEmail }: { userEmail: string }) {
         </div>
       </div>
 
+      {/* Boton de busqueda rapida (abre Command Palette con Cmd+K) */}
+      <div style={{ padding: "10px 8px 0" }}>
+        <button
+          type="button"
+          onClick={() => document.dispatchEvent(new CustomEvent("safelink:open-palette"))}
+          className="cmdk-launch-btn"
+          aria-label="Abrir búsqueda rápida"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.6 }}>
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <span style={{ flex: 1, textAlign: "left", color: "var(--text-faint)" }}>Buscar...</span>
+          <span className="cmdk-launch-btn__kbd">
+            <kbd>⌘</kbd><kbd>K</kbd>
+          </span>
+        </button>
+      </div>
+
       {/* Nav */}
       <nav style={{ flex: 1, padding: "10px 8px", display: "flex", flexDirection: "column", gap: 1, overflowY: "auto" }}>
         <SectionLabel>General</SectionLabel>

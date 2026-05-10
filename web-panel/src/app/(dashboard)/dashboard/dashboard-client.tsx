@@ -75,8 +75,16 @@ export function DashboardClient({ initial }: { initial: AsistenciaHoy[] }) {
   const total     = presentes + ausentes + salieron;
   const pct       = total > 0 ? Math.round((presentes / total) * 100) : 0;
 
-  const fecha = new Date().toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" });
-  const hora  = new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" });
+  // Reloj client-side. Evita hydration mismatch — new Date() en render
+  // genera valores distintos en SSR vs cliente.
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    setNow(new Date());
+    const i = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(i);
+  }, []);
+  const fecha = now?.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" }) ?? "";
+  const hora  = now?.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }) ?? "—:—";
 
   return (
     <div className="page animate-fade-up">

@@ -6,6 +6,7 @@ import { PageSkeleton } from "@/components/Skeleton";
 import { NotificationProvider } from "@/components/notifications/NotificationProvider";
 import { PanelNotificationsWatcher } from "@/components/notifications/PanelNotificationsWatcher";
 import { BrowserPushBridge } from "@/components/notifications/BrowserPushBridge";
+import { CommandLayer } from "@/components/command/CommandLayer";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -22,6 +23,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <BrowserPushBridge empresaId={empresaId} />
         </>
       )}
+      <CommandLayer />
       <div style={{ display: "flex", height: "100vh", background: "var(--bg-black)", overflow: "hidden" }}>
         <SidebarNav userEmail={user.email ?? ""} />
         <main style={{ flex: 1, overflow: "auto" }}>

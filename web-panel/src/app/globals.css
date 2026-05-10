@@ -746,6 +746,47 @@ body {
   box-shadow: 0 4px 12px -4px rgba(239,68,68,0.4);
 }
 
+/* ─── Boton de busqueda rapida (sidebar header) ───────────────── */
+.cmdk-launch-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.cmdk-launch-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(37, 99, 235, 0.4);
+}
+.cmdk-launch-btn:active {
+  transform: scale(0.98);
+}
+.cmdk-launch-btn__kbd {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.cmdk-launch-btn__kbd kbd {
+  font-size: 9px;
+  padding: 1px 4px;
+  min-width: 14px;
+  text-align: center;
+  background: var(--bg-elevated, rgba(255,255,255,0.04));
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-faint);
+  font-family: ui-monospace, monospace;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
 /* ─── Boton de logout (sidebar footer) ───────────────────────── */
 .logout-btn {
   position: relative;

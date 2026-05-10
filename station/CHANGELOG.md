@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.3.4](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.3.3...station-v5.3.4) (2026-05-10)
+
+
+### 🐛 Correcciones
+
+* **station:** heartbeat reportaba version hardcodeada 3.0.0 al panel ([74d2fb5](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/74d2fb56d3165bd06045f9eaffc7022c562e4cfc))
+
 ## [5.3.3](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.3.2...station-v5.3.3) (2026-05-10)
 
 

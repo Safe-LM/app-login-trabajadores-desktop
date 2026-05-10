@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.1.4...web-panel-v0.2.0) (2026-05-10)
+
+
+### ✨ Nuevas funcionalidades
+
+* **web-panel:** command palette pro + atajos + 3 fixes criticos ([91b20cb](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/91b20cbc03cca65a963b6ec10bca133693d74349))
+
 ## [0.1.4](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.1.3...web-panel-v0.1.4) (2026-05-10)
 
 

@@ -184,21 +184,58 @@ def _get_contributors(previous_tag: str, commit_sha: str) -> list[str]:
 
 
 def _extract_changelog_section(changelog_path: str, version: str) -> str:
-    """Extrae la seccion del CHANGELOG correspondiente a esta version."""
-    p = Path(changelog_path)
-    if not p.exists():
-        return "_(Cambios detallados en el CHANGELOG.md)_"
+    """Extrae la seccion del CHANGELOG correspondiente a esta version.
 
-    content = p.read_text(encoding="utf-8")
-    # Buscar encabezado "## [X.Y.Z]" y capturar hasta el siguiente "##"
+    Maneja DOS formatos:
+
+    A) release-please (con link a compare):
+       ## [5.2.1](https://github.com/.../compare/...) (2026-05-10)
+
+    B) Manual / Keep-a-Changelog:
+       ## [5.2.1] - 2026-05-10
+       ## [5.2.1] — 2026-05-10
+
+    Si el path principal no existe o no tiene la version, intenta con
+    paths alternativos (station/CHANGELOG.md, web-panel/CHANGELOG.md,
+    CHANGELOG.md raiz).
+    """
+    candidates = [changelog_path]
+    # Fallbacks: si pidieron CHANGELOG.md raiz, intentar tambien los de paquetes
+    if not changelog_path.endswith("station/CHANGELOG.md"):
+        candidates.append("station/CHANGELOG.md")
+    if not changelog_path.endswith("web-panel/CHANGELOG.md"):
+        candidates.append("web-panel/CHANGELOG.md")
+    if "/" in changelog_path:
+        candidates.append("CHANGELOG.md")
+
+    # Regex que matchea ambos formatos:
+    #   ## [5.2.1](url) (date)
+    #   ## [5.2.1] - date
+    #   ## [5.2.1] — date
+    #   ## 5.2.1 - date
+    # y captura hasta el siguiente "## [version]" o "---" o EOF
     pattern = re.compile(
-        rf"^##\s*\[?{re.escape(version)}\]?[^\n]*\n+(.+?)(?=^##\s*\[?\d+\.|^---\s*$)",
+        rf"^##\s+\[?{re.escape(version)}\]?[^\n]*\n+(.+?)(?=^##\s+\[?\d+\.|^---\s*$|\Z)",
         re.MULTILINE | re.DOTALL,
     )
-    m = pattern.search(content)
-    if not m:
-        return "_(Ver [`CHANGELOG.md`](./CHANGELOG.md) para el detalle completo)_"
-    return m.group(1).strip()
+
+    for path in candidates:
+        p = Path(path)
+        if not p.exists():
+            continue
+        content = p.read_text(encoding="utf-8")
+        m = pattern.search(content)
+        if m:
+            section = m.group(1).strip()
+            if section:
+                return section
+
+    # No se encontro la version en ningun changelog
+    return (
+        "_(Cambios detallados en "
+        "[`station/CHANGELOG.md`](./station/CHANGELOG.md) o "
+        "[`web-panel/CHANGELOG.md`](./web-panel/CHANGELOG.md))_"
+    )
 
 
 def _build_body(**kw) -> str:

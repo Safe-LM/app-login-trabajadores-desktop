@@ -249,7 +249,7 @@ jobs:
             --commit-sha "${{ github.sha }}" `
             --build-run-id "${{ github.run_id }}" `
             --repo "${{ github.repository }}" `
-            --changelog-path "CHANGELOG.md" `
+            --changelog-path "station/CHANGELOG.md" `
             --output release_body.md
 
           Write-Output "body_path=release_body.md" >> $env:GITHUB_OUTPUT

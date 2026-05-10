@@ -22,7 +22,13 @@ for _p in _here.parents:
         break
 logger = logging.getLogger(__name__)
 
-APP_VERSION = "3.0.0"
+# Version reportada al panel en cada heartbeat. Se toma de build_info.py
+# que es inyectado por CI durante el empaquetado del .exe. En dev local
+# (sin build_info) cae al placeholder.
+try:
+    from build_info import VERSION as APP_VERSION  # type: ignore
+except Exception:
+    APP_VERSION = "dev"
 HEARTBEAT_INTERVAL_MS = 60_000  # 60 segundos
 
 # Estado de salud — se actualiza desde dashboard_window / sync_manager

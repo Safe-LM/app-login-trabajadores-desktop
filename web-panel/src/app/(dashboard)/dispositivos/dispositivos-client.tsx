@@ -57,7 +57,7 @@ function HealthBar({ score, camara, empleados, syncAt }: {
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, marginTop: 2 }}>
         {([
-          ["Cámara",    camara === true ? "âœ“ OK" : camara === false ? "✗ Error" : "—", camara === true ? "#22c55e" : camara === false ? "#ef4444" : "var(--text-faint)"],
+          ["Cámara",    camara === true ? "✓ OK" : camara === false ? "✗ Error" : "—", camara === true ? "#22c55e" : camara === false ? "#ef4444" : "var(--text-faint)"],
           ["Empleados", String(empleados), empleados > 0 ? "#22c55e" : "var(--text-faint)"],
           ["Sync",      fmtSync,          syncAt ? "#22c55e" : "var(--text-faint)"],
         ] as [string, string, string][]).map(([k, v, c]) => (
@@ -74,7 +74,7 @@ function HealthBar({ score, camara, empleados, syncAt }: {
 function ApiKey({ apiKey }: { apiKey: string }) {
   const [vis, setVis]       = useState(false);
   const [copied, setCopied] = useState(false);
-  const masked = `${apiKey.slice(0, 8)}${"â€¢".repeat(16)}`;
+  const masked = `${apiKey.slice(0, 8)}${"•".repeat(16)}`;
   function copy() {
     navigator.clipboard.writeText(apiKey);
     setCopied(true);

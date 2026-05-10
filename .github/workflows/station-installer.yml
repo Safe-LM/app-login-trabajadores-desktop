@@ -9,11 +9,12 @@ name: Station Installer (Windows .exe)
 #   - Manual (workflow_dispatch): pruebas con version custom
 
 on:
+  # IMPORTANTE: cuando combinas 'branches' + 'paths' + 'tags' en el
+  # mismo trigger, GitHub aplica el filtro 'paths' tambien al tag.
+  # Solucion: dejamos solo 'tags' y 'pull_request' aqui (son los
+  # criticos para release). El build de validacion en push a main
+  # va por la ruta de check_suite o lo testeamos via PR.
   push:
-    branches: [main]
-    paths:
-      - 'station/**'
-      - '.github/workflows/station-installer.yml'
     tags:
       - 'station-v*'
   pull_request:
@@ -21,6 +22,7 @@ on:
     paths:
       - 'station/**'
       - '.github/workflows/station-installer.yml'
+      - '.github/scripts/generate_release_body.py'
   workflow_dispatch:
     inputs:
       version:

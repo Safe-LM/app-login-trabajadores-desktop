@@ -26,11 +26,43 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from dotenv import load_dotenv
-for _p in Path(__file__).resolve().parents:
-    _env = _p / ".env"
-    if _env.exists():
-        load_dotenv(_env, override=True)
-        break
+
+def _bootstrap_env() -> None:
+    """
+    Carga .env priorizando ubicacion escribible (%LOCALAPPDATA% en
+    builds instalados) sobre la copia del bundle (read-only).
+
+    Si la app se instala en C:\\Program Files y el wizard NSIS dejo un
+    .env ahi, lo migramos al primer arranque a writable_root() para
+    que la app pueda escribirlo despues (refresh tokens, cambios de
+    config, etc.).
+    """
+    from utils.paths import env_path, bundled_env_path
+
+    writable = env_path()
+    bundled  = bundled_env_path()
+
+    # Migracion: si writable no existe pero bundled si, copiamos.
+    if not writable.exists() and bundled.exists() and bundled != writable:
+        try:
+            writable.write_text(bundled.read_text("utf-8"), "utf-8")
+        except Exception:
+            pass
+
+    # Cargar el .env escribible si existe; si no, caer al bundle; si
+    # nada, hacer load_dotenv() default por compatibilidad con dev.
+    if writable.exists():
+        load_dotenv(writable, override=True)
+    elif bundled.exists():
+        load_dotenv(bundled, override=True)
+    else:
+        for _p in Path(__file__).resolve().parents:
+            _env = _p / ".env"
+            if _env.exists():
+                load_dotenv(_env, override=True)
+                break
+
+_bootstrap_env()
 
 from PyQt5.QtCore import Qt, QCoreApplication, QTimer  # noqa: E402
 
@@ -40,11 +72,46 @@ from PyQt5.QtGui import QIcon  # noqa: E402
 from PyQt5.QtWidgets import QApplication, QMessageBox  # noqa: E402
 from PyQt5 import QtWebEngineWidgets  # noqa: E402,F401  (preload requerido)
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%H:%M:%S",
-)
+def _setup_logging() -> None:
+    """
+    Configura logging a stdout + archivo rotatorio en writable_root()/logs.
+    Sin esto, el .exe (sin --console) no deja rastro de crashes y es
+    imposible debuguear en produccion.
+    """
+    from logging.handlers import RotatingFileHandler
+    from utils.paths import logs_root
+
+    fmt = logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    # Limpiar handlers previos (importante si _setup_logging se llama 2 veces)
+    for h in list(root.handlers):
+        root.removeHandler(h)
+
+    # Stdout (visible en dev local, ignorado en .exe sin consola)
+    sh = logging.StreamHandler()
+    sh.setFormatter(fmt)
+    root.addHandler(sh)
+
+    # Archivo rotatorio: 5 MB x 3 = max ~15 MB por instalacion
+    try:
+        fh = RotatingFileHandler(
+            logs_root() / "station.log",
+            maxBytes=5 * 1024 * 1024,
+            backupCount=3,
+            encoding="utf-8",
+        )
+        fh.setFormatter(fmt)
+        root.addHandler(fh)
+    except Exception:
+        # Si falla el FileHandler (permisos raros) seguimos solo con stdout
+        pass
+
+
+_setup_logging()
 logger = logging.getLogger(__name__)
 
 # Log build info al arrancar — ayuda a debugging remoto
@@ -60,7 +127,8 @@ except ImportError:
 # ─────────────────────────────────────────────────────────────────────────────
 #  Config persistente
 # ─────────────────────────────────────────────────────────────────────────────
-_CONFIG_PATH = BASE_DIR / "data" / "station_config.json"
+from utils.paths import config_path as _config_path
+_CONFIG_PATH = _config_path()
 
 
 def _load_config() -> dict:

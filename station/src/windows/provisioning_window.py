@@ -13,7 +13,6 @@ al admin. No toca ningún archivo, no escribe credenciales.
 import json
 import logging
 import os
-from pathlib import Path
 
 from PyQt5.QtCore import QObject, QThread, QTimer, Qt, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QFont
@@ -24,8 +23,8 @@ from PyQt5.QtWidgets import (
 
 logger = logging.getLogger(__name__)
 
-_BASE_DIR   = Path(__file__).resolve().parent.parent.parent
-_CONFIG_PATH = _BASE_DIR / "data" / "station_config.json"
+from utils.paths import config_path as _config_path
+_CONFIG_PATH = _config_path()
 
 
 # ─────────────────────────────────────────────────────────────────────────────

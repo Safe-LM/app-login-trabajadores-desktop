@@ -7,7 +7,6 @@ y escribe STATION_API_KEY en .env automaticamente.
 
 import os
 import json
-from pathlib import Path
 from dotenv import load_dotenv, set_key
 
 from PyQt5.QtCore import Qt, QTimer, QUrl, QThread, pyqtSignal, QObject
@@ -17,8 +16,11 @@ from PyQt5.QtWebChannel import QWebChannel
 
 load_dotenv()
 
-_BASE_DIR = Path(__file__).resolve().parent.parent  # = station/
-_ENV_PATH = _BASE_DIR / ".env"                       # = station/.env  (donde supabase_client lo encuentra primero)
+# Ruta del .env escribible (APPDATA en build instalado, station/.env
+# en dev local). Antes era _BASE_DIR/.env hardcoded, lo que rompia en
+# Program Files (read-only).
+from utils.paths import env_path as _env_path
+_ENV_PATH = _env_path()
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -69,8 +71,11 @@ class _SetupWorker(QObject):
                 return
 
             self.step.emit("Guardando configuración local...")
-            if not _ENV_PATH.exists():
-                _ENV_PATH.write_text("")
+            # set_key() crea el archivo si no existe — no escribimos
+            # .env vacio proactivamente porque si el proceso muere antes
+            # de escribir las claves, quedaria un .env corrupto que
+            # confunde al siguiente arranque.
+            _ENV_PATH.parent.mkdir(parents=True, exist_ok=True)
             env_str = str(_ENV_PATH)
             set_key(env_str, "STATION_API_KEY", data["api_key"])
             # Guardar también las claves de Supabase para que la estación

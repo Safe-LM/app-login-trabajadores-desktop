@@ -92,3 +92,31 @@ def models_root() -> Path:
 def bundled_models_root() -> Path:
     """Modelos pre-empaquetados en la instalacion (read-only)."""
     return _STATION_ROOT / "models"
+
+
+def config_path() -> Path:
+    """station_config.json (datos persistentes de provisioning)."""
+    p = writable_root() / "data"
+    p.mkdir(parents=True, exist_ok=True)
+    return p / "station_config.json"
+
+
+def logs_root() -> Path:
+    """Directorio de logs persistentes."""
+    p = writable_root() / "logs"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def env_path() -> Path:
+    """
+    Ruta del .env escribible. En instalacion read-only se prefiere
+    %LOCALAPPDATA%\\Safe Link Station\\.env. En dev local sigue siendo
+    el .env del repo.
+    """
+    return writable_root() / ".env"
+
+
+def bundled_env_path() -> Path:
+    """.env que el instalador NSIS deja junto al .exe (read-only en builds)."""
+    return _STATION_ROOT / ".env"

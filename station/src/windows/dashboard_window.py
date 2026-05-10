@@ -1196,4 +1196,16 @@ class DashboardWindow(QMainWindow):
         self._stop_camera()
         if self._rec_thread and self._rec_thread.isRunning():
             self._rec_thread.stop()
+        # Detener sync_manager y realtime_listener para que el .exe
+        # no quede zombie con QThreads activos despues de cerrar.
+        if hasattr(self, "_sync_mgr") and self._sync_mgr is not None:
+            try:
+                self._sync_mgr.stop()
+            except Exception as e:
+                logger.warning(f"Error parando sync_manager: {e}")
+        if hasattr(self, "_rt_listener") and self._rt_listener is not None:
+            try:
+                self._rt_listener.stop()
+            except Exception as e:
+                logger.warning(f"Error parando realtime_listener: {e}")
         ev.accept()

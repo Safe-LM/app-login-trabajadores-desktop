@@ -13,7 +13,6 @@ Flujo:
 import json
 import logging
 import threading
-from pathlib import Path
 from typing import Optional
 
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal
@@ -23,7 +22,8 @@ from utils.supabase_client import get_supabase_client
 
 logger = logging.getLogger(__name__)
 
-_CONFIG_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "station_config.json"
+from utils.paths import config_path as _config_path
+_CONFIG_PATH = _config_path()
 
 PANEL_BASE_URL = "https://panel.safelink.app"
 

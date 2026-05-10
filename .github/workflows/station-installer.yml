@@ -152,6 +152,32 @@ jobs:
           }
         continue-on-error: true
 
+      - name: Validar modelos ONNX presentes en el bundle
+        working-directory: station
+        shell: pwsh
+        run: |
+          $modelsDir = "models"
+          $expected  = @(
+            "face_detection_yunet_2023mar.onnx",
+            "face_recognition_sface_2021dec.onnx"
+          )
+          $missing = @()
+          foreach ($m in $expected) {
+            $p = Join-Path $modelsDir $m
+            if (-not (Test-Path $p)) {
+              $missing += $m
+            } else {
+              $size = (Get-Item $p).Length
+              Write-Output ("OK: {0} ({1:N0} bytes)" -f $m, $size)
+            }
+          }
+          if ($missing.Count -gt 0) {
+            Write-Warning ("Modelos ausentes (se descargaran en runtime al primer arranque): {0}" -f ($missing -join ", "))
+            # No fallamos el build — la app puede descargarlos en runtime
+            # gracias a model_downloader.py + utils/paths.models_root().
+            # Pero dejamos el warning visible para que se note en CI logs.
+          }
+
       # Inyectar version + commit + fecha en build_info.py (lo lee la app
       # al arrancar y lo muestra en logs / acerca de / heartbeat)
       - name: Inyectar build info

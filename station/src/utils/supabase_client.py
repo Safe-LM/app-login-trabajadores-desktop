@@ -25,27 +25,20 @@ def _get_base_dir() -> Path:
 
 
 def _find_and_load_env():
-    """Busca el .env, si no existe lo crea desde la config embebida."""
+    """Carga el .env desde la ruta escribible (utils/paths.env_path)."""
+    try:
+        from utils.paths import env_path as _ep
+        env_file = _ep()
+        if env_file.exists():
+            load_dotenv(env_file, override=True)
+            return
+    except Exception:
+        pass
+    # Fallback: buscar en el bundle / dev local
     base = _get_base_dir()
-    env_path = base / ".env"
-
-    if not env_path.exists():
-        # Buscar config embebida (dentro del .exe o en desarrollo)
-        bundled_candidates = [
-            base / "config" / "server.env",           # .exe (PyInstaller)
-            Path(__file__).resolve().parent.parent / "config" / "server.env",  # desarrollo
-        ]
-        for bundled in bundled_candidates:
-            if bundled.exists():
-                logger.info(f"Creando .env desde config embebida: {bundled}")
-                import shutil
-                shutil.copy2(str(bundled), str(env_path))
-                break
-        else:
-            logger.warning("No se encontró config embebida ni .env existente")
-
-    if env_path.exists():
-        load_dotenv(env_path, override=True)
+    env_file = base / ".env"
+    if env_file.exists():
+        load_dotenv(env_file, override=True)
     else:
         logger.warning("No se encontró archivo .env")
 

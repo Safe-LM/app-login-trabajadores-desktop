@@ -30,8 +30,6 @@ GITHUB_REPO = os.environ.get(
 )
 RELEASE_LATEST = f"https://github.com/{GITHUB_REPO}/releases/latest/download"
 
-# Archivos del release
-LOCAL_VERSION_FILE = "version.txt"
 CHECK_INTERVAL_HOURS = 24
 
 # Version actual: tomada de build_info.py inyectado por CI.
@@ -40,7 +38,7 @@ try:
     from build_info import VERSION as _BUILD_VERSION
     CURRENT_VERSION = _BUILD_VERSION
 except ImportError:
-    CURRENT_VERSION = "5.1.0-dev"
+    CURRENT_VERSION = "dev"
 
 
 def is_enabled() -> bool:
@@ -61,10 +59,11 @@ def get_install_id() -> str:
 
 
 def get_local_version() -> str:
-    """Obtiene la versión local del app desde version.txt."""
-    version_file = Path(LOCAL_VERSION_FILE)
-    if version_file.exists():
-        return version_file.read_text().strip()
+    """
+    Version local del app. Tomada directamente de build_info.py
+    (inyectado por CI). El archivo version.txt suelto ya no se usa
+    porque la ruta relativa rompia en .exe instalado.
+    """
     return CURRENT_VERSION
 
 

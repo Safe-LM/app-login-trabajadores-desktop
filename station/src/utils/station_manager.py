@@ -10,16 +10,20 @@ import logging
 import platform
 import subprocess
 import hashlib
-from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
 from PyQt5.QtCore import QThread, pyqtSignal, QTimer, QObject
 
-_here = Path(__file__).resolve()
-for _p in _here.parents:
-    if (_p / ".env").exists():
-        load_dotenv(_p / ".env", override=False)
-        break
+# El .env ya se carga en main._bootstrap_env() (priorizando la ruta
+# escribible). Solo cargamos aqui como fallback para cuando este modulo
+# se importa fuera del flujo normal (tests, scripts standalone).
+try:
+    from utils.paths import env_path as _env_path
+    _env = _env_path()
+    if _env.exists():
+        load_dotenv(_env, override=False)
+except Exception:
+    pass
 logger = logging.getLogger(__name__)
 
 # Version reportada al panel en cada heartbeat. Se toma de build_info.py

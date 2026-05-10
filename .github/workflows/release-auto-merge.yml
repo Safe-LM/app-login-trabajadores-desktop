@@ -38,9 +38,11 @@ jobs:
             for (const pr of prs) {
               const isBot = pr.user?.login === "github-actions[bot]" ||
                             pr.user?.login === "release-please[bot]";
-              const isReleaseTitle = pr.title?.startsWith("chore(release)") ||
-                                     pr.title?.startsWith("chore: release") ||
-                                     pr.title?.startsWith("chore(main): release");
+              // Title MUST tener contenido despues de "release " (version o branch).
+              // Esto evita auto-mergear PRs con titulo "chore(release):" vacio que
+              // dejan a release-please trabado con "untagged merged release PRs".
+              const titleRe = /^chore(\([\w-]+\))?: release [\w\d./-]+/;
+              const isReleaseTitle = titleRe.test(pr.title || "");
               const hasManualLabel = (pr.labels || []).some(
                 l => l.name === "manual-review" || l.name === "do-not-merge"
               );

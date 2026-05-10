@@ -17,7 +17,6 @@
       "include-component-in-tag": true,
       "include-v-in-tag": true,
       "changelog-path": "CHANGELOG.md",
-      "release-as": "5.3.5",
       "extra-files": [
         { "type": "generic", "path": "version.txt" }
       ],

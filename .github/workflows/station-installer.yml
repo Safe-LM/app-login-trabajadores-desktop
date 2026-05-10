@@ -184,37 +184,95 @@ jobs:
             station/installer/SHA256SUMS.txt
           retention-days: 30
 
+      # ─── Calcular tamano del .exe + leer hash para mostrar en notas ─
+      - name: Preparar metadatos del release
+        if: startsWith(github.ref, 'refs/tags/station-v')
+        id: meta
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $exe = Get-Item "station/installer/SafeLinkStation_Setup_$version.exe"
+          $sizeMB = [math]::Round($exe.Length / 1MB, 1)
+          $hash = (Get-Content "station/installer/SHA256SUMS.txt" -Raw).Split()[0]
+          $buildDate = Get-Date -Format "yyyy-MM-dd"
+          Write-Output "size_mb=$sizeMB" >> $env:GITHUB_OUTPUT
+          Write-Output "sha256=$hash" >> $env:GITHUB_OUTPUT
+          Write-Output "build_date=$buildDate" >> $env:GITHUB_OUTPUT
+
       # ─── Release a GitHub (solo en push de tag) ────────────────────
       - name: Crear/actualizar GitHub Release
         if: startsWith(github.ref, 'refs/tags/station-v')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: Safe Link Station v${{ steps.version.outputs.version }}
+          name: 🚀 Safe Link Station v${{ steps.version.outputs.version }}
           generate_release_notes: true
           files: |
             station/installer/SafeLinkStation_Setup_*.exe
             station/installer/version.txt
             station/installer/SHA256SUMS.txt
           body: |
-            ## Safe Link Station v${{ steps.version.outputs.version }}
+            > Safe Link Station — versión `${{ steps.version.outputs.version }}` publicada el `${{ steps.meta.outputs.build_date }}`
+            > Build SHA: `${{ github.sha }}`
 
-            ### Descarga
+            ## 📥 Descargar
 
-            **Para clientes**: descarga `SafeLinkStation_Setup_${{ steps.version.outputs.version }}.exe`
-            y sigue el [manual de instalacion](https://github.com/${{ github.repository }}/blob/main/docs/MANUAL_INSTALACION.md).
+            | Plataforma | Archivo | Tamaño | SHA256 |
+            |---|---|---|---|
+            | 🪟 Windows 10/11 (x64) | [`SafeLinkStation_Setup_${{ steps.version.outputs.version }}.exe`](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/SafeLinkStation_Setup_${{ steps.version.outputs.version }}.exe) | ${{ steps.meta.outputs.size_mb }} MB | `${{ steps.meta.outputs.sha256 }}` |
 
-            ### Verificar integridad
+            ## 🚀 Instalación rápida
 
-            ```
+            1. Descarga `SafeLinkStation_Setup_${{ steps.version.outputs.version }}.exe`
+            2. Doble click → "Más información" → "Ejecutar de todas formas"
+            3. Sigue el wizard (3 minutos)
+            4. Copia tu API Key del [panel web](https://panel.safelink.app)
+
+            📖 **Manual completo:** [docs/MANUAL_INSTALACION.md](https://github.com/${{ github.repository }}/blob/main/docs/MANUAL_INSTALACION.md)
+
+            ## 🔍 Verificar integridad de la descarga
+
+            ```powershell
             certutil -hashfile SafeLinkStation_Setup_${{ steps.version.outputs.version }}.exe SHA256
             ```
 
-            Compara con el hash en `SHA256SUMS.txt`.
+            Compara con: `${{ steps.meta.outputs.sha256 }}`
 
-            ### Auto-update
+            ## 🔄 Actualización automática
 
-            Las estaciones existentes detectaran esta version automaticamente
-            y notificaran al admin para actualizar.
+            Las estaciones existentes detectarán esta versión en los próximos
+            15 segundos del próximo arranque y notificarán al admin en el panel
+            (sección **Notificaciones**) para confirmar la actualización.
+
+            Para desactivar auto-update agrega a tu `.env`:
+            ```
+            AUTO_UPDATE_ENABLED=false
+            ```
+
+            ## 📝 Cambios
+
+            <!-- generate_release_notes:true rellena esta seccion automaticamente con
+                 los commits + PRs desde el ultimo tag categorizados por type. -->
+
+            ---
+
+            <details>
+            <summary>🛠️ Información técnica del build</summary>
+
+            - **Commit**: [`${{ github.sha }}`](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+            - **Build date**: `${{ steps.meta.outputs.build_date }}`
+            - **Workflow run**: [#${{ github.run_number }}](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            - **Compare**: [previo...${{ github.ref_name }}](https://github.com/${{ github.repository }}/compare/main...${{ github.ref_name }})
+
+            </details>
+
+            ---
+
+            ⚠️ **Sin firma digital**: el `.exe` no está firmado con un certificado
+            (cuando crezcamos a +50 clientes lo agregamos). Windows mostrará "Editor
+            desconocido" — es normal, click en "Más información" → "Ejecutar".
+
+            🐛 ¿Encontraste un bug? [Reporta en Issues](https://github.com/${{ github.repository }}/issues/new)
+
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

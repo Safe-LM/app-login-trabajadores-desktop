@@ -1,8 +1,38 @@
 # Safe Link Monitoring
 
+[![Última versión](https://img.shields.io/github/v/release/Safe-LM/app-login-trabajadores-desktop?label=Última%20versión&color=2563eb&style=flat-square)](https://github.com/Safe-LM/app-login-trabajadores-desktop/releases/latest)
+[![Descargas](https://img.shields.io/github/downloads/Safe-LM/app-login-trabajadores-desktop/total?label=Descargas&color=22c55e&style=flat-square)](https://github.com/Safe-LM/app-login-trabajadores-desktop/releases)
+[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow?style=flat-square)](https://conventionalcommits.org)
+[![License](https://img.shields.io/badge/License-Proprietary-red?style=flat-square)](#)
+
 Sistema SaaS B2B de control biométrico de asistencia empresarial.
 Cada empresa instala estaciones físicas (PC con cámara) que reconocen empleados con IA facial.
 El administrador gestiona todo desde un panel web sin necesidad de SQL ni configuración técnica.
+
+---
+
+## 📥 Descargas
+
+### Última versión estable
+
+> 🚀 [**Descargar el instalador para Windows →**](https://github.com/Safe-LM/app-login-trabajadores-desktop/releases/latest)
+
+| Plataforma | Requisitos |
+|---|---|
+| 🪟 Windows 10/11 (x64) | Cámara USB/integrada, internet, 280 MB libres |
+
+📖 **Manual de instalación paso a paso**: [`docs/MANUAL_INSTALACION.md`](docs/MANUAL_INSTALACION.md) (~3 minutos)
+
+### Versiones anteriores
+
+[Ver todas las versiones](https://github.com/Safe-LM/app-login-trabajadores-desktop/releases)
+· [Changelog histórico](CHANGELOG.md)
+· [Cómo se publican releases](docs/RELEASES.md)
+
+### Auto-update
+
+Las estaciones existentes detectan nuevas versiones automáticamente al arrancar
+y notifican al admin en el panel. Para desactivarlo: `AUTO_UPDATE_ENABLED=false` en `.env`.
 
 ---
 

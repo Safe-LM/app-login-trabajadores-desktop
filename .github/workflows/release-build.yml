@@ -4,12 +4,11 @@ name: Release - Versioning
 #   1. Si hay commits con feat/fix/perf desde el ultimo release,
 #      abre/actualiza un PR llamado "chore(release): X.Y.Z" con el
 #      changelog generado y la version bumpeada (semver).
-#   2. Cuando mergeas el PR -> crea tag automatico (station-vX.Y.Z)
-#      -> dispara station-installer.yml -> publica el .exe.
-#
-# Usa manifest mode para soportar multiples paquetes (station + web-panel)
-# con versiones independientes en .github/.release-please-manifest.json
-# y configuracion en .github/release-please-config.json.
+#   2. Cuando mergeas el PR -> crea tag automatico (component-vX.Y.Z)
+#   3. Si se creo un release nuevo, los jobs siguientes disparan los
+#      workflows correspondientes via workflow_dispatch (necesario
+#      porque GITHUB_TOKEN del bot NO dispara otros workflows
+#      automaticamente — medida anti-loop de GitHub).
 
 on:
   push:
@@ -20,6 +19,7 @@ permissions:
   contents: write
   pull-requests: write
   issues: write
+  actions: write   # para workflow_dispatch via gh CLI
 
 jobs:
   release-please:
@@ -47,3 +47,76 @@ jobs:
           echo "Releases creados en este run:"
           echo "  station:   ${{ steps.release.outputs['station--release_created'] }} (${{ steps.release.outputs['station--tag_name'] }})"
           echo "  web-panel: ${{ steps.release.outputs['web-panel--release_created'] }} (${{ steps.release.outputs['web-panel--tag_name'] }})"
+
+  # ─── Disparar build del .exe cuando hay release de station ───────
+  trigger-station-installer:
+    name: Disparar Station Installer
+    needs: release-please
+    if: needs.release-please.outputs.station_released == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Disparar workflow station-installer.yml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="${{ needs.release-please.outputs.station_version }}"
+          echo "Disparando station-installer para v$version"
+          gh workflow run station-installer.yml \
+            --repo "${{ github.repository }}" \
+            --ref main \
+            --field version="$version"
+
+  # ─── Notificar a empresas + actualizar release notes del web-panel ─
+  trigger-web-panel-release:
+    name: Disparar Web Panel Release Notes
+    needs: release-please
+    if: needs.release-please.outputs.web_panel_released == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Disparar workflow web-panel-release.yml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="${{ needs.release-please.outputs.web_panel_version }}"
+          echo "Disparando web-panel-release para v$version"
+          gh workflow run web-panel-release.yml \
+            --repo "${{ github.repository }}" \
+            --ref main \
+            --field version="$version"
+
+  # ─── Notificar al panel SaaS para AMBOS componentes ─────────────
+  trigger-notify-panel:
+    name: Notificar empresas via Supabase
+    needs: release-please
+    if: |
+      needs.release-please.outputs.station_released == 'true' ||
+      needs.release-please.outputs.web_panel_released == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Disparar notify-release.yml — station
+        if: needs.release-please.outputs.station_released == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run notify-release.yml \
+            --repo "${{ github.repository }}" \
+            --ref main \
+            --field component=station \
+            --field version="${{ needs.release-please.outputs.station_version }}"
+
+      - name: Disparar notify-release.yml — web-panel
+        if: needs.release-please.outputs.web_panel_released == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run notify-release.yml \
+            --repo "${{ github.repository }}" \
+            --ref main \
+            --field component=web-panel \
+            --field version="${{ needs.release-please.outputs.web_panel_version }}"

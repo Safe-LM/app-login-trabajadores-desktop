@@ -1,0 +1,14 @@
+# Changelog
+
+## [5.2.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.1.0...station-v5.2.0) (2026-05-10)
+
+
+### ✨ Nuevas funcionalidades
+
+* **ci:** release-please en manifest mode con station + web-panel ([4cd0891](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/4cd0891cadf4487fad664bd6a6dc455426138ff7))
+* **station:** build info embebido (version + commit + fecha) en .exe ([a1c19a3](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/a1c19a35bef74ba18b586801dded317af4fd71f8))
+
+
+### 🐛 Correcciones
+
+* **installer:** NSIS APP_VERSION ahora se puede sobrescribir desde CLI ([920367c](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/920367c0d14f91cb26692c5903278e212876d45a))

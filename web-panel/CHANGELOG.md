@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.1.2...web-panel-v0.1.3) (2026-05-10)
+
+
+### 🐛 Correcciones
+
+* **web-panel:** test scope path scoping ([f8cf9a2](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/f8cf9a2e3ac4dd0b138438e90b4e19428cfa8230))
+
 ## [0.1.2](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.1.1...web-panel-v0.1.2) (2026-05-10)
 
 

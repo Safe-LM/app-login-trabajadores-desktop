@@ -18,12 +18,13 @@ from PyQt5.QtCore import QObject, QThread, QTimer, pyqtSignal
 
 from utils.supabase_client import get_supabase_client
 from utils.station_manager import StationInfo, get_station_api_key
+from utils.paths import cache_root, models_root, bundled_models_root
 
 logger = logging.getLogger(__name__)
 
-# Raíz del proyecto (station/)
-_STATION_ROOT = Path(__file__).resolve().parent.parent.parent
-CACHE_DIR = _STATION_ROOT / "data" / "cache"
+# CACHE_DIR ahora se resuelve a una ruta escribible (APPDATA en builds
+# instalados, station/data/cache en dev local). Ver utils/paths.py.
+CACHE_DIR = cache_root()
 SYNC_INTERVAL_MS = 4 * 60 * 60 * 1000  # 4 horas
 
 
@@ -360,10 +361,14 @@ def _regenerate_encodings(cache_dir: Path, _empleados: list) -> tuple:
             logger.warning(f"Directorio de fotos no existe: {photos_dir}")
             return [], []
 
-        # Obtener modelos DNN
-        models_dir = _STATION_ROOT / "models"
-        yunet_path = models_dir / "face_detection_yunet_2023mar.onnx"
-        sface_path = models_dir / "face_recognition_sface_2021dec.onnx"
+        # Obtener modelos DNN: primero buscar en la ruta de descarga
+        # (writable, APPDATA en build instalado), luego en la ruta del
+        # bundle (read-only, solo si vinieron pre-empaquetados).
+        for models_dir in (models_root(), bundled_models_root()):
+            yunet_path = models_dir / "face_detection_yunet_2023mar.onnx"
+            sface_path = models_dir / "face_recognition_sface_2021dec.onnx"
+            if yunet_path.exists() and sface_path.exists():
+                break
 
         if not yunet_path.exists() or not sface_path.exists():
             logger.warning(f"Modelos DNN no encontrados en {models_dir}")

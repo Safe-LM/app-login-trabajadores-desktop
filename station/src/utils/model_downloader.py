@@ -18,11 +18,13 @@ import threading
 from pathlib import Path
 from typing import Optional, Callable
 
+from utils.paths import models_root
+
 logger = logging.getLogger(__name__)
 
-# Raíz: station/
-_STATION_ROOT = Path(__file__).resolve().parent.parent.parent
-MODELS_DIR = _STATION_ROOT / "models"
+# MODELS_DIR escribible: APPDATA en build instalado, station/models en
+# dev local. Ver utils/paths.py.
+MODELS_DIR = models_root()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Catálogo de modelos

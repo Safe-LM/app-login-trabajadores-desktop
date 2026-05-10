@@ -299,19 +299,18 @@ def get_opencv_recognizer(
     global _opencv_recognizer
     if _opencv_recognizer is None:
         if database_dir is None:
-            # Caché por empresa de la estación: station/data/cache/<empresa_id>/
-            STATION_ROOT = Path(__file__).resolve().parent.parent.parent
             try:
                 from utils.station_manager import StationInfo
+                from utils.paths import cache_root
 
                 if StationInfo.empresa_id:
-                    database_dir = STATION_ROOT / "data" / "cache" / StationInfo.empresa_id
+                    database_dir = cache_root() / StationInfo.empresa_id
             except Exception:
                 pass
             # Fallback al dataset legacy solo si no hay empresa configurada
             if database_dir is None:
-                PROJECT_ROOT = STATION_ROOT.parent
-                database_dir = PROJECT_ROOT / "database_fotos"
+                STATION_ROOT = Path(__file__).resolve().parent.parent.parent
+                database_dir = STATION_ROOT.parent / "database_fotos"
         _opencv_recognizer = OpenCVFaceRecognizer(database_dir)
         _opencv_recognizer.load_encodings()
     return _opencv_recognizer

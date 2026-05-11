@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.5.0...web-panel-v0.5.1) (2026-05-11)
+
+
+### 🐛 Correcciones
+
+* resolve merge conflicts with main ([ebf8db5](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/ebf8db5d1e75f006b32890b3bc5b8bb8d849f82e))
+
 ## [0.5.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.4.0...web-panel-v0.5.0) (2026-05-11)
 
 

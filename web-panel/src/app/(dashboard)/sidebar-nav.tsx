@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 
 const nav = [
   { href: "/dashboard",    label: "Dashboard",    icon: GridIcon,      group: "general" },
+  { href: "/ejecutivo",    label: "Ejecutivo",    icon: TrophyIcon,    group: "general" },
   { href: "/empleados",    label: "Empleados",    icon: UsersIcon,     group: "general" },
   { href: "/asistencia",   label: "Asistencia",   icon: ClipboardIcon, group: "general" },
   { href: "/sucursales",   label: "Sucursales",   icon: BuildingIcon,  group: "general" },
@@ -312,4 +313,7 @@ function BuildingIcon() {
 }
 function ActivityIcon() {
   return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>;
+}
+function TrophyIcon() {
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 010-5H6M18 9h1.5a2.5 2.5 0 000-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22M18 2H6v7a6 6 0 0012 0V2z"/></svg>;
 }

@@ -19,7 +19,10 @@ jobs:
 
     services:
       postgres:
-        image: postgres:15
+        # Imagen con pgvector preinstalado — evita tener que apt-get el
+        # paquete postgresql-15-pgvector (que no existe en repos default
+        # de Ubuntu Noble). pgvector/pgvector:pg15 es la imagen oficial.
+        image: pgvector/pgvector:pg15
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: testdb
@@ -34,11 +37,54 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install psql + pgvector
+      - name: Instalar cliente psql
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client postgresql-15-pgvector
-          PGPASSWORD=postgres psql -h localhost -U postgres -d testdb -c "CREATE EXTENSION IF NOT EXISTS vector;"
+          sudo apt-get install -y postgresql-client
+
+      - name: Habilitar extensiones + bootstrap de tablas base
+        run: |
+          # Crear extensiones requeridas (pgvector ya esta instalado en
+          # la imagen, solo hay que CREATE EXTENSION).
+          PGPASSWORD=postgres psql -h localhost -U postgres -d testdb <<'SQL'
+          CREATE EXTENSION IF NOT EXISTS vector;
+          CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+          -- Esquema auth con tabla minima de users (Supabase la provee
+          -- en su instancia real; aqui la mockeamos para que las FK
+          -- a auth.users(id) no fallen al validar migraciones).
+          CREATE SCHEMA IF NOT EXISTS auth;
+          CREATE TABLE IF NOT EXISTS auth.users (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            email text
+          );
+
+          -- Tablas base que las migraciones nuevas referencian via FK.
+          -- En la BD real de Supabase ya existen — aqui las creamos
+          -- minimas para que CREATE TABLE con FK funcione.
+          CREATE TABLE IF NOT EXISTS public.empresas (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            nombre text NOT NULL
+          );
+
+          CREATE TABLE IF NOT EXISTS public.dispositivos (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            empresa_id uuid REFERENCES public.empresas(id)
+          );
+
+          CREATE TABLE IF NOT EXISTS public.logs_estacion (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            dispositivo_id uuid REFERENCES public.dispositivos(id),
+            empresa_id uuid REFERENCES public.empresas(id),
+            tipo text NOT NULL CHECK (tipo = ANY (ARRAY[
+              'sync_ok','sync_error','reconocimiento_ok','reconocimiento_fallo',
+              'asistencia_registrada','asistencia_offline','camara_error',
+              'camara_ok','error','info'
+            ])),
+            detalle jsonb DEFAULT '{}'::jsonb,
+            creado_en timestamptz NOT NULL DEFAULT now()
+          );
+          SQL
 
       - name: Validar orden y nombres de migraciones
         run: |

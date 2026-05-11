@@ -36,7 +36,11 @@ jobs:
             test
             build
             ci
-          # Scopes opcionales (sirven para filtrar en CHANGELOG)
+          # Scopes opcionales (sirven para filtrar en CHANGELOG).
+          # "main" y "release" son scopes legitimos que usa release-please
+          # automaticamente al abrir sus PRs (ej: "chore(main): release
+          # station 5.4.0"). Tienen que estar permitidos o el commit-lint
+          # bloquearia el merge del PR del bot.
           scopes: |
             station
             web-panel
@@ -45,6 +49,8 @@ jobs:
             supabase
             docs
             deps
+            main
+            release
           # Permitir scope vacio (ej: "fix: typo")
           requireScope: false
           # Subject debe empezar minuscula (Conventional Commits estandar)

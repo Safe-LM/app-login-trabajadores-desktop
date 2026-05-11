@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.5.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.4.1...station-v5.5.0) (2026-05-11)
+
+
+### ✨ Nuevas funcionalidades
+
+* **web-panel,station:** comando forzar_reenroll por empleado (S2.2) ([d82c3c5](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/d82c3c5be9592dcb13262eac285d28c22c8e9ca7))
+
 ## [5.4.1](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.4.0...station-v5.4.1) (2026-05-11)
 
 

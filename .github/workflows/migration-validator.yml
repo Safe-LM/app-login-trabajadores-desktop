@@ -52,14 +52,27 @@ jobs:
           CREATE EXTENSION IF NOT EXISTS vector;
           CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
-          -- Esquema auth con tabla minima de users (Supabase la provee
-          -- en su instancia real; aqui la mockeamos para que las FK
-          -- a auth.users(id) no fallen al validar migraciones).
+          -- Esquema auth con tabla minima de users + funciones que
+          -- Supabase provee en su instancia real (auth.jwt(), auth.uid()).
+          -- Aqui las mockeamos para que las migraciones que las usan en
+          -- politicas RLS no fallen al validar.
           CREATE SCHEMA IF NOT EXISTS auth;
           CREATE TABLE IF NOT EXISTS auth.users (
             id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
             email text
           );
+          CREATE OR REPLACE FUNCTION auth.jwt() RETURNS jsonb
+            LANGUAGE sql STABLE AS $func$
+              SELECT '{}'::jsonb
+            $func$;
+          CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
+            LANGUAGE sql STABLE AS $func$
+              SELECT NULL::uuid
+            $func$;
+          CREATE OR REPLACE FUNCTION auth.role() RETURNS text
+            LANGUAGE sql STABLE AS $func$
+              SELECT NULL::text
+            $func$;
 
           -- Tablas base que las migraciones nuevas referencian via FK.
           -- En la BD real de Supabase ya existen — aqui las creamos

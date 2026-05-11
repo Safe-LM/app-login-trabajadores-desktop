@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Modal, btnGhost, type Dispositivo } from "./_shared";
+import { TrainingProgress } from "@/components/TrainingProgress";
 
 type LogRow = {
   id: string;
@@ -27,6 +28,8 @@ function fmtTime(iso: string) {
 export default function LogsModal({ d, onClose }: { d: Dispositivo; onClose: () => void }) {
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [loading, setLoading] = useState(true);
+  // S2.3: tab para alternar entre logs y training en vivo
+  const [tab, setTab] = useState<"logs" | "training">("logs");
 
   useEffect(() => {
     const supabase = createClient();
@@ -62,20 +65,33 @@ export default function LogsModal({ d, onClose }: { d: Dispositivo; onClose: () 
 
   return (
     <Modal onClose={onClose} maxWidth={520}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <div>
           <h2 style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)", marginBottom: 2 }}>
-            Logs — {d.nombre}
+            {tab === "logs" ? "Logs" : "Entrenamiento"} — {d.nombre}
           </h2>
-          <p style={{ fontSize: 11, color: "var(--text-faint)" }}>Últimos 50 eventos · en tiempo real</p>
+          <p style={{ fontSize: 11, color: "var(--text-faint)" }}>
+            {tab === "logs" ? "Últimos 50 eventos · en tiempo real" : "Progreso del training facial en esta estación"}
+          </p>
         </div>
-        <button onClick={onClose} style={btnGhost} aria-label="Cerrar logs">
+        <button onClick={onClose} style={btnGhost} aria-label="Cerrar">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
         </button>
       </div>
 
+      {/* Tabs: Logs / Training */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 14, borderBottom: "1px solid var(--border)" }}>
+        <TabBtn active={tab === "logs"}     onClick={() => setTab("logs")}>Logs</TabBtn>
+        <TabBtn active={tab === "training"} onClick={() => setTab("training")}>Training facial</TabBtn>
+      </div>
+
+      {tab === "training" ? (
+        <div style={{ maxHeight: 380, overflowY: "auto" }}>
+          <TrainingProgress dispositivoId={d.id} />
+        </div>
+      ) : (
       <div style={{ maxHeight: 380, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
         {loading ? (
           <p style={{ fontSize: 12, color: "var(--text-faint)", textAlign: "center", padding: "32px 0" }}>Cargando logs...</p>
@@ -107,6 +123,25 @@ export default function LogsModal({ d, onClose }: { d: Dispositivo; onClose: () 
           </div>
         ))}
       </div>
+      )}
     </Modal>
+  );
+}
+
+function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: "8px 14px", background: "transparent", border: "none",
+        cursor: "pointer", fontSize: 12, fontWeight: 500,
+        color: active ? "var(--text-primary)" : "var(--text-faint)",
+        borderBottom: `2px solid ${active ? "var(--accent)" : "transparent"}`,
+        marginBottom: -1,
+        transition: "all 150ms",
+      }}
+    >
+      {children}
+    </button>
   );
 }

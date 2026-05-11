@@ -306,6 +306,78 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
     </button>
   );
 }
+// ─── Componente reutilizable: boton de comando con badge de estado ───
+type CmdBtnState = {
+  sending: boolean;
+  id: string | null;
+  ejecutado_en: string | null;
+  error: string | null;
+  status: "idle" | "pending" | "executed" | "failed";
+};
+function CommandButton({
+  label, hint, state, onClick, icon, variant = "secondary",
+}: {
+  tipo: string;
+  label: string;
+  hint: string;
+  state: CmdBtnState;
+  onClick: () => void;
+  icon: React.ReactNode;
+  variant?: "secondary" | "warning";
+}) {
+  const disabled = state.sending || state.status === "pending";
+  return (
+    <div>
+      <button
+        onClick={onClick}
+        disabled={disabled}
+        className={`btn btn-sm btn-block ${variant === "warning" ? "btn-secondary" : "btn-secondary"}`}
+        style={{
+          justifyContent: "flex-start",
+          opacity: disabled ? 0.7 : 1,
+          ...(variant === "warning" ? { borderColor: "rgba(245,158,11,0.3)" } : {}),
+        }}
+      >
+        {state.sending || state.status === "pending"
+          ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="animate-spin-slow"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0110 10" strokeLinecap="round"/></svg>
+          : icon}
+        <span style={{ flex: 1, textAlign: "left" }}>
+          {state.sending ? "Enviando..." : label}
+        </span>
+        <CmdStatusBadge state={state} />
+      </button>
+      <p style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 3, marginLeft: 4 }}>
+        {hint}
+      </p>
+    </div>
+  );
+}
+
+function CmdStatusBadge({ state }: { state: CmdBtnState }) {
+  if (state.status === "idle") return null;
+  const meta: Record<string, { bg: string; fg: string; label: string }> = {
+    pending:  { bg: "rgba(245,158,11,0.15)", fg: "#fbbf24", label: "Pendiente" },
+    executed: { bg: "rgba(16,185,129,0.15)", fg: "#4ade80", label: "Ejecutado" },
+    failed:   { bg: "rgba(239,68,68,0.15)",  fg: "#f87171", label: "Error" },
+  };
+  const m = meta[state.status];
+  if (!m) return null;
+  return (
+    <span
+      title={state.ejecutado_en
+        ? `Ejecutado: ${new Date(state.ejecutado_en).toLocaleTimeString("es-MX")}`
+        : state.error ?? "Esperando respuesta de la estación..."}
+      style={{
+        fontSize: 9, padding: "1px 6px", borderRadius: 4,
+        background: m.bg, color: m.fg, fontWeight: 600,
+        textTransform: "uppercase", letterSpacing: "0.04em",
+      }}
+    >
+      {m.label}
+    </span>
+  );
+}
+
 /* ── Modal configurar ── */
 function ConfigModal({ d, onClose, onOptimisticDelete, onOptimisticUpdate, sucursales }: {
   d: Dispositivo;
@@ -321,8 +393,21 @@ function ConfigModal({ d, onClose, onOptimisticDelete, onOptimisticUpdate, sucur
   const [saved,      setSaved]      = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [deleting,   setDeleting]   = useState(false);
-  const [syncing,    setSyncing]    = useState(false);
-  const [syncMsg,    setSyncMsg]    = useState<{ ok: boolean; text: string } | null>(null);
+  // Estado de cada comando remoto (S1.1 + S1.2)
+  type CmdType = "sync_empleados" | "reiniciar_app" | "limpiar_cache";
+  type CmdState = {
+    sending: boolean;
+    id: string | null;         // id del comando en DB para hacer polling
+    ejecutado_en: string | null;
+    error: string | null;
+    status: "idle" | "pending" | "executed" | "failed";
+  };
+  const initCmd: CmdState = { sending: false, id: null, ejecutado_en: null, error: null, status: "idle" };
+  const [cmdState, setCmdState] = useState<Record<CmdType, CmdState>>({
+    sync_empleados: initCmd,
+    reiniciar_app:  initCmd,
+    limpiar_cache:  initCmd,
+  });
   const supabase = createClient();
   const { notify } = useNotifications();
 
@@ -367,23 +452,74 @@ function ConfigModal({ d, onClose, onOptimisticDelete, onOptimisticUpdate, sucur
       notify({ kind: "error", title: "Error de red", message: "No se pudo confirmar la eliminación" });
     }
   }
-  async function handleSync() {
-    setSyncing(true); setSyncMsg(null);
+  // ─── S1.1 + S1.2: enviar comando + tracking de ejecucion ──────
+  async function sendCommand(tipo: CmdType) {
+    setCmdState(prev => ({ ...prev, [tipo]: { ...initCmd, sending: true } }));
     try {
       const { data, error: rpcErr } = await supabase.rpc("enviar_comando_estacion", {
         p_dispositivo_id: d.id,
-        p_tipo: "sync_empleados",
+        p_tipo: tipo,
         p_payload: {},
       });
       if (rpcErr) throw rpcErr;
       if (data?.ok === false) throw new Error(data?.error ?? "Error al enviar comando");
-      setSyncMsg({ ok: true, text: "Comando enviado — la estación sincronizará en breve." });
+      // El RPC devuelve { ok: true, comando_id } o solo { ok: true }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const cmdId = ((data as any)?.comando_id ?? (data as any)?.id ?? null) as string | null;
+      setCmdState(prev => ({
+        ...prev,
+        [tipo]: { sending: false, id: cmdId, ejecutado_en: null, error: null, status: "pending" },
+      }));
     } catch (e) {
-      setSyncMsg({ ok: false, text: (e as Error).message ?? "Error al sincronizar" });
-    } finally {
-      setSyncing(false);
+      const msg = (e as Error).message ?? "Error al enviar comando";
+      setCmdState(prev => ({
+        ...prev,
+        [tipo]: { sending: false, id: null, ejecutado_en: null, error: msg, status: "failed" },
+      }));
     }
   }
+
+  // Polling cada 3s para ver si la station ejecuto el comando.
+  // Solo activa cuando hay un comando "pending" sin ejecutar todavia.
+  // Se detiene a los 60s para no spamear si la station esta caida.
+  useEffect(() => {
+    const pendings = Object.entries(cmdState).filter(
+      ([, st]) => st.status === "pending" && st.id
+    );
+    if (pendings.length === 0) return;
+
+    let attempts = 0;
+    const maxAttempts = 20;  // 20 × 3s = 60s timeout
+    const interval = setInterval(async () => {
+      attempts++;
+      const ids = pendings.map(([, st]) => st.id).filter(Boolean) as string[];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = supabase as any;
+      const { data } = await sb
+        .from("comandos_estacion")
+        .select("id, tipo, ejecutado_en, resultado")
+        .in("id", ids);
+      if (data) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        for (const row of data as any[]) {
+          if (row.ejecutado_en) {
+            setCmdState(prev => ({
+              ...prev,
+              [row.tipo as CmdType]: {
+                sending: false,
+                id: row.id,
+                ejecutado_en: row.ejecutado_en,
+                error: row.resultado && row.resultado !== "ok" ? row.resultado : null,
+                status: row.resultado && row.resultado !== "ok" ? "failed" : "executed",
+              },
+            }));
+          }
+        }
+      }
+      if (attempts >= maxAttempts) clearInterval(interval);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [cmdState, supabase]);
   return (
     <Modal onClose={onClose} maxWidth={440}>
       {/* Header */}
@@ -425,23 +561,38 @@ function ConfigModal({ d, onClose, onOptimisticDelete, onOptimisticUpdate, sucur
           </div>
           <Toggle value={activo} onChange={setActivo} />
         </div>
-        {/* Sincronizar empleados */}
+        {/* Comandos remotos (S1.1 + S1.2) */}
         <div style={{ borderTop: "1px solid var(--border)", paddingTop: 14 }}>
-          <p style={{ fontSize: 10, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: 8 }}>
+          <p style={{ fontSize: 10, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: 10 }}>
             Comandos remotos
           </p>
-          <button onClick={handleSync} disabled={syncing} className="btn btn-secondary btn-sm btn-block">
-            {syncing
-              ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="animate-spin-slow"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0110 10" strokeLinecap="round"/></svg>
-              : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
-            }
-            {syncing ? "Enviando comando..." : "Sincronizar empleados"}
-          </button>
-          {syncMsg && (
-            <p style={{ fontSize: 11, color: syncMsg.ok ? "#4ade80" : "#f87171", marginTop: 6 }}>
-              {syncMsg.text}
-            </p>
-          )}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <CommandButton
+              tipo="sync_empleados"
+              label="Sincronizar empleados"
+              hint="Fuerza descarga de fotos y embeddings"
+              state={cmdState.sync_empleados}
+              onClick={() => sendCommand("sync_empleados")}
+              icon={<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>}
+            />
+            <CommandButton
+              tipo="limpiar_cache"
+              label="Limpiar caché"
+              hint="Borra cache de fotos y reconstruye"
+              state={cmdState.limpiar_cache}
+              onClick={() => sendCommand("limpiar_cache")}
+              icon={<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 01-2 2H9a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>}
+            />
+            <CommandButton
+              tipo="reiniciar_app"
+              label="Reiniciar aplicación"
+              hint="Cierra y vuelve a abrir la station"
+              state={cmdState.reiniciar_app}
+              onClick={() => sendCommand("reiniciar_app")}
+              variant="warning"
+              icon={<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>}
+            />
+          </div>
         </div>
         <button onClick={save} disabled={saving || saved} className={`btn ${saved ? "btn-success" : "btn-primary"} btn-block`}>
           {saving && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="animate-spin-slow"><circle cx="12" cy="12" r="10" strokeOpacity="0.25"/><path d="M12 2a10 10 0 0110 10" strokeLinecap="round"/></svg>}

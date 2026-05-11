@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.4.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.3.5...station-v5.4.0) (2026-05-11)
+
+
+### ✨ Nuevas funcionalidades
+
+* **web-panel:** audit log, sprints 2-4 + training debug visibility ([fe10b75](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/fe10b75ddf2b8adc132b9d3212c2016ab9d77f23))
+
 ## [5.3.5](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.3.4...station-v5.3.5) (2026-05-10)
 
 

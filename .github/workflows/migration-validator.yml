@@ -52,6 +52,22 @@ jobs:
           CREATE EXTENSION IF NOT EXISTS vector;
           CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+          -- Roles que Supabase crea automaticamente en su instancia.
+          -- En un Postgres vanilla no existen — los creamos como NOLOGIN
+          -- para que GRANT ... TO authenticated / service_role no falle.
+          DO $$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+              CREATE ROLE anon NOLOGIN;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+              CREATE ROLE authenticated NOLOGIN;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+              CREATE ROLE service_role NOLOGIN BYPASSRLS;
+            END IF;
+          END $$;
+
           -- Esquema auth con tabla minima de users + funciones que
           -- Supabase provee en su instancia real (auth.jwt(), auth.uid()).
           -- Aqui las mockeamos para que las migraciones que las usan en
@@ -79,7 +95,8 @@ jobs:
           -- minimas para que CREATE TABLE con FK funcione.
           CREATE TABLE IF NOT EXISTS public.empresas (
             id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            nombre text NOT NULL
+            nombre text NOT NULL,
+            timezone text DEFAULT 'America/Mexico_City'
           );
 
           CREATE TABLE IF NOT EXISTS public.dispositivos (
@@ -98,6 +115,63 @@ jobs:
             ])),
             detalle jsonb DEFAULT '{}'::jsonb,
             creado_en timestamptz NOT NULL DEFAULT now()
+          );
+
+          CREATE TABLE IF NOT EXISTS public.sucursales (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            empresa_id uuid REFERENCES public.empresas(id),
+            nombre text NOT NULL,
+            zona text,
+            ciudad text,
+            activa boolean DEFAULT true
+          );
+
+          CREATE TABLE IF NOT EXISTS public.empleados (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            empresa_id uuid REFERENCES public.empresas(id),
+            sucursal_id uuid REFERENCES public.sucursales(id),
+            nombre text NOT NULL,
+            apellido text NOT NULL,
+            enrollado boolean DEFAULT false
+          );
+
+          CREATE TABLE IF NOT EXISTS public.embeddings_faciales (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            empleado_id uuid REFERENCES public.empleados(id),
+            empresa_id uuid REFERENCES public.empresas(id)
+          );
+
+          CREATE TABLE IF NOT EXISTS public.registros_asistencia (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            empresa_id uuid REFERENCES public.empresas(id),
+            empleado_id uuid REFERENCES public.empleados(id),
+            dispositivo_id uuid REFERENCES public.dispositivos(id),
+            sucursal_id uuid REFERENCES public.sucursales(id),
+            tipo text NOT NULL CHECK (tipo = ANY (ARRAY['entrada','salida'])),
+            timestamp timestamptz DEFAULT now(),
+            creado_manual boolean DEFAULT false
+          );
+
+          CREATE TABLE IF NOT EXISTS public.comandos_estacion (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            dispositivo_id uuid REFERENCES public.dispositivos(id),
+            empresa_id uuid REFERENCES public.empresas(id),
+            tipo text NOT NULL CHECK (tipo = ANY (ARRAY[
+              'sync_empleados','reiniciar_app','limpiar_cache'
+            ])),
+            payload jsonb DEFAULT '{}'::jsonb,
+            creado_en timestamptz NOT NULL DEFAULT now(),
+            ejecutado_en timestamptz,
+            resultado text
+          );
+
+          CREATE TABLE IF NOT EXISTS public.notificaciones (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            empresa_id uuid REFERENCES public.empresas(id),
+            tipo text NOT NULL,
+            severidad text NOT NULL,
+            titulo text NOT NULL,
+            creada_en timestamptz NOT NULL DEFAULT now()
           );
           SQL
 

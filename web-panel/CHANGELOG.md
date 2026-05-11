@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.5.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.4.0...web-panel-v0.5.0) (2026-05-11)
+
+
+### ✨ Nuevas funcionalidades
+
+* **web-panel,db:** dashboard ejecutivo multi-sucursal (S2.4) ([076d8f3](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/076d8f3b9a47e7b8310afd3342d93d90fe8be633))
+* **web-panel,db:** webhooks salientes a sistemas externos (S2.5) ([c72cb97](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/c72cb9768bf2a212ae4072a80c16c8953a17f24b))
+* **web-panel,station:** comando forzar_reenroll por empleado (S2.2) ([d82c3c5](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/d82c3c5be9592dcb13262eac285d28c22c8e9ca7))
+* **web-panel:** /asistencia con filtros completos + paginacion + export ([2b63deb](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/2b63debac8091a4b541f00293da69f60ac1ab93c))
+* **web-panel:** /reportes usa ExportButton (CSV + Excel xlsx) ([ef2fdf2](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/ef2fdf25209cf742d13b20b2edc87eb880ce81eb))
+* **web-panel:** badge 'desactualizada' cuando encodings_version &lt; max ([0bcc586](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/0bcc5867e31017fdb1b560a1a85a3aaa11e813a7))
+* **web-panel:** edicion manual de marcaciones con razon y audit (S2.1) ([911cb4e](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/911cb4e62b9e8c0035d74442b577104e4d5270b3))
+* **web-panel:** expone 3 comandos remotos + tracking de ejecucion ([4c0df17](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/4c0df17d271e91c70dbd216d1370c3281fab115e))
+* **web-panel:** vista 'Training en vivo' por estacion (S2.3) ([1b97e7b](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/1b97e7b999023035f4b6c28670ef48b74c380fe1))
+
 ## [0.4.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.3.0...web-panel-v0.4.0) (2026-05-11)
 
 

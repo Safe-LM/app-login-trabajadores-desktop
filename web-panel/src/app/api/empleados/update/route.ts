@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import { auditLog, extractRequestMeta } from "@/lib/audit";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -9,6 +10,20 @@ export async function POST(request: NextRequest) {
   const empresaId = user.user_metadata?.empresa_id;
   if (!empresaId) return NextResponse.json({ error: "sin empresa" }, { status: 403 });
 
+  // Allowlist explicito de claves permitidas. Cualquier otra clave del
+  // body (empresa_id, id, created_at, foto_url, etc.) NO se asigna.
+  // Esto previene mass-assignment.
+  type EmpleadoUpdate = {
+    nombre?: string;
+    apellido?: string;
+    puesto?: string | null;
+    employee_code?: string | null;
+    sucursal_id?: string | null;
+    activo?: boolean;
+    foto_url?: string;
+    enrollado?: boolean;
+  };
+
   const body = await request.json();
   const { id, nombre, apellido, puesto, employee_code, sucursal_id, activo, foto } = body;
 
@@ -17,13 +32,13 @@ export async function POST(request: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabase as any;
 
-  const updateData: Record<string, unknown> = {};
-  if (nombre !== undefined)      updateData.nombre      = nombre.trim();
-  if (apellido !== undefined)    updateData.apellido    = apellido.trim();
-  if (puesto !== undefined)      updateData.puesto      = puesto?.trim() || null;
-  if (employee_code !== undefined) updateData.employee_code = employee_code?.trim() || null;
-  if (sucursal_id !== undefined) updateData.sucursal_id = sucursal_id || null;
-  if (activo !== undefined)      updateData.activo      = !!activo;
+  const updateData: EmpleadoUpdate = {};
+  if (typeof nombre === "string")        updateData.nombre        = nombre.trim();
+  if (typeof apellido === "string")      updateData.apellido      = apellido.trim();
+  if (puesto !== undefined)              updateData.puesto        = (typeof puesto === "string" && puesto.trim()) || null;
+  if (employee_code !== undefined)       updateData.employee_code = (typeof employee_code === "string" && employee_code.trim()) || null;
+  if (sucursal_id !== undefined)         updateData.sucursal_id   = sucursal_id || null;
+  if (activo !== undefined)              updateData.activo        = !!activo;
 
   let fotoUrl: string | null = null;
 
@@ -92,6 +107,21 @@ export async function POST(request: NextRequest) {
 
   // Notificar a todas las estaciones de la empresa para sync inmediato
   await sb.rpc("notificar_sync_empleados", { p_empresa_id: empresaId }).then(() => {}).catch(() => {});
+
+  // Audit log: que campos cambiaron y quien
+  const meta = extractRequestMeta(request);
+  await auditLog(supabase, {
+    empresaId, actorId: user.id, actorEmail: user.email ?? undefined,
+    ip: meta.ip ?? undefined, userAgent: meta.userAgent ?? undefined,
+  }, {
+    action: "empleado.update",
+    resource: `empleado:${id}`,
+    metadata: {
+      changed_fields: Object.keys(updateData),
+      changes: updateData,
+      nueva_foto: !!fotoUrl,
+    },
+  });
 
   return NextResponse.json({ ok: true });
 }

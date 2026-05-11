@@ -23,6 +23,9 @@ export default async function EmpleadosPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const empresaId = user.user_metadata?.empresa_id as string | undefined;
+  if (!empresaId) redirect("/onboarding");
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = supabase as any;
 
@@ -37,6 +40,7 @@ export default async function EmpleadosPage() {
     <EmpleadosClient
       empleados={(rawEmp ?? []) as Empleado[]}
       sucursales={(rawSuc ?? []) as Sucursal[]}
+      empresaId={empresaId}
     />
   );
 }

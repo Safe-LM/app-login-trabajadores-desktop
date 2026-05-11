@@ -1,6 +1,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import { auditLog, extractRequestMeta } from "@/lib/audit";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -30,5 +31,16 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json({ error: error.message ?? "Error al eliminar" }, { status: 500 });
   }
+
+  // Audit log (no-op si la tabla aun no existe)
+  const meta = extractRequestMeta(request);
+  await auditLog(supabase, {
+    empresaId, actorId: user.id, actorEmail: user.email ?? undefined,
+    ip: meta.ip ?? undefined, userAgent: meta.userAgent ?? undefined,
+  }, {
+    action: "empleado.delete",
+    resource: `empleado:${id}`,
+  });
+
   return NextResponse.json({ ok: true });
 }

@@ -154,7 +154,10 @@ export function PanelNotificationsWatcher({ empresaId }: { empresaId: string }) 
             tipo: "station_recovered", severidad: "info",
             titulo, mensaje,
             metadata: { dispositivo_id: d.id, sucursal: d.sucursal_nombre },
-            dedupeKey: `station-recovered:${d.id}:${Date.now()}`,
+            // Dedupe estable por dia: si una estacion se recupera 3 veces
+            // el mismo dia, solo notificamos UNA. Antes usabamos Date.now()
+            // por milisegundo -> dedupe inutil, spam de notificaciones.
+            dedupeKey: `station-recovered:${d.id}:${new Date().toISOString().slice(0, 10)}`,
           });
         }
       }

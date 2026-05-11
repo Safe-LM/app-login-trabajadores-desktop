@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useNotifications } from "@/components/notifications/NotificationProvider";
 import { PageHeader } from "@/components/ui/PageHeader";
+import { ExportButton } from "@/components/ui/ExportButton";
+import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 // XLSX se carga bajo demanda dentro de handleExcelImport — pesa ~300KB
 
 type Sucursal = { id: string; nombre: string };
@@ -152,7 +154,8 @@ function EmpModal({
               }}
             >
               {photo ? (
-                <img src={photo} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={photo} alt="Foto del empleado" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               ) : (
                 <div style={{ textAlign: "center", padding: 20 }}>
                   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" strokeWidth="1.5" style={{ marginBottom: 10 }}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
@@ -171,7 +174,10 @@ function EmpModal({
               display: "flex", gap: 12, alignItems: "center"
             }}>
               <div style={{ width: 44, height: 44, borderRadius: 10, background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 800, color: "#fff", overflow: "hidden" }}>
-                {photo ? <img src={photo} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (nombre[0] || "?")}
+                {photo ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (nombre[0] || "?")}
               </div>
               <div style={{ overflow: "hidden" }}>
                 <p style={{ fontSize: 13, fontWeight: 600, color: "#fff", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
@@ -183,7 +189,10 @@ function EmpModal({
           </div>
 
           {/* Columna Derecha: Formulario */}
-          <div style={{ padding: 40, display: "flex", flexDirection: "column" }}>
+          <form
+            onSubmit={(e) => { e.preventDefault(); if (!loading) save(); }}
+            style={{ padding: 40, display: "flex", flexDirection: "column" }}
+          >
             <div style={{ marginBottom: 30 }}>
               <h2 style={{ fontSize: 24, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>
                 {editing ? "Actualizar Perfil" : "Alta de Empleado"}
@@ -238,10 +247,10 @@ function EmpModal({
             )}
 
             <div style={{ display: "flex", gap: 12, marginTop: 30 }}>
-              <button onClick={onClose} className="btn btn-secondary btn-lg" style={{ flex: 1 }}>
+              <button type="button" onClick={onClose} className="btn btn-secondary btn-lg" style={{ flex: 1 }}>
                 Cancelar
               </button>
-              <button onClick={save} disabled={loading} className="btn btn-primary btn-lg" style={{ flex: 2 }}>
+              <button type="submit" disabled={loading} className="btn btn-primary btn-lg" style={{ flex: 2 }}>
                 {loading && (
                   <svg className="animate-spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                     <path d="M21 12a9 9 0 11-6.219-8.56"/>
@@ -250,7 +259,7 @@ function EmpModal({
                 {loading ? "Sincronizando..." : editing ? "Actualizar Perfil" : "Finalizar Registro"}
               </button>
             </div>
-          </div>
+          </form>
         </div>
       </div>
     </div>
@@ -319,7 +328,7 @@ function DeleteModal({ emp, onClose, onOptimisticDelete, onError }: {
 }
 
 /* ── Componente principal ── */
-export function EmpleadosClient({ empleados: initial, sucursales }: { empleados: Empleado[]; sucursales: Sucursal[] }) {
+export function EmpleadosClient({ empleados: initial, sucursales, empresaId }: { empleados: Empleado[]; sucursales: Sucursal[]; empresaId: string }) {
   const router = useRouter();
   const [empleados, setEmpleados] = useState(initial);
   const [modal,  setModal]  = useState<"create" | "edit" | "delete" | "import-info" | null>(null);
@@ -340,10 +349,17 @@ export function EmpleadosClient({ empleados: initial, sucursales }: { empleados:
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
-      .channel("empleados-realtime")
+      .channel(`empleados-realtime:${empresaId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "empleados" },
+        {
+          event: "*",
+          schema: "public",
+          table: "empleados",
+          // Defensa: solo eventos de NUESTRA empresa. Sin esto dependiamos
+          // de la RLS del canal Realtime, que puede ser laxa.
+          filter: `empresa_id=eq.${empresaId}`,
+        },
         async (payload) => {
           if (payload.eventType === "UPDATE") {
             const updated = payload.new as Partial<Empleado> & { id: string };
@@ -362,6 +378,7 @@ export function EmpleadosClient({ empleados: initial, sucursales }: { empleados:
               .from("empleados")
               .select("id, nombre, apellido, puesto, employee_code, enrollado, activo, sucursal_id, sucursales(nombre)")
               .eq("id", ins.id)
+              .eq("empresa_id", empresaId)
               .single();
             if (data) {
               setEmpleados((prev) => {
@@ -376,7 +393,7 @@ export function EmpleadosClient({ empleados: initial, sucursales }: { empleados:
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [empresaId]);
 
   const filtered = empleados.filter((e) => {
     const q = search.toLowerCase();
@@ -437,12 +454,13 @@ export function EmpleadosClient({ empleados: initial, sucursales }: { empleados:
         />
       )}
       {modal === "import-info" && (
-        <ImportInfoModal 
-          onClose={() => setModal(null)} 
-          onSelect={() => { setModal(null); fileExcelRef.current?.click(); }} 
+        <ImportInfoModal
+          onClose={() => setModal(null)}
+          onSelect={() => { setModal(null); fileExcelRef.current?.click(); }}
         />
       )}
 
+      <Breadcrumbs />
       <PageHeader
         title="Empleados"
         subtitle="Personal registrado en el sistema"
@@ -458,6 +476,20 @@ export function EmpleadosClient({ empleados: initial, sucursales }: { empleados:
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
               Importar Excel
             </button>
+            <ExportButton
+              label="Exportar"
+              filenamePrefix="empleados"
+              sheetName="Empleados"
+              getRows={() => empleados.map((e) => ({
+                Nombre: e.nombre,
+                Apellido: e.apellido,
+                Codigo: e.employee_code ?? "",
+                Puesto: e.puesto ?? "",
+                Sucursal: e.sucursales?.nombre ?? "",
+                Estado: e.activo ? "Activo" : "Inactivo",
+                Enrollado: e.enrollado ? "Si" : "No",
+              }))}
+            />
             <div style={{ position: "relative" }}>
               <svg style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-faint)", pointerEvents: "none" }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar personal..." style={{ paddingLeft: 32, paddingRight: 12, paddingTop: 8, paddingBottom: 8, background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 13, color: "var(--text-primary)", outline: "none", fontFamily: "inherit", width: 220, transition: "border-color 150ms" }}

@@ -11,6 +11,7 @@ const nav = [
   { href: "/sucursales",   label: "Sucursales",   icon: BuildingIcon,  group: "general" },
   { href: "/dispositivos",   label: "Estaciones",     icon: MonitorIcon,   group: "gestion" },
   { href: "/notificaciones", label: "Notificaciones", icon: BellIcon,      group: "gestion" },
+  { href: "/actividad",      label: "Actividad",      icon: ActivityIcon,  group: "gestion" },
   { href: "/reportes",       label: "Reportes",       icon: ChartIcon,     group: "gestion" },
   { href: "/configuracion",  label: "Configuración",  icon: SettingsIcon,  group: "gestion" },
 ];
@@ -307,4 +308,7 @@ function SettingsIcon() {
 }
 function BuildingIcon() {
   return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18M3 7v1a3 3 0 006 0V7m0 1a3 3 0 006 0V7m0 1a3 3 0 006 0V7M4 21V4a2 2 0 012-2h12a2 2 0 012 2v17M9 21v-4a2 2 0 012-2h2a2 2 0 012 2v4"/></svg>;
+}
+function ActivityIcon() {
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>;
 }

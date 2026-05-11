@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
+import { auditLog, extractRequestMeta } from "@/lib/audit";
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -97,6 +98,22 @@ export async function POST(request: NextRequest) {
 
   // 4. Notificar a todas las estaciones de la empresa para sync inmediato
   await sb.rpc("notificar_sync_empleados", { p_empresa_id: empresaId }).then(() => {}).catch(() => {});
+
+  // Audit log: registrar quien creo el empleado y con que datos
+  const meta = extractRequestMeta(request);
+  await auditLog(supabase, {
+    empresaId, actorId: user.id, actorEmail: user.email ?? undefined,
+    ip: meta.ip ?? undefined, userAgent: meta.userAgent ?? undefined,
+  }, {
+    action: "empleado.create",
+    resource: `empleado:${emp.id}`,
+    metadata: {
+      nombre, apellido, puesto: puesto ?? null,
+      employee_code: employee_code ?? null,
+      sucursal_id: sucursal_id ?? null,
+      tiene_foto: !!foto,
+    },
+  });
 
   return NextResponse.json({ ok: true, id: emp.id, foto_url: fotoUrl });
 }

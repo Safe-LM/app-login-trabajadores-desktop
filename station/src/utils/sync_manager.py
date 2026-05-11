@@ -176,9 +176,22 @@ def _do_sync() -> int:
                 if r.status_code == 200:
                     foto_path.write_bytes(r.content)
                     new_photos += 1
+                    _log_to_supabase("foto_descargada", {
+                        "empleado_id": emp_id,
+                        "bytes": len(r.content),
+                    })
+                else:
+                    _log_to_supabase("foto_error_descarga", {
+                        "empleado_id": emp_id,
+                        "http_status": r.status_code,
+                    })
             except Exception as ex:
                 logger.warning(f"No se pudo descargar foto de {emp_id}: {ex}")
                 emp["foto_local"] = ""
+                _log_to_supabase("foto_error_descarga", {
+                    "empleado_id": emp_id,
+                    "error": str(ex)[:200],
+                })
 
     # 4. Guardar employees.json actualizado
     json_path.write_text(json.dumps(empleados, ensure_ascii=False, indent=2), "utf-8")
@@ -383,17 +396,25 @@ def _regenerate_encodings(cache_dir: Path, _empleados: list) -> tuple:
         employee_ids = []
         empleados_procesados = 0
         empleados_fallidos = 0
+        fallidos_detalle = []  # para el log final
 
-        for foto_path in photos_dir.iterdir():
-            if foto_path.suffix.lower() not in extensions:
-                continue
+        fotos_a_procesar = [f for f in photos_dir.iterdir() if f.suffix.lower() in extensions]
+        _log_to_supabase("training_started", {
+            "fotos_encontradas": len(fotos_a_procesar),
+            "modelo": "sface_v3",
+        })
 
+        for foto_path in fotos_a_procesar:
             emp_id = foto_path.stem
 
             try:
                 frame = cv2.imread(str(foto_path))
                 if frame is None:
                     empleados_fallidos += 1
+                    fallidos_detalle.append({"empleado_id": emp_id, "razon": "imagen_no_decodificable"})
+                    _log_to_supabase("embedding_failed", {
+                        "empleado_id": emp_id, "razon": "imagen_no_decodificable",
+                    })
                     continue
 
                 # Generar 10 variaciones de la foto
@@ -420,13 +441,28 @@ def _regenerate_encodings(cache_dir: Path, _empleados: list) -> tuple:
                 if emb_count > 0:
                     empleados_procesados += 1
                     logger.debug(f"  [{emp_id[:8]}] {emb_count}/10 embeddings (augmented)")
+                    _log_to_supabase("embedding_generated", {
+                        "empleado_id": emp_id,
+                        "variantes_ok": emb_count,
+                        "variantes_total": len(variants),
+                    })
                 else:
                     empleados_fallidos += 1
+                    fallidos_detalle.append({"empleado_id": emp_id, "razon": "sin_rostro_detectado"})
                     logger.debug(f"Sin rostro detectado en ninguna variante: {foto_path.name}")
+                    _log_to_supabase("embedding_failed", {
+                        "empleado_id": emp_id,
+                        "razon": "sin_rostro_detectado",
+                        "variantes_intentadas": len(variants),
+                    })
 
             except Exception as e:
                 empleados_fallidos += 1
+                fallidos_detalle.append({"empleado_id": emp_id, "razon": str(e)[:100]})
                 logger.debug(f"Error con {foto_path.name}: {e}")
+                _log_to_supabase("embedding_failed", {
+                    "empleado_id": emp_id, "razon": str(e)[:200],
+                })
                 continue
 
         if not encodings:
@@ -448,10 +484,22 @@ def _regenerate_encodings(cache_dir: Path, _empleados: list) -> tuple:
             f"Entrenamiento facial: {empleados_procesados} empleados OK, {empleados_fallidos} fallidos · "
             f"{len(encodings)} embeddings totales (~{avg:.1f}/persona)"
         )
+        _log_to_supabase("training_completed", {
+            "empleados_procesados": empleados_procesados,
+            "empleados_fallidos": empleados_fallidos,
+            "embeddings_totales": len(encodings),
+            "embeddings_por_persona": round(avg, 1),
+            "fallidos_detalle": fallidos_detalle[:20],  # limitar para no saturar el JSON
+        })
         return encodings, employee_ids
 
     except Exception as e:
         logger.warning(f"No se pudieron regenerar encodings: {e}")
+        _log_to_supabase("training_completed", {
+            "error": str(e)[:300],
+            "empleados_procesados": 0,
+            "empleados_fallidos": -1,
+        })
         return [], []
 
 

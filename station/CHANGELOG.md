@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.4.1](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.4.0...station-v5.4.1) (2026-05-11)
+
+
+### ⚡ Performance
+
+* **ci:** reducir consumo de GitHub Actions ~80% ([d29a877](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/d29a877070ef7928f550835098a8067adba1de66))
+
 ## [5.4.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.3.5...station-v5.4.0) (2026-05-11)
 
 

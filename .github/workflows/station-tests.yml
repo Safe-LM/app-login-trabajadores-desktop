@@ -12,10 +12,6 @@ on:
       - 'station/**'
   workflow_dispatch:
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   pytest:
     name: pytest station/tests

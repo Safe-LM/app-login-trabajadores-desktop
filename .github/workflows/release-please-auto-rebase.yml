@@ -1,0 +1,77 @@
+name: Release Please — Auto-rebase PRs
+
+# Cuando se mergea un PR de release-please (chore(main): release ...),
+# los demas PRs abiertos de release-please quedan con conflicto en
+# .github/.release-please-manifest.json (porque main tiene la version
+# bumpeada del paquete recien liberado).
+#
+# Este workflow corre automaticamente y rebaja TODOS los PRs abiertos
+# de release-please contra main. Asi:
+#  1. Mergeas PR #47 (web-panel 0.2.0)
+#  2. Este workflow rebasa PR #48 (station 5.4.0) automaticamente
+#  3. PR #48 ya no tiene conflicto, puedes mergearlo limpio
+#
+# Sin esto, tendrias que hacer "Update branch" manual en cada PR.
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  rebase-release-prs:
+    name: Rebasar PRs de release-please pendientes
+    # Solo si el PR mergeado venia de una rama release-please--branches--*
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true &&
+       startsWith(github.event.pull_request.head.ref, 'release-please--branches--'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Buscar PRs abiertos de release-please y rebasarlos
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+
+          # Lista todos los PRs abiertos cuya rama empieza por release-please--
+          prs=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --state open \
+            --json number,headRefName \
+            --jq '.[] | select(.headRefName | startswith("release-please--")) | .number')
+
+          if [ -z "$prs" ]; then
+            echo "No hay PRs de release-please abiertos. Nada que rebasar."
+            exit 0
+          fi
+
+          echo "PRs de release-please abiertos:"
+          echo "$prs"
+          echo ""
+
+          for pr in $prs; do
+            echo "─── Rebasando PR #$pr ───"
+            # gh pr update-branch hace rebase contra el base (main).
+            # Si hay conflicto que GitHub no puede auto-resolver, falla
+            # con mensaje claro — el admin lo arregla manualmente.
+            if gh pr update-branch "$pr" \
+                 --repo "${{ github.repository }}" \
+                 --rebase 2>&1; then
+              echo "  -> PR #$pr rebasado OK"
+            else
+              echo "  -> PR #$pr requiere intervencion manual (conflicto no auto-resoluble)"
+              gh pr comment "$pr" \
+                --repo "${{ github.repository }}" \
+                --body "⚠️ Auto-rebase fallo despues del merge de #${{ github.event.pull_request.number }}. Resuelve el conflicto manualmente con \`Resolve conflicts\` arriba." \
+                || true
+            fi
+          done
+
+          echo ""
+          echo "Auto-rebase completado."

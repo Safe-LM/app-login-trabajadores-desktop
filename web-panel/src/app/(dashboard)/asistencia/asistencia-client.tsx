@@ -3,7 +3,8 @@ import React, { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ExportButton } from "@/components/ui/ExportButton";
-import { Search, Filter, X, ChevronDown } from "lucide-react";
+import { Search, Filter, X, ChevronDown, Plus, Edit3, Trash2, Pencil } from "lucide-react";
+import { toast } from "sonner";
 
 type Registro = {
   id: string;
@@ -14,6 +15,10 @@ type Registro = {
   sucursal_id: string | null;
   empleados: { nombre: string; apellido: string } | null;
   sucursales: { nombre: string } | null;
+  creado_manual?: boolean;
+  editado_por?: string | null;
+  razon_edicion?: string | null;
+  original_timestamp?: string | null;
 };
 type EmpOpt = { id: string; nombre: string; apellido: string };
 type SucOpt = { id: string; nombre: string };
@@ -29,6 +34,14 @@ export function AsistenciaClient({
 }) {
   const [registros, setRegistros]   = useState(initial);
   const [liveCount, setLiveCount]   = useState(0);
+
+  // S2.1: edicion manual
+  type ModalState =
+    | { type: "create" }
+    | { type: "edit"; row: Registro }
+    | { type: "delete"; row: Registro }
+    | null;
+  const [modal, setModal] = useState<ModalState>(null);
 
   // Filtros
   const [search, setSearch]         = useState("");
@@ -55,7 +68,7 @@ export function AsistenciaClient({
           const r = payload.new as { id: string };
           const { data } = await supabase
             .from("registros_asistencia")
-            .select("id, tipo, timestamp, confianza, empleado_id, sucursal_id, empleados(nombre, apellido), sucursales(nombre)")
+            .select("id, tipo, timestamp, confianza, empleado_id, sucursal_id, creado_manual, editado_por, razon_edicion, original_timestamp, empleados(nombre, apellido), sucursales(nombre)")
             .eq("id", r.id)
             .single();
           if (data) {
@@ -115,7 +128,7 @@ export function AsistenciaClient({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let q: any = supabase
         .from("registros_asistencia")
-        .select("id, tipo, timestamp, confianza, empleado_id, sucursal_id, empleados(nombre, apellido), sucursales(nombre)")
+        .select("id, tipo, timestamp, confianza, empleado_id, sucursal_id, creado_manual, editado_por, razon_edicion, original_timestamp, empleados(nombre, apellido), sucursales(nombre)")
         .lt("timestamp", lastTs)
         .order("timestamp", { ascending: false })
         .limit(PAGE_SIZE);
@@ -151,20 +164,64 @@ export function AsistenciaClient({
           { label: "Cargados", value: registros.length },
         ]}
         actions={
-          <ExportButton
-            filenamePrefix="asistencia"
-            sheetName="Asistencia"
-            getRows={() => filtered.map((r) => ({
-              Fecha: new Date(r.timestamp).toLocaleDateString("es-MX"),
-              Hora:  new Date(r.timestamp).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
-              Tipo:  r.tipo,
-              Empleado: r.empleados ? `${r.empleados.nombre} ${r.empleados.apellido}` : "",
-              Sucursal: r.sucursales?.nombre ?? "",
-              Confianza: r.confianza != null ? `${Math.round(r.confianza * 100)}%` : "",
-            }))}
-          />
+          <div style={{ display: "flex", gap: 8 }}>
+            <ExportButton
+              filenamePrefix="asistencia"
+              sheetName="Asistencia"
+              getRows={() => filtered.map((r) => ({
+                Fecha: new Date(r.timestamp).toLocaleDateString("es-MX"),
+                Hora:  new Date(r.timestamp).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+                Tipo:  r.tipo,
+                Empleado: r.empleados ? `${r.empleados.nombre} ${r.empleados.apellido}` : "",
+                Sucursal: r.sucursales?.nombre ?? "",
+                Confianza: r.confianza != null ? `${Math.round(r.confianza * 100)}%` : "",
+                Manual: r.creado_manual ? "Sí" : "",
+                Editado: r.editado_por ? "Sí" : "",
+              }))}
+            />
+            <button
+              onClick={() => setModal({ type: "create" })}
+              className="btn btn-primary btn-sm"
+            >
+              <Plus size={13} />
+              <span>Nueva marcación</span>
+            </button>
+          </div>
         }
       />
+
+      {/* Modales S2.1 */}
+      {modal?.type === "create" && (
+        <CreateMarcacionModal
+          empleados={empleados}
+          sucursales={sucursales}
+          onClose={() => setModal(null)}
+          onCreated={(row) => {
+            setRegistros((prev) => [row, ...prev]);
+            setModal(null);
+          }}
+        />
+      )}
+      {modal?.type === "edit" && (
+        <EditMarcacionModal
+          row={modal.row}
+          onClose={() => setModal(null)}
+          onUpdated={(updated) => {
+            setRegistros((prev) => prev.map((r) => (r.id === updated.id ? { ...r, ...updated } : r)));
+            setModal(null);
+          }}
+        />
+      )}
+      {modal?.type === "delete" && (
+        <DeleteMarcacionModal
+          row={modal.row}
+          onClose={() => setModal(null)}
+          onDeleted={(id) => {
+            setRegistros((prev) => prev.filter((r) => r.id !== id));
+            setModal(null);
+          }}
+        />
+      )}
 
       {/* Barra de filtros */}
       <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
@@ -283,7 +340,12 @@ export function AsistenciaClient({
                 </div>
                 <div className="stagger-fade-up">
                   {items.map((r) => (
-                    <TimelineRow key={r.id} r={r} />
+                    <TimelineRow
+                      key={r.id}
+                      r={r}
+                      onEdit={() => setModal({ type: "edit", row: r })}
+                      onDelete={() => setModal({ type: "delete", row: r })}
+                    />
                   ))}
                 </div>
               </div>
@@ -376,28 +438,31 @@ function groupByHour(rows: Registro[]): Array<{ hourKey: string; hourLabel: stri
     });
 }
 
-function TimelineRow({ r }: { r: Registro }) {
+function TimelineRow({ r, onEdit, onDelete }: {
+  r: Registro;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
   const isEntrada = r.tipo === "entrada";
   const color = isEntrada ? "#22c55e" : "#3b82f6";
   const colorSoft = isEntrada ? "rgba(34,197,94,0.12)" : "rgba(59,130,246,0.12)";
   const colorBorder = isEntrada ? "rgba(34,197,94,0.28)" : "rgba(59,130,246,0.28)";
   const nombre = r.empleados ? `${r.empleados.nombre} ${r.empleados.apellido}` : "Sin empleado";
   const inicial = r.empleados?.nombre?.[0]?.toUpperCase() ?? "?";
+  const wasEdited = !!r.editado_por || !!r.original_timestamp;
 
   return (
     <div
-      className="timeline-row"
+      className="timeline-row asistencia-row"
       style={{
         display: "grid",
-        gridTemplateColumns: "16px 1fr auto",
+        gridTemplateColumns: "16px 1fr auto auto",
         gap: 14,
         padding: "12px 22px",
         alignItems: "center",
         borderBottom: "1px solid rgba(255,255,255,0.03)",
         transition: "background 150ms",
       }}
-      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.015)")}
-      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
     >
       <div style={{
         width: 10, height: 10, borderRadius: "50%",
@@ -415,9 +480,27 @@ function TimelineRow({ r }: { r: Registro }) {
           {inicial}
         </div>
         <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {nombre}
-          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {nombre}
+            </span>
+            {r.creado_manual && (
+              <span title={`Marcación creada manualmente${r.razon_edicion ? `: ${r.razon_edicion}` : ""}`} style={{
+                fontSize: 8, fontWeight: 700, letterSpacing: "0.05em",
+                padding: "1px 5px", borderRadius: 4,
+                background: "rgba(139,92,246,0.15)", color: "#a78bfa",
+                textTransform: "uppercase", cursor: "help",
+              }}>Manual</span>
+            )}
+            {wasEdited && !r.creado_manual && (
+              <span title={`Marcación editada${r.razon_edicion ? `: ${r.razon_edicion}` : ""}`} style={{
+                fontSize: 8, fontWeight: 700, letterSpacing: "0.05em",
+                padding: "1px 5px", borderRadius: 4,
+                background: "rgba(245,158,11,0.15)", color: "#fbbf24",
+                textTransform: "uppercase", cursor: "help",
+              }}>Editada</span>
+            )}
+          </div>
           {r.sucursales?.nombre && (
             <span style={{ fontSize: 11, color: "var(--text-faint)" }}>
               {r.sucursales.nombre}
@@ -448,6 +531,326 @@ function TimelineRow({ r }: { r: Registro }) {
           </span>
         )}
       </div>
+      <div className="row-actions" style={{ display: "flex", gap: 4 }}>
+        <button onClick={onEdit} title="Editar marcación" aria-label="Editar" style={iconBtn}>
+          <Pencil size={13} />
+        </button>
+        <button onClick={onDelete} title="Eliminar marcación" aria-label="Eliminar" style={{ ...iconBtn, color: "#f87171" }}>
+          <Trash2 size={13} />
+        </button>
+      </div>
     </div>
+  );
+}
+
+const iconBtn: React.CSSProperties = {
+  width: 28, height: 28, padding: 0, borderRadius: 6,
+  background: "transparent", border: "1px solid transparent",
+  color: "var(--text-faint)", cursor: "pointer",
+  display: "flex", alignItems: "center", justifyContent: "center",
+  transition: "all 150ms",
+};
+
+// ════════════════════════════════════════════════════════════════════
+//  S2.1: Modales de edicion manual de marcaciones
+// ════════════════════════════════════════════════════════════════════
+
+function ModalShell({ title, subtitle, onClose, children }: {
+  title: string;
+  subtitle?: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div onClick={onClose} style={{
+      position: "fixed", inset: 0, zIndex: 9998,
+      background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)",
+      display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
+    }}>
+      <div onClick={(e) => e.stopPropagation()} className="modal-content" style={{
+        width: "min(520px, 100%)",
+        background: "var(--bg-surface)", border: "1px solid var(--border)",
+        borderRadius: 14, boxShadow: "0 32px 80px rgba(0,0,0,0.7)",
+        overflow: "hidden",
+      }}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "var(--text-primary)" }}>{title}</h2>
+            {subtitle && <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--text-faint)" }}>{subtitle}</p>}
+          </div>
+          <button onClick={onClose} aria-label="Cerrar" style={{
+            background: "transparent", border: "none", cursor: "pointer",
+            color: "var(--text-faint)", padding: 4, borderRadius: 6,
+            display: "flex", alignItems: "center",
+          }}>
+            <X size={18} />
+          </button>
+        </div>
+        <div style={{ padding: 20 }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ModalField({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 5 }}>
+        {label}
+      </label>
+      {children}
+      {hint && <p style={{ fontSize: 11, color: "var(--text-faint)", marginTop: 4 }}>{hint}</p>}
+    </div>
+  );
+}
+
+const modalInput: React.CSSProperties = {
+  width: "100%", padding: "10px 12px",
+  background: "var(--bg-elevated)", border: "1px solid var(--border)",
+  borderRadius: 8, fontSize: 14, color: "var(--text-primary)",
+  outline: "none", colorScheme: "dark", fontFamily: "inherit", boxSizing: "border-box",
+};
+
+function CreateMarcacionModal({
+  empleados, sucursales, onClose, onCreated,
+}: {
+  empleados: EmpOpt[];
+  sucursales: SucOpt[];
+  onClose: () => void;
+  onCreated: (row: Registro) => void;
+}) {
+  const [empleadoId, setEmpleadoId] = useState("");
+  const [sucursalId, setSucursalId] = useState("");
+  const [tipo, setTipo]             = useState<"entrada" | "salida">("entrada");
+  const [date, setDate]             = useState(new Date().toISOString().slice(0, 10));
+  const [time, setTime]             = useState(new Date().toTimeString().slice(0, 5));
+  const [razon, setRazon]           = useState("");
+  const [saving, setSaving]         = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!empleadoId) { toast.error("Selecciona un empleado"); return; }
+    if (razon.trim().length < 4) { toast.error("Razón obligatoria (mín. 4 caracteres)"); return; }
+
+    setSaving(true);
+    try {
+      const ts = new Date(`${date}T${time}:00`).toISOString();
+      const res = await fetch("/api/asistencia/create", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          empleado_id: empleadoId,
+          sucursal_id: sucursalId || null,
+          tipo, timestamp: ts, razon,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Error al crear");
+      const emp = empleados.find((e) => e.id === empleadoId);
+      const suc = sucursales.find((s) => s.id === sucursalId);
+      onCreated({
+        id: data.id, tipo, timestamp: ts, confianza: null,
+        empleado_id: empleadoId, sucursal_id: sucursalId || null,
+        empleados: emp ? { nombre: emp.nombre, apellido: emp.apellido } : null,
+        sucursales: suc ? { nombre: suc.nombre } : null,
+        creado_manual: true,
+      });
+      toast.success("Marcación creada");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <ModalShell title="Nueva marcación manual" subtitle="Para corregir olvidos del empleado" onClose={onClose}>
+      <form onSubmit={submit}>
+        <ModalField label="Empleado">
+          <select value={empleadoId} onChange={(e) => setEmpleadoId(e.target.value)} style={modalInput} required>
+            <option value="">— Selecciona —</option>
+            {empleados.map((e) => (
+              <option key={e.id} value={e.id} style={{ background: "#0f0f10" }}>
+                {e.apellido} {e.nombre}
+              </option>
+            ))}
+          </select>
+        </ModalField>
+        <ModalField label="Sucursal" hint="Opcional. Útil para reportes por sucursal.">
+          <select value={sucursalId} onChange={(e) => setSucursalId(e.target.value)} style={modalInput}>
+            <option value="">— Sin sucursal —</option>
+            {sucursales.map((s) => (
+              <option key={s.id} value={s.id} style={{ background: "#0f0f10" }}>{s.nombre}</option>
+            ))}
+          </select>
+        </ModalField>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+          <ModalField label="Tipo">
+            <select value={tipo} onChange={(e) => setTipo(e.target.value as "entrada" | "salida")} style={modalInput}>
+              <option value="entrada" style={{ background: "#0f0f10" }}>Entrada</option>
+              <option value="salida"  style={{ background: "#0f0f10" }}>Salida</option>
+            </select>
+          </ModalField>
+          <ModalField label="Fecha">
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={modalInput} required />
+          </ModalField>
+          <ModalField label="Hora">
+            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={modalInput} required />
+          </ModalField>
+        </div>
+        <ModalField label="Razón (obligatoria)" hint="Quedará registrada en el audit log de la empresa.">
+          <textarea
+            value={razon} onChange={(e) => setRazon(e.target.value)}
+            rows={2} required minLength={4}
+            placeholder="Ej: olvido del empleado / corrección post-incidente / etc."
+            style={{ ...modalInput, resize: "vertical", minHeight: 60 }}
+          />
+        </ModalField>
+        <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+          <button type="button" onClick={onClose} className="btn btn-secondary" style={{ flex: 1 }}>Cancelar</button>
+          <button type="submit" disabled={saving} className="btn btn-primary" style={{ flex: 2 }}>
+            {saving ? "Creando..." : "Crear marcación"}
+          </button>
+        </div>
+      </form>
+    </ModalShell>
+  );
+}
+
+function EditMarcacionModal({ row, onClose, onUpdated }: {
+  row: Registro;
+  onClose: () => void;
+  onUpdated: (updated: Partial<Registro> & { id: string }) => void;
+}) {
+  const d = new Date(row.timestamp);
+  const [tipo, setTipo] = useState<"entrada" | "salida">(row.tipo);
+  const [date, setDate] = useState(d.toISOString().slice(0, 10));
+  const [time, setTime] = useState(d.toTimeString().slice(0, 5));
+  const [razon, setRazon] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (razon.trim().length < 4) { toast.error("Razón obligatoria"); return; }
+    setSaving(true);
+    try {
+      const ts = new Date(`${date}T${time}:00`).toISOString();
+      const res = await fetch("/api/asistencia/update", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: row.id, tipo, timestamp: ts, razon }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Error al actualizar");
+      onUpdated({
+        id: row.id, tipo, timestamp: ts,
+        editado_por: "self", razon_edicion: razon,
+        original_timestamp: row.original_timestamp ?? row.timestamp,
+      });
+      toast.success("Marcación actualizada");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const empName = row.empleados ? `${row.empleados.nombre} ${row.empleados.apellido}` : "—";
+  return (
+    <ModalShell title="Editar marcación" subtitle={empName} onClose={onClose}>
+      <form onSubmit={submit}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+          <ModalField label="Tipo">
+            <select value={tipo} onChange={(e) => setTipo(e.target.value as "entrada" | "salida")} style={modalInput}>
+              <option value="entrada" style={{ background: "#0f0f10" }}>Entrada</option>
+              <option value="salida"  style={{ background: "#0f0f10" }}>Salida</option>
+            </select>
+          </ModalField>
+          <ModalField label="Fecha">
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={modalInput} required />
+          </ModalField>
+          <ModalField label="Hora">
+            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={modalInput} required />
+          </ModalField>
+        </div>
+        <ModalField label="Razón del cambio (obligatoria)" hint="Quedará registrada en el audit log.">
+          <textarea
+            value={razon} onChange={(e) => setRazon(e.target.value)}
+            rows={2} required minLength={4}
+            placeholder="Ej: corrección de horario / empleado avisa retraso justificado / etc."
+            style={{ ...modalInput, resize: "vertical", minHeight: 60 }}
+          />
+        </ModalField>
+        <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+          <button type="button" onClick={onClose} className="btn btn-secondary" style={{ flex: 1 }}>Cancelar</button>
+          <button type="submit" disabled={saving} className="btn btn-primary" style={{ flex: 2 }}>
+            {saving ? "Guardando..." : "Guardar cambios"}
+          </button>
+        </div>
+      </form>
+    </ModalShell>
+  );
+}
+
+function DeleteMarcacionModal({ row, onClose, onDeleted }: {
+  row: Registro;
+  onClose: () => void;
+  onDeleted: (id: string) => void;
+}) {
+  const [razon, setRazon] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (razon.trim().length < 4) { toast.error("Razón obligatoria"); return; }
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/asistencia/delete", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: row.id, razon }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Error al eliminar");
+      onDeleted(row.id);
+      toast.success("Marcación eliminada");
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const empName = row.empleados ? `${row.empleados.nombre} ${row.empleados.apellido}` : "—";
+  const when = new Date(row.timestamp).toLocaleString("es-MX");
+  return (
+    <ModalShell
+      title="Eliminar marcación"
+      subtitle={`${empName} · ${row.tipo} · ${when}`}
+      onClose={onClose}
+    >
+      <form onSubmit={submit}>
+        <div style={{
+          padding: 12, marginBottom: 14, borderRadius: 8,
+          background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)",
+          fontSize: 12, color: "#fca5a5", lineHeight: 1.5,
+        }}>
+          ⚠️ Esta acción es irreversible. La marcación quedará registrada en el audit log con la razón provista para auditoría posterior.
+        </div>
+        <ModalField label="Razón (obligatoria)">
+          <textarea
+            value={razon} onChange={(e) => setRazon(e.target.value)}
+            rows={2} required minLength={4}
+            placeholder="Ej: duplicado / error de reconocimiento / etc."
+            style={{ ...modalInput, resize: "vertical", minHeight: 60 }}
+          />
+        </ModalField>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button type="button" onClick={onClose} className="btn btn-secondary" style={{ flex: 1 }}>Cancelar</button>
+          <button type="submit" disabled={deleting} className="btn btn-danger" style={{ flex: 2 }}>
+            {deleting ? "Eliminando..." : "Eliminar marcación"}
+          </button>
+        </div>
+      </form>
+    </ModalShell>
   );
 }

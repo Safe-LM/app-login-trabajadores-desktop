@@ -19,7 +19,7 @@ export default async function AsistenciaPage() {
     { data: rawSuc },
   ] = await Promise.all([
     sb.from("registros_asistencia")
-      .select("id, tipo, timestamp, confianza, empleado_id, sucursal_id, empleados(nombre, apellido), sucursales(nombre)")
+      .select("id, tipo, timestamp, confianza, empleado_id, sucursal_id, creado_manual, editado_por, razon_edicion, original_timestamp, empleados(nombre, apellido), sucursales(nombre)")
       .order("timestamp", { ascending: false })
       .limit(100),
     sb.from("empleados").select("id, nombre, apellido").order("apellido"),

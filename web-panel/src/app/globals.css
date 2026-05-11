@@ -746,6 +746,20 @@ body {
   box-shadow: 0 4px 12px -4px rgba(239,68,68,0.4);
 }
 
+/* Asistencia: acciones de fila ocultas hasta hover (desktop) */
+.asistencia-row .row-actions { opacity: 0; transition: opacity 150ms; }
+.asistencia-row:hover .row-actions { opacity: 1; }
+.asistencia-row .row-actions button:hover {
+  background: var(--bg-elevated) !important;
+  border-color: var(--border) !important;
+  color: var(--text-primary) !important;
+}
+.asistencia-row:hover { background: rgba(255,255,255,0.015); }
+@media (max-width: 768px) {
+  /* En movil siempre visibles */
+  .asistencia-row .row-actions { opacity: 1; }
+}
+
 /* ─── Boton de busqueda rapida (sidebar header) ───────────────── */
 .cmdk-launch-btn {
   width: 100%;

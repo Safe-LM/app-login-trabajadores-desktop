@@ -5,11 +5,13 @@ on:
     branches: [main, develop]
     paths:
       - 'supabase/migrations/**.sql'
+      - 'supabase/migrations/.baseline'
       - '.github/workflows/migration-validator.yml'
   pull_request:
     branches: [main, develop]
     paths:
       - 'supabase/migrations/**.sql'
+      - 'supabase/migrations/.baseline'
   workflow_dispatch:
 
 jobs:
@@ -19,7 +21,10 @@ jobs:
 
     services:
       postgres:
-        image: postgres:15
+        # Imagen con pgvector preinstalado — evita tener que apt-get el
+        # paquete postgresql-15-pgvector (que no existe en repos default
+        # de Ubuntu Noble). pgvector/pgvector:pg15 es la imagen oficial.
+        image: pgvector/pgvector:pg15
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: testdb
@@ -34,11 +39,67 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install psql + pgvector
+      - name: Instalar cliente psql
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql-client postgresql-15-pgvector
-          PGPASSWORD=postgres psql -h localhost -U postgres -d testdb -c "CREATE EXTENSION IF NOT EXISTS vector;"
+          sudo apt-get install -y postgresql-client
+
+      - name: Habilitar extensiones + bootstrap de tablas base
+        run: |
+          # Crear extensiones requeridas (pgvector ya esta instalado en
+          # la imagen, solo hay que CREATE EXTENSION).
+          PGPASSWORD=postgres psql -h localhost -U postgres -d testdb <<'SQL'
+          CREATE EXTENSION IF NOT EXISTS vector;
+          CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+          -- Esquema auth con tabla minima de users + funciones que
+          -- Supabase provee en su instancia real (auth.jwt(), auth.uid()).
+          -- Aqui las mockeamos para que las migraciones que las usan en
+          -- politicas RLS no fallen al validar.
+          CREATE SCHEMA IF NOT EXISTS auth;
+          CREATE TABLE IF NOT EXISTS auth.users (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            email text
+          );
+          CREATE OR REPLACE FUNCTION auth.jwt() RETURNS jsonb
+            LANGUAGE sql STABLE AS $func$
+              SELECT '{}'::jsonb
+            $func$;
+          CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
+            LANGUAGE sql STABLE AS $func$
+              SELECT NULL::uuid
+            $func$;
+          CREATE OR REPLACE FUNCTION auth.role() RETURNS text
+            LANGUAGE sql STABLE AS $func$
+              SELECT NULL::text
+            $func$;
+
+          -- Tablas base que las migraciones nuevas referencian via FK.
+          -- En la BD real de Supabase ya existen — aqui las creamos
+          -- minimas para que CREATE TABLE con FK funcione.
+          CREATE TABLE IF NOT EXISTS public.empresas (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            nombre text NOT NULL
+          );
+
+          CREATE TABLE IF NOT EXISTS public.dispositivos (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            empresa_id uuid REFERENCES public.empresas(id)
+          );
+
+          CREATE TABLE IF NOT EXISTS public.logs_estacion (
+            id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+            dispositivo_id uuid REFERENCES public.dispositivos(id),
+            empresa_id uuid REFERENCES public.empresas(id),
+            tipo text NOT NULL CHECK (tipo = ANY (ARRAY[
+              'sync_ok','sync_error','reconocimiento_ok','reconocimiento_fallo',
+              'asistencia_registrada','asistencia_offline','camara_error',
+              'camara_ok','error','info'
+            ])),
+            detalle jsonb DEFAULT '{}'::jsonb,
+            creado_en timestamptz NOT NULL DEFAULT now()
+          );
+          SQL
 
       - name: Validar orden y nombres de migraciones
         run: |
@@ -51,16 +112,44 @@ jobs:
             echo "$invalid"
             exit 1
           fi
-          echo "Formato OK: $(ls *.sql | wc -l) migraciones"
+          echo "Formato OK: $(ls *.sql | wc -l) migraciones totales"
 
-      - name: Aplicar migraciones en Postgres efimero
+      - name: Aplicar migraciones NUEVAS en Postgres efimero
         run: |
           set -e
+          # Leer baseline (fecha de corte). Las migraciones <= baseline ya
+          # estan en produccion y no se re-validan. Solo validamos las
+          # nuevas a partir de baseline+1.
+          BASELINE=$(cat supabase/migrations/.baseline 2>/dev/null | tr -d '[:space:]' || echo "00000000")
+          echo "Baseline: $BASELINE — validando migraciones posteriores"
+
+          NEW_MIGRATIONS=()
           for f in supabase/migrations/*.sql; do
+            basename=$(basename "$f")
+            datepart="${basename:0:8}"
+            # Solo numeros: skip si no parsea como fecha
+            if ! [[ "$datepart" =~ ^[0-9]{8}$ ]]; then continue; fi
+            # Skip si <= baseline
+            if [ "$datepart" -le "$BASELINE" ]; then
+              echo "  skip (legacy): $basename"
+              continue
+            fi
+            NEW_MIGRATIONS+=("$f")
+          done
+
+          if [ ${#NEW_MIGRATIONS[@]} -eq 0 ]; then
+            echo "No hay migraciones nuevas para validar (todas estan en o antes del baseline)."
+            exit 0
+          fi
+
+          echo ""
+          echo "Aplicando ${#NEW_MIGRATIONS[@]} migracion(es) nueva(s):"
+          for f in "${NEW_MIGRATIONS[@]}"; do
             echo "─── Aplicando $(basename $f) ───"
             PGPASSWORD=postgres psql -h localhost -U postgres -d testdb -v ON_ERROR_STOP=1 -f "$f" || {
               echo "ERROR aplicando $f"
               exit 1
             }
           done
-          echo "Todas las migraciones aplicadas sin errores."
+          echo ""
+          echo "Todas las migraciones nuevas aplicadas sin errores."

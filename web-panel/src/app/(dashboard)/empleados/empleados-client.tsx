@@ -336,6 +336,7 @@ export function EmpleadosClient({ empleados: initial, sucursales, empresaId }: {
   const [search, setSearch] = useState("");
   const [, startT] = useTransition();
   const fileExcelRef = useRef<HTMLInputElement>(null);
+  const { notify } = useNotifications();
 
   // Sync state when server data changes (automatic refresh)
   useEffect(() => { setEmpleados(initial); }, [initial]);
@@ -434,6 +435,35 @@ export function EmpleadosClient({ empleados: initial, sucursales, empresaId }: {
 
   function openEdit(e: Empleado) { setTarget(e); setModal("edit"); }
   function openDelete(e: Empleado) { setTarget(e); setModal("delete"); }
+
+  // S2.2: forzar reenroll del empleado en todas las stations de la empresa
+  async function forzarReenroll(emp: Empleado) {
+    const ok = window.confirm(
+      `¿Forzar re-enrollment de ${emp.nombre} ${emp.apellido}?\n\n` +
+      `Esto borrara los embeddings actuales y obligara a las stations a ` +
+      `regenerarlos desde la foto. Util si el empleado cambio de look ` +
+      `(barba, lentes, peinado).`
+    );
+    if (!ok) return;
+    try {
+      const res = await fetch("/api/empleados/forzar-reenroll", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ empleado_id: emp.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Error");
+      const n = data.stations_notificadas ?? 0;
+      notify({
+        kind: "success",
+        title: "Re-enrollment iniciado",
+        message: `${n} estación${n === 1 ? "" : "es"} regenerará embeddings de ${emp.nombre}.`,
+      });
+      // Marcar como no enrollado para feedback inmediato visual
+      setEmpleados((prev) => prev.map((e) => e.id === emp.id ? { ...e, enrollado: false } : e));
+    } catch (e) {
+      notify({ kind: "error", title: "No se pudo forzar re-enrollment", message: (e as Error).message });
+    }
+  }
 
   return (
     <div style={{ padding: "28px 32px", maxWidth: 1200, margin: "0 auto" }}>
@@ -596,6 +626,15 @@ export function EmpleadosClient({ empleados: initial, sucursales, empresaId }: {
                   <div style={{ display: "flex", gap: 6 }}>
                     <button onClick={() => openEdit(emp)} title="Editar" aria-label={`Editar ${emp.nombre} ${emp.apellido}`} className="btn btn-icon btn-sm btn-icon-edit">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button
+                      onClick={() => forzarReenroll(emp)}
+                      title="Forzar re-enrollment en todas las estaciones"
+                      aria-label={`Forzar re-enrollment de ${emp.nombre}`}
+                      className="btn btn-icon btn-sm"
+                      style={{ color: "#8b5cf6" }}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 11-3.21-6.91L21 8M21 3v5h-5"/></svg>
                     </button>
                     <button onClick={() => openDelete(emp)} title="Eliminar" aria-label={`Eliminar ${emp.nombre} ${emp.apellido}`} className="btn btn-icon btn-sm btn-icon-danger">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>

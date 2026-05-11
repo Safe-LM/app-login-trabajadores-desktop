@@ -609,6 +609,18 @@ class DashboardWindow(QMainWindow):
                 QTimer.singleShot(1000, self._logout)
             elif tipo == "limpiar_cache":
                 logger.info(f"Comando recibido: limpiar_cache ({cmd_id[:8] if cmd_id else '?'})")
+            elif tipo == "forzar_reenroll":
+                # S2.2: admin forzo regeneracion de embeddings para 1 empleado.
+                # El backend ya borro los embeddings de pgvector y marco
+                # enrollado=false. Aqui solo gatillamos un sync forzado.
+                payload = cmd.get("payload") or {}
+                emp_id = payload.get("empleado_id", "")
+                logger.info(
+                    f"Comando recibido: forzar_reenroll empleado={emp_id[:8] if emp_id else '?'} "
+                    f"({cmd_id[:8] if cmd_id else '?'})"
+                )
+                if hasattr(self, "_sync_mgr"):
+                    self._sync_mgr.force_sync()
             else:
                 logger.warning(f"Comando desconocido: {tipo}")
                 resultado = f"tipo desconocido: {tipo}"

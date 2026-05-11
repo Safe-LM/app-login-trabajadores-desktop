@@ -39,6 +39,11 @@ jobs:
       - name: TypeScript check
         run: npx tsc --noEmit
 
+      - name: ESLint (non-blocking, warnings only)
+        # Migrado desde el ex-workflow web-panel-typecheck.yml. lint
+        # con "|| true" no bloquea — solo deja warnings visibles en logs.
+        run: npm run lint || true
+
       - name: Next.js build
         run: npm run build
         env:

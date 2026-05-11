@@ -70,6 +70,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
       - name: Install supabase-py
         run: pip install "supabase>=2.3.0"

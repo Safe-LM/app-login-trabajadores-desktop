@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.2.0...web-panel-v0.3.0) (2026-05-11)
+
+
+### ✨ Nuevas funcionalidades
+
+* **web-panel:** audit log, sprints 2-4 + training debug visibility ([fe10b75](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/fe10b75ddf2b8adc132b9d3212c2016ab9d77f23))
+
 ## [0.2.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.1.4...web-panel-v0.2.0) (2026-05-10)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.3.0...web-panel-v0.4.0) (2026-05-11)
+
+
+### ✨ Nuevas funcionalidades
+
+* **web-panel:** soporte completo movil + tablet (PWA-ready) ([111d4da](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/111d4da6dc5afc78351879a1bec2d6f8ae9ac488))
+
 ## [0.3.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.2.0...web-panel-v0.3.0) (2026-05-11)
 
 

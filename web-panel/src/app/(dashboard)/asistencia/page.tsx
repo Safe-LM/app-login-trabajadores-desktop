@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { AsistenciaClient } from "./asistencia-client";
 
-// Realtime hidrata nuevos registros al instante; SSR solo cada 5 min como fallback.
 export const revalidate = 300;
 
 export default async function AsistenciaPage() {
@@ -11,13 +10,27 @@ export default async function AsistenciaPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: raw } = await supabase
-    .from("registros_asistencia")
-    .select("id, tipo, timestamp, confianza, empleados(nombre, apellido), sucursales(nombre)")
-    .order("timestamp", { ascending: false })
-    .limit(100);
+  // Cargar en paralelo: registros recientes + opciones de filtros.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sb = supabase as any;
+  const [
+    { data: rawReg },
+    { data: rawEmp },
+    { data: rawSuc },
+  ] = await Promise.all([
+    sb.from("registros_asistencia")
+      .select("id, tipo, timestamp, confianza, empleado_id, sucursal_id, empleados(nombre, apellido), sucursales(nombre)")
+      .order("timestamp", { ascending: false })
+      .limit(100),
+    sb.from("empleados").select("id, nombre, apellido").order("apellido"),
+    sb.from("sucursales").select("id, nombre").order("nombre"),
+  ]);
 
-  const registros = (raw ?? []) as any[];
-
-  return <AsistenciaClient registros={registros} />;
+  return (
+    <AsistenciaClient
+      registros={rawReg ?? []}
+      empleados={rawEmp ?? []}
+      sucursales={rawSuc ?? []}
+    />
+  );
 }

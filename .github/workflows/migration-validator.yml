@@ -5,11 +5,13 @@ on:
     branches: [main, develop]
     paths:
       - 'supabase/migrations/**.sql'
+      - 'supabase/migrations/.baseline'
       - '.github/workflows/migration-validator.yml'
   pull_request:
     branches: [main, develop]
     paths:
       - 'supabase/migrations/**.sql'
+      - 'supabase/migrations/.baseline'
   workflow_dispatch:
 
 jobs:
@@ -97,16 +99,44 @@ jobs:
             echo "$invalid"
             exit 1
           fi
-          echo "Formato OK: $(ls *.sql | wc -l) migraciones"
+          echo "Formato OK: $(ls *.sql | wc -l) migraciones totales"
 
-      - name: Aplicar migraciones en Postgres efimero
+      - name: Aplicar migraciones NUEVAS en Postgres efimero
         run: |
           set -e
+          # Leer baseline (fecha de corte). Las migraciones <= baseline ya
+          # estan en produccion y no se re-validan. Solo validamos las
+          # nuevas a partir de baseline+1.
+          BASELINE=$(cat supabase/migrations/.baseline 2>/dev/null | tr -d '[:space:]' || echo "00000000")
+          echo "Baseline: $BASELINE — validando migraciones posteriores"
+
+          NEW_MIGRATIONS=()
           for f in supabase/migrations/*.sql; do
+            basename=$(basename "$f")
+            datepart="${basename:0:8}"
+            # Solo numeros: skip si no parsea como fecha
+            if ! [[ "$datepart" =~ ^[0-9]{8}$ ]]; then continue; fi
+            # Skip si <= baseline
+            if [ "$datepart" -le "$BASELINE" ]; then
+              echo "  skip (legacy): $basename"
+              continue
+            fi
+            NEW_MIGRATIONS+=("$f")
+          done
+
+          if [ ${#NEW_MIGRATIONS[@]} -eq 0 ]; then
+            echo "No hay migraciones nuevas para validar (todas estan en o antes del baseline)."
+            exit 0
+          fi
+
+          echo ""
+          echo "Aplicando ${#NEW_MIGRATIONS[@]} migracion(es) nueva(s):"
+          for f in "${NEW_MIGRATIONS[@]}"; do
             echo "─── Aplicando $(basename $f) ───"
             PGPASSWORD=postgres psql -h localhost -U postgres -d testdb -v ON_ERROR_STOP=1 -f "$f" || {
               echo "ERROR aplicando $f"
               exit 1
             }
           done
-          echo "Todas las migraciones aplicadas sin errores."
+          echo ""
+          echo "Todas las migraciones nuevas aplicadas sin errores."

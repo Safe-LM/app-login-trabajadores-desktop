@@ -4,9 +4,10 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } from "recharts";
-import { computeReport, toCsv } from "./compute";
+import { computeReport } from "./compute";
 import type { ComputedReport, EmpleadoFila } from "./compute";
 import type { Filtros, Granularidad, ReportesData } from "./types";
+import { ExportButton } from "@/components/ui/ExportButton";
 
 const CHART_COLORS = ["#3B82F6", "#60A5FA", "#93C5FD", "#22c55e", "#eab308", "#f87171", "#a78bfa", "#f472b6"];
 
@@ -44,19 +45,6 @@ export function ReportesClient({ data }: { data: ReportesData }) {
     });
   }
 
-  function exportCsv() {
-    const csv = toCsv(report.registrosFiltrados);
-    const blob = new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `reporte_asistencia_${filtros.desde}_${filtros.hasta}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <FilterBar
@@ -66,7 +54,8 @@ export function ReportesClient({ data }: { data: ReportesData }) {
         setGranularidad={setGranularidad}
         sucursales={data.sucursales}
         empleados={empleadosVisibles}
-        onExport={exportCsv}
+        exportRows={() => report.registrosFiltrados as unknown as Record<string, unknown>[]}
+        exportFilenamePrefix={`reporte_asistencia_${filtros.desde}_${filtros.hasta}`}
         rangeDays={data.rangeDays}
       />
 
@@ -140,7 +129,7 @@ export function ReportesClient({ data }: { data: ReportesData }) {
 /* ─────────────── FILTROS ─────────────── */
 function FilterBar({
   filtros, setFiltro, granularidad, setGranularidad,
-  sucursales, empleados, onExport, rangeDays,
+  sucursales, empleados, exportRows, exportFilenamePrefix, rangeDays,
 }: {
   filtros: Filtros;
   setFiltro: <K extends keyof Filtros>(k: K, v: Filtros[K]) => void;
@@ -148,7 +137,8 @@ function FilterBar({
   setGranularidad: (g: Granularidad) => void;
   sucursales: ReportesData["sucursales"];
   empleados: ReportesData["empleados"];
-  onExport: () => void;
+  exportRows: () => Record<string, unknown>[];
+  exportFilenamePrefix: string;
   rangeDays: number;
 }) {
   const minDate = isoDate(daysAgo(rangeDays));
@@ -220,9 +210,12 @@ function FilterBar({
         </div>
       </Field>
       <Field label="Exportar">
-        <button type="button" className="btn btn-secondary" onClick={onExport} style={{ width: "100%", justifyContent: "center" }}>
-          <DownloadIcon /> CSV
-        </button>
+        <ExportButton
+          getRows={exportRows}
+          filenamePrefix={exportFilenamePrefix}
+          sheetName="Asistencia"
+          label="Descargar"
+        />
       </Field>
     </div>
   );

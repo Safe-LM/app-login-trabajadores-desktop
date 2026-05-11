@@ -120,9 +120,18 @@ function EstadoPill({ estado }: { estado: keyof typeof ESTADO }) {
   );
 }
 /* ── Card de dispositivo ── */
-function DispositivoCard({ d, onConfig, onLogs, index }: { d: Dispositivo; onConfig: (d: Dispositivo) => void; onLogs: (d: Dispositivo) => void; index: number }) {
+function DispositivoCard({ d, onConfig, onLogs, index, maxEncodings }: {
+  d: Dispositivo;
+  onConfig: (d: Dispositivo) => void;
+  onLogs: (d: Dispositivo) => void;
+  index: number;
+  maxEncodings: number;
+}) {
   const m = ESTADO[d.estado_conexion];
   const [hov, setHov] = useState(false);
+  // S1.4: detectar drift de encodings (esta station tiene menos version
+  // que el max de la empresa -> esta atrasada).
+  const encodingsBehind = maxEncodings > 0 && (d.encodings_version ?? 0) < maxEncodings;
   return (
     <div
       onMouseEnter={() => setHov(true)}
@@ -176,7 +185,28 @@ function DispositivoCard({ d, onConfig, onLogs, index }: { d: Dispositivo; onCon
               </p>
             </div>
           </div>
-          <EstadoPill estado={d.estado_conexion} />
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+            <EstadoPill estado={d.estado_conexion} />
+            {encodingsBehind && (
+              <span
+                title={`Esta estación tiene encodings v${d.encodings_version} pero la empresa va en v${maxEncodings}. Recomendado: sincronizar empleados.`}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 4,
+                  fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
+                  padding: "2px 6px", borderRadius: 5,
+                  background: "rgba(245,158,11,0.12)",
+                  border: "1px solid rgba(245,158,11,0.3)",
+                  color: "#fbbf24", textTransform: "uppercase",
+                  cursor: "help",
+                }}
+              >
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 9v4M12 17h.01M10.29 3.86l-8.18 14.18A2 2 0 003.83 21h16.34a2 2 0 001.72-2.96L13.71 3.86a2 2 0 00-3.42 0z"/>
+                </svg>
+                Desactualizada
+              </span>
+            )}
+          </div>
         </div>
         {/* Heartbeat bar */}
         <div>
@@ -786,9 +816,23 @@ export function DispositivosClient({
       {/* Grid de cards */}
       {total > 0 ? (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(310px, 1fr))", gap: 12 }}>
-          {dispositivos.map((d, i) => (
-            <DispositivoCard key={d.id} d={d} onConfig={setSelected} onLogs={setLogsDevice} index={i} />
-          ))}
+          {(() => {
+            // S1.4: max encodings_version entre todas las stations de la empresa
+            // (para marcar cuales estan atrasadas).
+            const maxEnc = dispositivos.reduce(
+              (max, d) => Math.max(max, d.encodings_version ?? 0), 0
+            );
+            return dispositivos.map((d, i) => (
+              <DispositivoCard
+                key={d.id}
+                d={d}
+                onConfig={setSelected}
+                onLogs={setLogsDevice}
+                index={i}
+                maxEncodings={maxEnc}
+              />
+            ));
+          })()}
         </div>
       ) : (
         <EmptyState onNew={() => setShowRegistrar(true)} />

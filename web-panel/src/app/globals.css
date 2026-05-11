@@ -907,9 +907,40 @@ body {
   color: #f87171;
 }
 
-/* ─── Tablet responsive ──────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+ *  RESPONSIVE — Tablet + Mobile con soporte safe-area (iOS notch)
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* Safe area insets para dispositivos con notch (iPhone X+, etc.) */
+@supports (padding: max(0px)) {
+  body {
+    padding-left:  env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* Tap highlight transparente (mejor UX en touch) */
+button, a, [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Mejor scroll en iOS para overflow */
+.scroll-touch,
+.modal-content,
+main {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* ─── Tablet (769px - 1024px) ─────────────────────────────────── */
 @media (max-width: 1024px) and (min-width: 769px) {
   :root { --sidebar-width: 200px; }
+
+  /* Grids tipicos pasan de 4 a 2 cols en tablet */
+  .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* PageHeader stats: 2 cols en tablet en vez de 4 */
+  .page-header__stats { grid-template-columns: repeat(2, 1fr) !important; }
 }
 
 /* ─── Tabla de empleados — hover con accent lateral ──────────── */
@@ -935,24 +966,15 @@ body {
   transform: scaleY(1);
 }
 
-/* Tablas y grids con scroll horizontal en pantallas chicas */
-@media (max-width: 768px) {
-  .table-wrap, .grid-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  table { min-width: 600px; }
-
-  /* Modales full-screen en movil */
-  .modal-content { max-width: 100% !important; max-height: 100vh; border-radius: 0 !important; }
-}
-
-/* ─── Sidebar responsive ─────────────────────────────────────── */
+/* ─── Sidebar burger (visible solo en movil) ──────────────────── */
 .sidebar-burger {
   display: none;
   position: fixed;
-  top: 12px;
-  left: 12px;
+  top: max(12px, env(safe-area-inset-top));
+  left: max(12px, env(safe-area-inset-left));
   z-index: 50;
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   align-items: center;
   justify-content: center;
@@ -965,6 +987,7 @@ body {
   transition: background 150ms;
 }
 .sidebar-burger:hover { background: var(--bg-hover); }
+.sidebar-burger:active { transform: scale(0.95); }
 
 .sidebar-backdrop {
   position: fixed;
@@ -976,25 +999,137 @@ body {
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
+/* ═══════════════════════════════════════════════════════════════
+ *  Mobile (≤ 768px) — Drawer sidebar + tablas scrollables + modal
+ *  full-screen + touch targets 44px + headers stacked
+ * ═══════════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
-  .page { padding: var(--space-4) var(--space-4); }
-  .page-header { flex-direction: column; align-items: stretch; }
+  /* El main NO reserva espacio para el sidebar (drawer) */
+  :root { --sidebar-width: 0px; }
 
+  /* Mostrar burger */
   .sidebar-burger { display: inline-flex; }
 
-  /* En movil el sidebar se vuelve drawer fixed */
+  /* Sidebar como drawer deslizable */
   .sidebar {
     position: fixed !important;
     top: 0 !important;
     left: 0;
     width: 280px !important;
+    max-width: 85vw;
     z-index: 45;
     transform: translateX(-100%);
     transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
     box-shadow: 4px 0 24px rgba(0,0,0,0.4);
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
   }
   .sidebar--open { transform: translateX(0); }
 
-  /* El main NO deja espacio para el sidebar en movil */
-  :root { --sidebar-width: 0px; }
+  /* Padding del contenido — deja espacio arriba para el burger */
+  .page {
+    padding: 60px 16px 24px;
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+  }
+
+  /* PageHeader: stack vertical */
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+  .page-header__actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .page-header__actions > * {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  /* Stats grid: 2 cols (no caben 4) */
+  .stats-grid,
+  .page-header__stats {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  /* Heading 1 mas chico en movil */
+  .heading-1 { font-size: 22px !important; }
+  .heading-2 { font-size: 18px !important; }
+
+  /* Tablas: scroll horizontal con momentum */
+  .card { overflow-x: auto; }
+  .table-wrap, .grid-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  table { min-width: 600px; font-size: 12px; }
+  th, td { padding: 10px 8px !important; }
+
+  /* Modales full-screen pegados a los bordes */
+  .modal-content,
+  .modal {
+    max-width: 100% !important;
+    width: 100% !important;
+    max-height: 100vh !important;
+    height: 100vh;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding-top: max(20px, env(safe-area-inset-top)) !important;
+    padding-bottom: max(20px, env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Modal de 2 columnas (empleados) pasa a 1 columna */
+  .modal-2col {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Botones con buen tap target (mín 44x44 segun Apple HIG) */
+  .btn, button.btn {
+    min-height: 44px;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+  .btn-sm { min-height: 36px; }
+
+  /* Inputs altos para dedos */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="number"],
+  select,
+  textarea {
+    font-size: 16px !important;   /* Evita zoom auto de Safari iOS */
+    min-height: 44px;
+  }
+  textarea { min-height: 88px; }
+
+  /* Command palette mas compacto */
+  .cmdk-launch-btn { font-size: 13px; }
+
+  /* Search header del Command Palette: less padding */
+  [cmdk-input] { font-size: 16px !important; }
+}
+
+/* ─── Mobile pequeno (≤ 480px) — phone vertical ──────────────── */
+@media (max-width: 480px) {
+  .page-header__stats {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  /* Si tienes 3+ stats en una sola fila, mejor 1 col */
+  .stats-grid--many { grid-template-columns: 1fr !important; }
+
+  .heading-1 { font-size: 20px !important; }
+  .text-eyebrow { font-size: 10px !important; }
+
+  /* Drawer del sidebar mas estrecho en pantallas pequenas */
+  .sidebar { width: 88vw !important; max-width: 320px; }
+}
+
+/* ─── Landscape phone — evitar que sidebar tape pantalla ─────── */
+@media (max-width: 768px) and (orientation: landscape) {
+  .sidebar { max-width: 50vw; }
+  .page { padding-top: 52px; }
 }

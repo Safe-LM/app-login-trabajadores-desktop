@@ -93,7 +93,8 @@ export function SidebarNav({ userEmail }: { userEmail: string }) {
           borderRight: "1px solid var(--border)",
           display: "flex", flexDirection: "column",
           background: "var(--bg-black)",
-          position: "sticky", top: 0, height: "100vh",
+          position: "sticky", top: 0,
+          height: "100dvh",  // dynamic viewport para iOS Safari
         }}>
       {/* Logo */}
       <div style={{

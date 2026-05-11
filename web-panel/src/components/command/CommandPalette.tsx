@@ -194,12 +194,17 @@ const overlayStyle: React.CSSProperties = {
   backdropFilter: "blur(8px)",
   WebkitBackdropFilter: "blur(8px)",
   display: "flex", alignItems: "flex-start", justifyContent: "center",
-  paddingTop: "10vh",
+  // Menos padding-top en movil. 10vh en desktop, 4vh en pantallas <= 480px.
+  paddingTop: "clamp(16px, 10vh, 96px)",
+  padding: "clamp(16px, 10vh, 96px) 12px 12px",
   animation: "fadeIn 0.15s ease-out",
 };
 
 const modalStyle: React.CSSProperties = {
-  width: "min(680px, 92vw)",
+  width: "min(680px, 100%)",
+  maxHeight: "min(560px, calc(100dvh - 32px))",
+  display: "flex",
+  flexDirection: "column",
   background: "var(--bg-surface, #0f0f10)",
   border: "1px solid var(--border, #2a2a2d)",
   borderRadius: 14,
@@ -221,7 +226,7 @@ const searchInputStyle: React.CSSProperties = {
 };
 
 const listStyle: React.CSSProperties = {
-  maxHeight: 440, overflow: "auto", padding: "4px 8px 8px",
+  flex: 1, minHeight: 0, overflow: "auto", padding: "4px 8px 8px",
 };
 
 const emptyStyle: React.CSSProperties = {

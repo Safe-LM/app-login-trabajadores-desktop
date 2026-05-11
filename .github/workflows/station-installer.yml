@@ -28,23 +28,6 @@ on:
   push:
     tags:
       - 'station-v*'
-    # Tambien build de VALIDACION en cada push a main que toque station/
-    # NO publica release (steps de release tienen if: is_release == true
-    # que solo es true en release.published / tag / dispatch).
-    # Asi el workflow aparece en los checks de cada commit a main.
-    branches: [main]
-    paths:
-      - 'station/**'
-      - '.github/workflows/station-installer.yml'
-      - '.github/scripts/generate_release_body.py'
-
-  # PR a main: validar que el build sigue funcionando antes de mergear
-  pull_request:
-    branches: [main]
-    paths:
-      - 'station/**'
-      - '.github/workflows/station-installer.yml'
-      - '.github/scripts/generate_release_body.py'
 
   # Manual: pruebas con version custom o re-publicar release sin tag
   workflow_dispatch:
@@ -53,6 +36,11 @@ on:
         description: 'Version (ej. 5.1.0)'
         required: true
         default: '5.1.0'
+
+# Cancelar runs anteriores del mismo flujo (ahorra minutos de Windows).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:

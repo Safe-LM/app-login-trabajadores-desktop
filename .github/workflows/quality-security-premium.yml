@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [ main ]
 
+# Cancelar runs viejos del mismo flujo para ahorrar minutos.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   quality:
     name: Quality & Style Guard

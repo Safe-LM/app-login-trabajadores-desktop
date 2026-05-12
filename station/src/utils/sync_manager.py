@@ -199,13 +199,43 @@ def _do_sync() -> int:
     # 5. Intentar descargar embeddings desde Supabase (pgvector)
     embeddings_updated = _download_embeddings_from_supabase(sb, empresa_id, cache_dir, empleados)
 
-    # 6. Si no hay embeddings de Supabase, generar localmente
-    # Trigger: hay fotos nuevas, O hay empleados sin enrollar (enrollado=false)
+    # 6. AUTO-HEALING: decidir si regenerar embeddings localmente.
+    #
+    # Triggers (cualquiera dispara la regeneracion):
+    #  a. Hay fotos nuevas que no se han procesado.
+    #  b. Hay empleados sin enrollar (enrollado=false) con foto.
+    #  c. NUEVO: la station no tiene el .pkl local y hay fotos.
+    #
+    # El caso (c) cubre el bug: en BD el empleado tenia enrollado=true
+    # y embeddings en pgvector, pero el pkl local no existe (la station
+    # nunca pudo bajarlo o el download fallo silenciosamente). Sin este
+    # trigger la station se quedaria zombie con cero capacidad de
+    # reconocer indefinidamente.
     new_encodings = 0
     no_enrollados = [e for e in empleados if not e.get("enrollado", False) and e.get("foto_local")]
-    if not embeddings_updated and (new_photos > 0 or no_enrollados):
-        if no_enrollados and new_photos == 0:
+    fotos_disponibles = [e for e in empleados if e.get("foto_local")]
+    pkl_missing = not encodings_file.exists()
+
+    should_regenerate = (
+        not embeddings_updated and
+        (new_photos > 0 or no_enrollados or (pkl_missing and fotos_disponibles))
+    )
+
+    if should_regenerate:
+        if pkl_missing and not no_enrollados and new_photos == 0:
+            # Caso (c): auto-healing porque el pkl no existe.
+            logger.info(
+                f"Auto-healing: pkl local ausente, regenerando embeddings "
+                f"desde {len(fotos_disponibles)} foto(s) disponible(s)"
+            )
+            _log_to_supabase("embeddings_fallback_local", {
+                "razon": "pkl_local_ausente",
+                "fotos_disponibles": len(fotos_disponibles),
+                "supabase_download": "fallido_o_vacio",
+            })
+        elif no_enrollados and new_photos == 0:
             logger.info(f"Generando embeddings para {len(no_enrollados)} empleado(s) no enrollado(s)")
+
         encodings, employee_ids = _regenerate_encodings(cache_dir, empleados)
         if encodings and employee_ids:
             new_encodings = len(encodings)
@@ -243,77 +273,115 @@ def _download_embeddings_from_supabase(sb, empresa_id: str, cache_dir: Path, emp
     """
     Descarga embeddings desde Supabase (tabla embeddings_faciales).
 
-    Returns:
-        True si se descargaron embeddings, False si no hay o fallaron
-    """
-    try:
-        encodings_file = cache_dir / "face_encodings_opencv.pkl"
+    Cada paso emite log estructurado a logs_estacion para que el admin
+    pueda diagnosticar fallos desde /actividad. Antes este flujo fallaba
+    silenciosamente con warning local y nadie se enteraba.
 
+    Returns:
+        True si se descargaron embeddings y se persistieron en disco,
+        False si no hay embeddings o si fallo cualquier paso.
+    """
+    encodings_file = cache_dir / "face_encodings_opencv.pkl"
+
+    # Log 1: inicio
+    _log_to_supabase("embeddings_download_started", {
+        "empresa_id": empresa_id,
+        "empleados_esperados": len(empleados),
+    })
+
+    # Paso 1: query a Supabase
+    try:
         result = sb.table("embeddings_faciales").select(
             "empleado_id, embedding"
         ).eq("empresa_id", empresa_id).execute()
+    except Exception as e:
+        msg = str(e)[:300]
+        logger.warning(f"Embeddings: query fallo: {msg}")
+        _log_to_supabase("embeddings_download_failed", {
+            "etapa": "query",
+            "error": msg,
+        })
+        return False
 
-        if not result.data:
-            logger.info("No hay embeddings en Supabase para esta empresa")
-            return False
+    if not result.data:
+        logger.info("No hay embeddings en Supabase para esta empresa")
+        _log_to_supabase("embeddings_download_failed", {
+            "etapa": "query",
+            "razon": "supabase_sin_embeddings",
+            "empleados": len(empleados),
+        })
+        return False
 
-        emp_map = {str(emp["id"]): emp for emp in empleados}
+    # Paso 2: parsear embeddings
+    encodings: list = []
+    employee_ids: list = []
+    parse_errors = 0
 
-        encodings = []
-        employee_ids = []
-        employee_info = {}
-
-        for row in result.data:
-            emp_id = str(row["empleado_id"])
-            emb = row["embedding"]
-
+    for row in result.data:
+        emp_id = str(row["empleado_id"])
+        emb = row["embedding"]
+        try:
             if isinstance(emb, str):
                 import numpy as np
                 emb = np.array(json.loads(emb))
             elif isinstance(emb, list):
                 import numpy as np
                 emb = np.array(emb)
-
+            elif emb is None:
+                parse_errors += 1
+                continue
             encodings.append(emb)
             employee_ids.append(emp_id)
+        except Exception as e:
+            parse_errors += 1
+            logger.debug(f"Embeddings: parse error emp={emp_id[:8]}: {e}")
 
-            emp_data = emp_map.get(emp_id, {})
-            employee_info[emp_id] = {
-                "employee_id": emp_id,
-                "nombre": emp_data.get("nombre", "Unknown"),
-                "apellido": emp_data.get("apellido", ""),
-                "puesto": emp_data.get("puesto", ""),
-                "sucursal": emp_data.get("sucursal_nombre", ""),
-            }
+    if not encodings:
+        logger.warning(f"Embeddings: 0 validos despues de parsear ({parse_errors} errores)")
+        _log_to_supabase("embeddings_download_failed", {
+            "etapa": "parse",
+            "filas_recibidas": len(result.data),
+            "parse_errors": parse_errors,
+        })
+        return False
 
-        if not encodings:
-            return False
+    # Paso 3: persistir a disco
+    unique_emps = len(set(employee_ids))
+    is_augmented = len(encodings) > unique_emps
 
-        # Detectar si vienen augmented (más de 1 por empleado)
-        unique_emps = len(set(employee_ids))
-        is_augmented = len(encodings) > unique_emps
+    data = {
+        "encodings": encodings,
+        "employee_ids": employee_ids,
+        "augmented": is_augmented,
+        "version": 3,
+        "source": "supabase",
+    }
 
-        data = {
-            "encodings": encodings,
-            "employee_ids": employee_ids,
-            "augmented": is_augmented,
-            "version": 3,
-            "source": "supabase",
-        }
-
+    try:
         with open(encodings_file, "wb") as f:
             pickle.dump(data, f)
-
-        logger.info(
-            f"Embeddings descargados de Supabase: {unique_emps} empleados, "
-            f"{len(encodings)} embeddings"
-            f"{' (augmented)' if is_augmented else ''}"
-        )
-        return True
-
     except Exception as e:
-        logger.warning(f"Error descargando embeddings de Supabase: {e}")
+        msg = str(e)[:300]
+        logger.warning(f"Embeddings: no se pudo escribir pkl: {msg}")
+        _log_to_supabase("embeddings_download_failed", {
+            "etapa": "write_pkl",
+            "path": str(encodings_file),
+            "error": msg,
+        })
         return False
+
+    logger.info(
+        f"Embeddings descargados de Supabase: {unique_emps} empleados, "
+        f"{len(encodings)} embeddings"
+        f"{' (augmented)' if is_augmented else ''}"
+    )
+    _log_to_supabase("embeddings_download_ok", {
+        "empleados": unique_emps,
+        "embeddings": len(encodings),
+        "augmented": is_augmented,
+        "parse_errors": parse_errors,
+    })
+    return True
 
 
 def _augment_image(frame):

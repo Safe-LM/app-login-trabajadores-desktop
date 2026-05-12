@@ -445,20 +445,58 @@ class DashboardWindow(QMainWindow):
 
         # Cargar contenido
         import os
+        import sys
         is_dev = os.getenv("STATION_DEV") == "1"
 
         if is_dev:
             logger.info("Modo Desarrollo: Cargando http://localhost:5173")
             self._view.load(QUrl("http://localhost:5173"))
         else:
-            station_root = Path(__file__).parent.parent.parent
-            frontend_path = station_root / "frontend" / "dist" / "index.html"
-            if frontend_path.exists():
+            # Resolver la ruta del frontend/dist/index.html con soporte
+            # para 3 ubicaciones posibles:
+            #
+            #  1. Dev local: station/frontend/dist/index.html relativo al
+            #     archivo Python.
+            #  2. PyInstaller --onefile: archivos extraidos a
+            #     sys._MEIPASS (carpeta temporal).
+            #  3. PyInstaller --onedir (caso actual del .exe): archivos
+            #     junto al ejecutable en _internal/ o dentro de la
+            #     carpeta de instalacion.
+            #
+            # Antes este codigo solo cubria el caso 1 -> en el .exe
+            # caia al fallback feo de _FALLBACK_HTML, lo que explica
+            # "no se ve como en local".
+            candidates = []
+
+            # 1. Dev local (relativo al archivo Python)
+            candidates.append(
+                Path(__file__).parent.parent.parent / "frontend" / "dist" / "index.html"
+            )
+
+            # 2. PyInstaller _MEIPASS (--onefile o --onedir con extraccion)
+            meipass = getattr(sys, "_MEIPASS", None)
+            if meipass:
+                candidates.append(Path(meipass) / "frontend" / "dist" / "index.html")
+
+            # 3. Junto al ejecutable cuando esta congelado (--onedir)
+            if getattr(sys, "frozen", False):
+                exe_dir = Path(sys.executable).parent
+                candidates.append(exe_dir / "frontend" / "dist" / "index.html")
+                # PyInstaller --onedir 6.x mete data en _internal/
+                candidates.append(exe_dir / "_internal" / "frontend" / "dist" / "index.html")
+
+            frontend_path = next((p for p in candidates if p.exists()), None)
+
+            if frontend_path is not None:
                 url = QUrl.fromLocalFile(str(frontend_path.absolute()))
                 logger.info(f"Cargando UI React desde {url.toString()}")
                 self._view.load(url)
             else:
-                logger.warning("React dist no encontrada — usando fallback embebido")
+                tried = "\n  ".join(str(p) for p in candidates)
+                logger.warning(
+                    f"React dist no encontrada en ninguna ubicacion — "
+                    f"usando fallback embebido. Probadas:\n  {tried}"
+                )
                 self._view.setHtml(_HTML)
 
         container = QWidget()

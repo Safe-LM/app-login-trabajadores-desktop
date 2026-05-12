@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.6.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.5.0...station-v5.6.0) (2026-05-12)
+
+
+### ✨ Nuevas funcionalidades
+
+* **station,db:** Sprint A — 7 quick wins de robustez del pipeline facial ([5e9351d](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/5e9351d4f59288cf62a3d66b3d24dac0f420a7b9))
+
 ## [5.5.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.4.1...station-v5.5.0) (2026-05-11)
 
 

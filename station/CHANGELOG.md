@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.6.2](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.1...station-v5.6.2) (2026-05-12)
+
+
+### 🐛 Correcciones
+
+* **station,db:** auto-healing + observabilidad del download de embeddings ([fd1502c](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/fd1502c450fa5532ead160905837631d6347db62))
+
 ## [5.6.1](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.0...station-v5.6.1) (2026-05-12)
 
 

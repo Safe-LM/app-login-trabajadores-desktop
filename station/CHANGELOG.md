@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.6.3](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.2...station-v5.6.3) (2026-05-12)
+
+
+### 🐛 Correcciones
+
+* **station,db:** RPC get_embeddings_empresa para bypassear RLS bloqueante ([5982739](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/59827393b98f13c02482dd5cf5f9d267e0810182))
+
 ## [5.6.2](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.1...station-v5.6.2) (2026-05-12)
 
 

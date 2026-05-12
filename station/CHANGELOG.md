@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.6.1](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.0...station-v5.6.1) (2026-05-12)
+
+
+### 🐛 Correcciones
+
+* **station:** UI se ve diferente en .exe — frontend/dist no se encontraba ([28eda9b](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/28eda9bfa6d0345a4945019388f2ff6c05739b99))
+
 ## [5.6.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.5.0...station-v5.6.0) (2026-05-12)
 
 

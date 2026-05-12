@@ -289,21 +289,41 @@ def _download_embeddings_from_supabase(sb, empresa_id: str, cache_dir: Path, emp
         "empleados_esperados": len(empleados),
     })
 
-    # Paso 1: query a Supabase
+    # Paso 1: query a Supabase via RPC (SECURITY DEFINER, autenticado
+    # por api_key del dispositivo). Antes usabamos sb.table().select()
+    # directo, pero la RLS de embeddings_faciales exige JWT con
+    # empresa_id en metadata — la station no tiene JWT, solo api_key,
+    # asi que RLS devolvia 0 filas silenciosamente.
     try:
-        result = sb.table("embeddings_faciales").select(
-            "empleado_id, embedding"
-        ).eq("empresa_id", empresa_id).execute()
+        api_key = get_station_api_key()
+        if not api_key:
+            _log_to_supabase("embeddings_download_failed", {
+                "etapa": "auth",
+                "error": "sin api_key",
+            })
+            return False
+        result = sb.rpc("get_embeddings_empresa", {"p_api_key": api_key}).execute()
     except Exception as e:
         msg = str(e)[:300]
-        logger.warning(f"Embeddings: query fallo: {msg}")
+        logger.warning(f"Embeddings: RPC fallo: {msg}")
         _log_to_supabase("embeddings_download_failed", {
             "etapa": "query",
             "error": msg,
         })
         return False
 
-    if not result.data:
+    payload = result.data or {}
+    if not payload.get("ok"):
+        err = payload.get("error", "respuesta invalida")
+        logger.warning(f"Embeddings RPC: {err}")
+        _log_to_supabase("embeddings_download_failed", {
+            "etapa": "query",
+            "razon": err,
+        })
+        return False
+
+    rows = payload.get("embeddings") or []
+    if not rows:
         logger.info("No hay embeddings en Supabase para esta empresa")
         _log_to_supabase("embeddings_download_failed", {
             "etapa": "query",
@@ -312,22 +332,29 @@ def _download_embeddings_from_supabase(sb, empresa_id: str, cache_dir: Path, emp
         })
         return False
 
-    # Paso 2: parsear embeddings
+    # Paso 2: parsear embeddings.
+    # El RPC devuelve embedding como texto JSON con shape "[v0, v1, ...]"
+    # (pgvector::text). Tambien soportamos formatos legacy (list, str
+    # con prefijo bracket) por compatibilidad.
     encodings: list = []
     employee_ids: list = []
     parse_errors = 0
 
-    for row in result.data:
-        emp_id = str(row["empleado_id"])
-        emb = row["embedding"]
+    import numpy as np
+
+    for row in rows:
+        emp_id = str(row.get("empleado_id", ""))
+        emb = row.get("embedding")
         try:
             if isinstance(emb, str):
-                import numpy as np
-                emb = np.array(json.loads(emb))
+                # pgvector::text formato: "[0.1,0.2,...]" — json.loads lo parsea bien
+                emb = np.array(json.loads(emb), dtype=np.float32)
             elif isinstance(emb, list):
-                import numpy as np
-                emb = np.array(emb)
+                emb = np.array(emb, dtype=np.float32)
             elif emb is None:
+                parse_errors += 1
+                continue
+            else:
                 parse_errors += 1
                 continue
             encodings.append(emb)
@@ -340,7 +367,7 @@ def _download_embeddings_from_supabase(sb, empresa_id: str, cache_dir: Path, emp
         logger.warning(f"Embeddings: 0 validos despues de parsear ({parse_errors} errores)")
         _log_to_supabase("embeddings_download_failed", {
             "etapa": "parse",
-            "filas_recibidas": len(result.data),
+            "filas_recibidas": len(rows),
             "parse_errors": parse_errors,
         })
         return False

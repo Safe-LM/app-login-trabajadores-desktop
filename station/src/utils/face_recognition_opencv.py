@@ -208,28 +208,29 @@ class OpenCVFaceRecognizer:
             return False, 0.0, None
 
         # A4: Quality gate del frame. Rechaza frames basura ANTES de
-        # invocar el modelo. Razones por las que un frame no debe
-        # procesarse:
+        # invocar el modelo. Los umbrales estan calibrados para frames
+        # de webcam que YA pasaron por resize a 480px + CLAHE en el
+        # pipeline del dashboard — ambos pasos suavizan la imagen y
+        # bajan el laplaciano respecto a una foto cruda.
         #
-        # - Demasiado oscuro: brillo medio < 30 (cuarto sin luz, lente
-        #   tapada). El modelo procesaria ruido y sacaria FPs aleatorios.
-        # - Std bajisima: frame congelado, basura uniforme, frame negro.
-        # - Desenfocado: Laplaciano variance < 40 (estandar academico
-        #   para clasificar blur).
+        # - mean_brightness <20 o >235: cuarto a oscuras / lente tapada
+        #   / sobreexposicion. El modelo procesaria ruido.
+        # - std_brightness <6: frame uniforme (negro, congelado).
+        # - laplacian_var <15: solo bloqueamos blur extremo. Una webcam
+        #   USB tipica en kiosko, tras resize+CLAHE, da lap_var ~25-50
+        #   con una cara nitida — un umbral de 40 rechazaba TODOS los
+        #   intentos legitimos.
         try:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             mean_brightness = float(gray.mean())
             std_brightness  = float(gray.std())
             laplacian_var   = float(cv2.Laplacian(gray, cv2.CV_64F).var())
 
-            if mean_brightness < 30 or mean_brightness > 230:
-                # Frame demasiado oscuro o sobreexpuesto
+            if mean_brightness < 20 or mean_brightness > 235:
                 return False, 0.0, None
-            if std_brightness < 8:
-                # Frame uniforme (negro, blanco, congelado)
+            if std_brightness < 6:
                 return False, 0.0, None
-            if laplacian_var < 40:
-                # Frame desenfocado
+            if laplacian_var < 15:
                 return False, 0.0, None
         except Exception:
             # Si la metrica falla, no bloqueamos — preferimos procesar

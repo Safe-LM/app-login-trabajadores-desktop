@@ -99,9 +99,36 @@ jobs:
             timezone text DEFAULT 'America/Mexico_City'
           );
 
+          -- Mock COMPLETO de dispositivos con todas las columnas que
+          -- las migraciones / vistas referencian. En produccion estas
+          -- columnas se agregaron via migrations legacy (saltadas por
+          -- baseline). Para el dry-run necesitamos todas presentes.
           CREATE TABLE IF NOT EXISTS public.dispositivos (
             id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-            empresa_id uuid REFERENCES public.empresas(id)
+            empresa_id uuid REFERENCES public.empresas(id),
+            sucursal_id uuid,
+            nombre text,
+            api_key text,
+            activo boolean DEFAULT true,
+            ultima_conexion timestamptz,
+            version_app text,
+            ip_local text,
+            notas text,
+            heartbeat_at timestamptz,
+            hostname text,
+            config jsonb DEFAULT '{}'::jsonb,
+            creado_por text,
+            hwid text,
+            ultima_ip text,
+            activa boolean DEFAULT true,
+            par_codigo text,
+            par_expira_en timestamptz,
+            empleados_count int DEFAULT 0,
+            ultimo_sync_at timestamptz,
+            encodings_version int DEFAULT 0,
+            camara_ok boolean,
+            health_score int DEFAULT 0,
+            updated_at timestamptz DEFAULT now()
           );
 
           CREATE TABLE IF NOT EXISTS public.logs_estacion (

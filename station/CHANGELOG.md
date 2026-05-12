@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.6.4](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.3...station-v5.6.4) (2026-05-12)
+
+
+### 🐛 Correcciones
+
+* **station:** relajar quality gate del recognizer para webcams en kiosko ([99b2e47](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/99b2e47e03d224647a8c934a7932e16e5f33f7ec))
+
 ## [5.6.3](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.2...station-v5.6.3) (2026-05-12)
 
 

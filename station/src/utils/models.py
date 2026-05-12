@@ -66,6 +66,13 @@ class RegistroAsistencia(Base):
     ubicacion: Mapped[Optional[str]] = mapped_column(String)
     notas: Mapped[Optional[str]] = mapped_column(String)
     sincronizado: Mapped[bool] = mapped_column(Boolean, default=False)
+    # A7: telemetria de calidad del reconocimiento facial.
+    # score_raw = cosine real (0-1, sin inflar). Antes solo guardabamos
+    # el "display_conf" mentiroso, ahora persistimos el valor honesto
+    # para auditoria y calibracion futura de umbrales.
+    score_raw: Mapped[Optional[float]] = mapped_column(Float)
+    metodo: Mapped[Optional[str]] = mapped_column(String)
+    embedding_count: Mapped[Optional[int]] = mapped_column(Integer)
 
     trabajador: Mapped["Trabajador"] = relationship(back_populates="registros")
 

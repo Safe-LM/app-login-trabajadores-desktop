@@ -207,6 +207,35 @@ class OpenCVFaceRecognizer:
         if not self.encodings:
             return False, 0.0, None
 
+        # A4: Quality gate del frame. Rechaza frames basura ANTES de
+        # invocar el modelo. Razones por las que un frame no debe
+        # procesarse:
+        #
+        # - Demasiado oscuro: brillo medio < 30 (cuarto sin luz, lente
+        #   tapada). El modelo procesaria ruido y sacaria FPs aleatorios.
+        # - Std bajisima: frame congelado, basura uniforme, frame negro.
+        # - Desenfocado: Laplaciano variance < 40 (estandar academico
+        #   para clasificar blur).
+        try:
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            mean_brightness = float(gray.mean())
+            std_brightness  = float(gray.std())
+            laplacian_var   = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+
+            if mean_brightness < 30 or mean_brightness > 230:
+                # Frame demasiado oscuro o sobreexpuesto
+                return False, 0.0, None
+            if std_brightness < 8:
+                # Frame uniforme (negro, blanco, congelado)
+                return False, 0.0, None
+            if laplacian_var < 40:
+                # Frame desenfocado
+                return False, 0.0, None
+        except Exception:
+            # Si la metrica falla, no bloqueamos — preferimos procesar
+            # de mas a perder un fichaje legitimo.
+            pass
+
         try:
             query_emb = self._get_embedding(frame)
             if query_emb is None:
@@ -250,13 +279,19 @@ class OpenCVFaceRecognizer:
                 second_best = sims[1][0] if len(sims) > 1 else 0.0
                 gap = best_score - second_best
 
-            # SFace cosine: >0.363 es match según OpenCV docs; usamos >0.40 para seguridad
-            # Convertimos a porcentaje (0.40 -> ~85%, 0.50 -> ~90%, 0.60 -> ~95%)
+            # SFace cosine: >0.363 es match segun docs de OpenCV; usamos
+            # >0.40 con gap >=0.03 sobre el segundo mejor.
             threshold = 0.40
             min_gap = 0.03
 
             if best_score >= threshold and gap >= min_gap:
-                display_conf = min(0.99, 0.70 + best_score * 0.50)
+                # Reportamos cosine RAW (sin inflar). Antes se usaba
+                # display_conf = 0.70 + raw*0.50 lo que reportaba 90%
+                # cuando el cosine real era 0.40 — mentia al admin y
+                # rompia auditoria. Ahora persistimos el valor honesto.
+                # La UI puede multiplicar por 100 si quiere "%", pero
+                # el valor guardado en BD es el cosine real.
+                raw_conf = float(best_score)
                 info = self.employee_info.get(
                     best_eid,
                     {
@@ -267,7 +302,15 @@ class OpenCVFaceRecognizer:
                         "puesto": "N/A",
                     },
                 )
-                return True, display_conf, info
+                # Anadir metadatos para tracking de calidad en BD
+                info = {
+                    **info,
+                    "_score_raw": raw_conf,
+                    "_gap": float(gap),
+                    "_metodo": "sface_v3",
+                    "_embedding_count": int(len(self.encodings) if hasattr(self, "encodings") else 0),
+                }
+                return True, raw_conf, info
 
             return False, 0.0, None
 

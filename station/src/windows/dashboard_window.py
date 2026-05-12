@@ -77,16 +77,19 @@ class _CameraThread(QThread):
         self._running = True
         self.start()
 
+    def _open_capture(self):
+        """Abre VideoCapture con DSHOW + fallback. Configura tamaño y buffer."""
+        cap = cv2.VideoCapture(self._index, cv2.CAP_DSHOW)
+        if not cap.isOpened():
+            cap = cv2.VideoCapture(self._index)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH,  640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE,   1)
+        return cap
+
     def run(self):
         try:
-            # CAP_DSHOW es el backend más rápido y estable en Windows
-            self._cap = cv2.VideoCapture(self._index, cv2.CAP_DSHOW)
-            if not self._cap.isOpened():
-                # Fallback al backend por defecto
-                self._cap = cv2.VideoCapture(self._index)
-            self._cap.set(cv2.CAP_PROP_FRAME_WIDTH,  640)
-            self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-            self._cap.set(cv2.CAP_PROP_BUFFERSIZE,   1)
+            self._cap = self._open_capture()
             self.msleep(120)
             if not self._cap.isOpened():
                 logger.error("CameraThread: no se pudo abrir la cámara")
@@ -100,24 +103,66 @@ class _CameraThread(QThread):
                     self.camera_started.emit(False)
                     return
             self.camera_started.emit(True)
+
+            # A5: Watchdog de frames congelados. Si los ultimos N frames
+            # tienen std<3 (uniformes/negros) o son identicos al previo
+            # (cap.read devuelve buffer stuck), reabrimos la captura.
+            # Sintomas tipicos en kioscos: USB se desconecta, lente
+            # tapada, driver de Windows se cuelga.
+            STUCK_THRESHOLD = 30   # ~1s a 30fps
+            stuck_count = 0
+            last_frame_hash = None
+
             skip = 0
             while self._running and self._cap:
                 ok, frame = self._cap.read()
-                if ok:
-                    frame = cv2.flip(frame, 1)
-                    if skip % 2 == 0:
+                if not ok:
+                    self.msleep(100)
+                    continue
+
+                # Detectar frame congelado: std muy baja sostenida
+                try:
+                    gray_std = float(frame[..., 0].std())
+                    # Hash rapido del frame para detectar buffer stuck
+                    sample = bytes(frame[::40, ::40, 0])
+                    is_uniform   = gray_std < 3
+                    is_identical = last_frame_hash is not None and sample == last_frame_hash
+                    last_frame_hash = sample
+
+                    if is_uniform or is_identical:
+                        stuck_count += 1
+                    else:
+                        stuck_count = 0
+
+                    if stuck_count >= STUCK_THRESHOLD:
+                        logger.warning(
+                            f"CameraThread: detectados {stuck_count} frames "
+                            f"congelados — reabriendo captura"
+                        )
                         try:
-                            lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
-                            l, a, b = cv2.split(lab)
-                            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(4,4))
-                            l = clahe.apply(l)
-                            frame = cv2.cvtColor(cv2.merge([l,a,b]), cv2.COLOR_LAB2BGR)
+                            self._cap.release()
                         except Exception:
                             pass
-                    skip += 1
-                    self.frame_ready.emit(frame)
-                else:
-                    self.msleep(100)
+                        self.msleep(500)
+                        self._cap = self._open_capture()
+                        stuck_count = 0
+                        last_frame_hash = None
+                        continue
+                except Exception:
+                    pass
+
+                frame = cv2.flip(frame, 1)
+                if skip % 2 == 0:
+                    try:
+                        lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+                        l, a, b = cv2.split(lab)
+                        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(4,4))
+                        l = clahe.apply(l)
+                        frame = cv2.cvtColor(cv2.merge([l,a,b]), cv2.COLOR_LAB2BGR)
+                    except Exception:
+                        pass
+                skip += 1
+                self.frame_ready.emit(frame)
                 self.msleep(33)
         except Exception as e:
             logger.error(f"CameraThread: {e}")
@@ -206,22 +251,34 @@ class _RecognitionThread(QThread):
             s = min(mx/h, mx/w)
             frame = cv2.resize(frame, (int(w*s), int(h*s)), interpolation=cv2.INTER_AREA)
 
+        # Threshold de cosine raw para aceptar match. SFace usa 0.363 como
+        # baseline; subimos a 0.40 para reducir FPs. La validacion del gap
+        # vs segundo mejor ya esta dentro de recognize().
+        # Antes el codigo comparaba conf >= 0.80 contra un display inflado
+        # — ahora trabajamos con cosine real (transparente, auditable).
+        MIN_COSINE = 0.40
+
         if "hybrid" not in self._disabled:
             try:
                 from utils.hybrid_opencv_gemini_matcher import match_photo_hybrid
-                ok, conf, info, method = match_photo_hybrid(frame, min_confidence=0.80)
-                if ok and info and conf >= 0.80:
+                ok, conf, info, method = match_photo_hybrid(frame, min_confidence=MIN_COSINE)
+                if ok and info and conf >= MIN_COSINE:
                     self._errors.pop("hybrid", None)
                     self.results_ready.emit(True, conf, info, method)
                     return
             except Exception as e:
                 self._record_error("hybrid", e)
 
-        if "photo_matcher" not in self._disabled:
+        # A3: photo_to_photo_matcher (HOG+histos) genera falsos positivos
+        # con embeddings modernos. Desactivado por default. Se puede
+        # rehabilitar con env STATION_ENABLE_PHOTO_MATCHER=true para tests.
+        import os
+        photo_matcher_enabled = os.environ.get("STATION_ENABLE_PHOTO_MATCHER", "false").lower() in ("true", "1", "yes")
+        if photo_matcher_enabled and "photo_matcher" not in self._disabled:
             try:
                 from utils.photo_to_photo_matcher import match_photo_from_frame
-                ok, conf, info = match_photo_from_frame(frame, min_confidence=0.80)
-                if ok and info and conf >= 0.80:
+                ok, conf, info = match_photo_from_frame(frame, min_confidence=MIN_COSINE)
+                if ok and info and conf >= MIN_COSINE:
                     self._errors.pop("photo_matcher", None)
                     self.results_ready.emit(True, conf, info, "Foto")
                     return
@@ -832,7 +889,13 @@ class DashboardWindow(QMainWindow):
             except Exception:
                 self._last_avatar_b64 = ""
 
-            if conf >= 0.85 and not self._attendance_done:
+            # Threshold de auto-registro sobre cosine raw (no display
+            # inflado). 0.50 raw es ~95% display antiguo. Es un poco mas
+            # estricto que el min para match (0.40) — solo registramos
+            # auto cuando hay alta confianza, sino mostramos pero
+            # esperamos confirmacion manual.
+            AUTO_REGISTER_THRESHOLD = 0.50
+            if conf >= AUTO_REGISTER_THRESHOLD and not self._attendance_done:
                 self._auto_register(info, conf, method)
         else:
             if time.time() - self._last_rec_ts > 3.0:
@@ -960,7 +1023,11 @@ class DashboardWindow(QMainWindow):
 
                 tipo = "salida" if ultimo and ultimo.tipo == "entrada" else "entrada"
 
-                # 1. Guardar localmente (siempre)
+                # 1. Guardar localmente (siempre). A7: persistir tambien
+                # score_raw, metodo y embedding_count para auditoria.
+                _score_raw = info.get("_score_raw") if info else None
+                _metodo = info.get("_metodo") if info else (method or None)
+                _embedding_count = info.get("_embedding_count") if info else None
                 reg = RegistroAsistencia(
                     trabajador_id=trab.id,
                     timestamp=ahora,
@@ -969,6 +1036,9 @@ class DashboardWindow(QMainWindow):
                     confianza=conf,
                     ubicacion=(info.get("sucursal", "N/A") if info else getattr(trab, "sucursal", "N/A")),
                     sincronizado=False,
+                    score_raw=_score_raw,
+                    metodo=_metodo,
+                    embedding_count=_embedding_count,
                 )
                 db.add(reg)
                 db.commit()
@@ -992,18 +1062,28 @@ class DashboardWindow(QMainWindow):
                 f"{tipo!r},{hora!r},{avatar!r});"
             )
 
-            # 3. Subir a Supabase via RPC (con api_key — no requiere auth)
+            # 3. Subir a Supabase via RPC (con api_key — no requiere auth).
+            # A7: enviamos score_raw + metodo + embedding_count para
+            # tracking real de calidad. Los metadatos vienen anotados
+            # en `info` desde recognize() (claves _score_raw, _metodo,
+            # _embedding_count). Si no existen (motor legacy), va NULL.
             ok_cloud = False
             try:
                 api_key = get_station_api_key()
                 sb = get_supabase_client()
                 if api_key and sb and supabase_empleado_uuid:
+                    score_raw = info.get("_score_raw") if info else None
+                    metodo = info.get("_metodo") if info else (method or None)
+                    embedding_count = info.get("_embedding_count") if info else None
                     result = sb.rpc("registrar_asistencia_station", {
                         "p_api_key": api_key,
                         "p_empleado_id": supabase_empleado_uuid,
                         "p_tipo": tipo,
                         "p_confianza": float(conf),
                         "p_notas": method or "",
+                        "p_score_raw": float(score_raw) if score_raw is not None else None,
+                        "p_metodo": metodo,
+                        "p_embedding_count": int(embedding_count) if embedding_count is not None else None,
                     }).execute()
                     if result.data and result.data.get("ok"):
                         ok_cloud = True
@@ -1021,6 +1101,22 @@ class DashboardWindow(QMainWindow):
             status_msg = "Registro en nube ✓" if ok_cloud else "Registro local (sin conexión)"
             self._js(f"setStatus({status_msg!r}, 'ok');")
 
+            # A6: Beep de confirmacion para feedback audible. Util en
+            # ambientes ruidosos donde el empleado no mira la pantalla.
+            # Opcional via env STATION_BEEP_ON_SUCCESS (default true).
+            # Usamos winsound (stdlib Windows) — sin dependencias extra.
+            import os
+            beep_enabled = os.environ.get("STATION_BEEP_ON_SUCCESS", "true").lower() in ("true", "1", "yes")
+            if beep_enabled:
+                try:
+                    import winsound
+                    # Dos tonos cortos ascendentes — sonido tipico de OK
+                    winsound.Beep(900, 100)
+                    winsound.Beep(1200, 120)
+                except Exception:
+                    # No critico si falla (no-Windows, sin altavoz, etc.)
+                    pass
+
             # 4. Agregar al historial reciente
             nombre_full = f"{nombre_display} {apellido_display}".strip()
             self._js(f"addRecentRecord({nombre_full!r}, {tipo!r}, {hora!r});")
@@ -1028,8 +1124,22 @@ class DashboardWindow(QMainWindow):
             # 5. Intentar flush de cola offline en background
             QTimer.singleShot(2000, self._flush_offline_queue)
 
-            # 6. Cerrar la estación tras 4 segundos (la asistencia se confirmó)
-            QTimer.singleShot(4000, self._close_station_after_attendance)
+            # 6. Despues de 4s decidir si cerramos o reseteamos.
+            #
+            # A2: por default la estacion RESETEA al estado de espera
+            # para servir la siguiente persona en fila. Antes se cerraba
+            # entera (QApplication.quit) lo que requeria reabrir manual
+            # entre empleados — pesima UX para kioscos.
+            #
+            # Si quieres el comportamiento viejo (cerrar tras cada
+            # fichaje, ej. para testing aislado), set STATION_AUTO_CLOSE=true
+            # en el .env.
+            import os
+            auto_close = os.environ.get("STATION_AUTO_CLOSE", "false").lower() in ("true", "1", "yes")
+            if auto_close:
+                QTimer.singleShot(4000, self._close_station_after_attendance)
+            else:
+                QTimer.singleShot(4000, self._reset_after_attendance)
 
         except Exception as e:
             logger.error(f"_register_db: {e}")

@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.6.5](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.4...station-v5.6.5) (2026-05-13)
+
+
+### 🐛 Correcciones
+
+* **station:** garantizar arranque del thread de reconocimiento facial ([9b79490](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/9b79490f3214a74f3ba9399f7388d4ed5f93c02e))
+
 ## [5.6.4](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.3...station-v5.6.4) (2026-05-12)
 
 

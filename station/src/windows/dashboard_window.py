@@ -374,6 +374,7 @@ class DashboardWindow(QMainWindow):
         self._active_dialog   = False
         self._last_rec_ts     = 0.0
         self._prep_count      = 0
+        self._prep_done       = False  # True tras terminar la cuenta atras
         self._prep_timer      = None
         self._last_frame_ts   = 0.0
         self._had_face        = False
@@ -543,12 +544,15 @@ class DashboardWindow(QMainWindow):
         except Exception:
             self._js("setStationInfo('Estación', '');")
 
-        # Arrancar servicios escalonadamente para no bloquear la UI
-        QTimer.singleShot(500,  self._load_last_registration)
-        QTimer.singleShot(1000, self._start_camera)
-        QTimer.singleShot(2500, self._start_sync_manager)
-        QTimer.singleShot(3500, self._start_realtime_listener)
-        QTimer.singleShot(5000, self._init_face_recognition)
+        # Arrancar servicios escalonadamente. El reconocimiento facial
+        # arranca PRIMERO (T+500ms) porque _prep_tick chequea
+        # self._rec_thread al finalizar la preparacion (~T+6s); si no
+        # existe aun, la deteccion nunca arranca por race condition.
+        QTimer.singleShot(500,  self._init_face_recognition)
+        QTimer.singleShot(800,  self._load_last_registration)
+        QTimer.singleShot(1500, self._start_camera)
+        QTimer.singleShot(3000, self._start_sync_manager)
+        QTimer.singleShot(4000, self._start_realtime_listener)
 
     def _on_heartbeat_status(self, state: str, msg: str):
         online = state == "online"
@@ -857,6 +861,7 @@ class DashboardWindow(QMainWindow):
             self._prep_count -= 1
         else:
             self._prep_timer.stop()
+            self._prep_done = True
             self._js("setCamState('live');")
             self._js("setStatus('Buscando rostro...', 'warn');")
             if self._rec_thread and not self._rec_thread.isRunning():
@@ -866,6 +871,7 @@ class DashboardWindow(QMainWindow):
         if self._cam_thread:
             self._cam_thread.stop()
             self._cam_thread = None
+        self._prep_done = False
         self._js("setCamState('offline');")
         self._js("setStatus('Sistema listo', '');")
         self._current_frame = None
@@ -885,6 +891,19 @@ class DashboardWindow(QMainWindow):
         if ok:
             b64 = base64.b64encode(buf.tobytes()).decode('ascii')
             self._js(f"updateFrame('{b64}');")
+
+        # Failsafe: si el rec_thread existe pero no esta corriendo (race
+        # con _prep_tick que solo intenta arrancarlo una sola vez al
+        # terminar la preparacion), lo iniciamos aqui en cuanto el
+        # primer frame valido aparece post-preparacion. Garantiza que
+        # la deteccion siempre arranque aunque _init_face_recognition
+        # haya tardado mas que el prep_timer (5s).
+        if self._prep_done and self._rec_thread and not self._rec_thread.isRunning():
+            try:
+                self._rec_thread.start()
+                self._js("setStatus('Buscando rostro...', 'warn');")
+            except Exception:
+                pass
 
         if self._rec_thread and self._rec_thread.isRunning() and not self._rec_thread.processing:
             import time as _t

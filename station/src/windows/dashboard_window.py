@@ -215,17 +215,22 @@ class _RecognitionThread(QThread):
     def run(self):
         import time
         self.running = True
+        logger.info("RecognitionThread: arrancado (interval=%.1fs)" % self._interval)
+        attempts = 0
         while self.running:
             if self.current_frame is not None and not self.processing:
                 t = time.time()
                 if t - self._last_proc >= self._interval:
                     self._last_proc = t
                     self.processing = True
+                    attempts += 1
                     try:
                         with self._frame_lock:
                             f = self.current_frame.copy() if self.current_frame is not None else None
                         if f is not None:
                             self._process(f)
+                            if attempts <= 5 or attempts % 10 == 0:
+                                logger.info(f"RecognitionThread: intento #{attempts} procesado")
                     except Exception as e:
                         msg = str(e)
                         if "1114" in msg or "DLL" in msg:
@@ -235,6 +240,7 @@ class _RecognitionThread(QThread):
                     finally:
                         self.processing = False
             self.msleep(300)
+        logger.info("RecognitionThread: detenido")
 
     def _record_error(self, method, error):
         count = self._errors.get(method, 0) + 1
@@ -250,6 +256,20 @@ class _RecognitionThread(QThread):
         if h > mx or w > mx:
             s = min(mx/h, mx/w)
             frame = cv2.resize(frame, (int(w*s), int(h*s)), interpolation=cv2.INTER_AREA)
+
+        # Telemetria de quality gate — clave para debuguear "no me reconoce".
+        # Logueamos las 3 metricas cada intento para que el log de la
+        # estacion en el panel muestre POR QUE falla un intento.
+        try:
+            _gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            _mean = float(_gray.mean()); _std = float(_gray.std())
+            _lap  = float(cv2.Laplacian(_gray, cv2.CV_64F).var())
+            logger.info(
+                f"RecogProcess: frame {frame.shape[1]}x{frame.shape[0]} "
+                f"brillo={_mean:.0f} std={_std:.0f} lap={_lap:.0f}"
+            )
+        except Exception:
+            pass
 
         # Threshold de cosine raw para aceptar match. SFace usa 0.363 como
         # baseline; subimos a 0.40 para reducir FPs. La validacion del gap
@@ -289,12 +309,16 @@ class _RecognitionThread(QThread):
             try:
                 from utils.face_recognition_opencv import recognize_opencv
                 ok, conf, info = recognize_opencv(frame)
+                logger.info(f"RecogProcess: opencv -> ok={ok} conf={conf:.3f}")
                 if ok and info:
                     self._errors.pop("opencv", None)
                     self.results_ready.emit(True, conf, info, "OpenCV")
                     return
             except Exception as e:
                 self._record_error("opencv", e)
+
+        # Nada hizo match — emitir no-match para que la UI muestre "Buscando rostro..."
+        self.results_ready.emit(False, 0.0, None, "")
 
 
 # ═════════════════════════════════════════════════════════════════════════════

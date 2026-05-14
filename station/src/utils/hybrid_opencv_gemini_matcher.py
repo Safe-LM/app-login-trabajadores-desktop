@@ -152,12 +152,15 @@ class HybridOpenCVGeminiMatcher:
         if frame is None or frame.size == 0:
             return False, 0.0, None, "None"
 
-        face_rect = self._detect_face_fast(frame)
-        if face_rect is None:
-            return False, 0.0, None, "NoFace"
-
-        x, y, w, h = face_rect
-        face_roi = frame[y : y + h, x : x + w]
+        # NO usamos Haar Cascade como pre-filtro. YuNet+SFace (dentro de
+        # opencv_matcher.recognize) hace su propia deteccion y es mucho
+        # mas preciso: detecta caras inclinadas, en fotos de celular,
+        # con luz pobre, etc. Haar fallaba con frames legitimos y
+        # abortaba antes de que el motor real pudiera intentar el match.
+        # Pre-detectamos solo para early-exit cuando es OBVIO que no hay
+        # cara (frame vacio, fondo uniforme) — y aceptamos como "hay
+        # cara potencial" si YuNet no detecto Haar pero el frame tiene
+        # contenido razonable.
 
         # Motor principal: OpenCV (siempre disponible, rápido, sin dependencias externas)
         if self._check_opencv_lazy() and self.opencv_matcher:

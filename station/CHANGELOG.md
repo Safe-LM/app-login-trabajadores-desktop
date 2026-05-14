@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.6.6](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.5...station-v5.6.6) (2026-05-14)
+
+
+### 🐛 Correcciones
+
+* **station:** eliminar pre-filtro Haar y agregar telemetria al recognizer ([c561678](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/c5616784ce7e679a0ffa87da176489b6541cea53))
+
 ## [5.6.5](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.4...station-v5.6.5) (2026-05-13)
 
 

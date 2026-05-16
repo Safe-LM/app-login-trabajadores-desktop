@@ -24,7 +24,7 @@ supabase>=2.3.0
 httpx>=0.25.0
 
 # Utilidades
-qrcode[pil]>=7.4.2
+qrcode[pil]>=8.2
 openpyxl==3.1.2
 pandas==2.1.3
 

@@ -216,6 +216,7 @@ class _RecognitionThread(QThread):
         import time
         self.running = True
         logger.info("RecognitionThread: arrancado (interval=%.1fs)" % self._interval)
+        self._log_panel("recognition_thread_started", interval=self._interval)
         attempts = 0
         while self.running:
             if self.current_frame is not None and not self.processing:
@@ -224,6 +225,7 @@ class _RecognitionThread(QThread):
                     self._last_proc = t
                     self.processing = True
                     attempts += 1
+                    self._current_attempt = attempts
                     try:
                         with self._frame_lock:
                             f = self.current_frame.copy() if self.current_frame is not None else None
@@ -237,10 +239,33 @@ class _RecognitionThread(QThread):
                             self._interval = min(self._interval + 0.5, 5.0)
                         else:
                             logger.error(f"RecognitionThread: {msg[:120]}")
+                        self._log_panel("recognition_error", attempt=attempts, error=msg[:200])
                     finally:
                         self.processing = False
             self.msleep(300)
         logger.info("RecognitionThread: detenido")
+        self._log_panel("recognition_thread_stopped", total_attempts=attempts)
+
+    def _log_panel(self, tipo: str, **detalle):
+        """Best-effort: sube un evento al panel para debug remoto. No bloquea
+        ni rompe el flujo de reconocimiento si falla."""
+        import threading
+        def _bg():
+            try:
+                from utils.station_manager import get_station_api_key
+                from utils.supabase_client import get_supabase_client
+                api_key = get_station_api_key()
+                sb = get_supabase_client()
+                if not api_key or not sb:
+                    return
+                sb.rpc("insertar_log_estacion", {
+                    "p_api_key": api_key,
+                    "p_tipo": tipo,
+                    "p_detalle": detalle or {},
+                }).execute()
+            except Exception:
+                pass
+        threading.Thread(target=_bg, daemon=True).start()
 
     def _record_error(self, method, error):
         count = self._errors.get(method, 0) + 1
@@ -260,6 +285,7 @@ class _RecognitionThread(QThread):
         # Telemetria de quality gate — clave para debuguear "no me reconoce".
         # Logueamos las 3 metricas cada intento para que el log de la
         # estacion en el panel muestre POR QUE falla un intento.
+        _mean = _std = _lap = 0.0
         try:
             _gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             _mean = float(_gray.mean()); _std = float(_gray.std())
@@ -271,19 +297,32 @@ class _RecognitionThread(QThread):
         except Exception:
             pass
 
+        # Subir un log al panel CADA 5 intentos para no saturar (suficiente
+        # para diagnosticar "no me detecta" sin generar ruido).
+        attempt = getattr(self, "_current_attempt", 0)
+        should_log_panel = (attempt == 1 or attempt % 5 == 0)
+
         # Threshold de cosine raw para aceptar match. SFace usa 0.363 como
         # baseline; subimos a 0.40 para reducir FPs. La validacion del gap
         # vs segundo mejor ya esta dentro de recognize().
-        # Antes el codigo comparaba conf >= 0.80 contra un display inflado
-        # — ahora trabajamos con cosine real (transparente, auditable).
         MIN_COSINE = 0.40
 
+        hybrid_ok = False
+        hybrid_conf = 0.0
+        hybrid_method = ""
         if "hybrid" not in self._disabled:
             try:
                 from utils.hybrid_opencv_gemini_matcher import match_photo_hybrid
                 ok, conf, info, method = match_photo_hybrid(frame, min_confidence=MIN_COSINE)
+                hybrid_ok, hybrid_conf, hybrid_method = ok, float(conf), method
                 if ok and info and conf >= MIN_COSINE:
                     self._errors.pop("hybrid", None)
+                    self._log_panel(
+                        "recognition_match",
+                        attempt=attempt, method=method, conf=round(float(conf), 3),
+                        empleado=info.get("nombre", "?"),
+                        brillo=round(_mean), std=round(_std), lap=round(_lap),
+                    )
                     self.results_ready.emit(True, conf, info, method)
                     return
             except Exception as e:
@@ -305,19 +344,40 @@ class _RecognitionThread(QThread):
             except Exception as e:
                 self._record_error("photo_matcher", e)
 
+        opencv_ok = False
+        opencv_conf = 0.0
         if "opencv" not in self._disabled:
             try:
                 from utils.face_recognition_opencv import recognize_opencv
                 ok, conf, info = recognize_opencv(frame)
+                opencv_ok, opencv_conf = ok, float(conf)
                 logger.info(f"RecogProcess: opencv -> ok={ok} conf={conf:.3f}")
                 if ok and info:
                     self._errors.pop("opencv", None)
+                    self._log_panel(
+                        "recognition_match",
+                        attempt=attempt, method="OpenCV", conf=round(float(conf), 3),
+                        empleado=info.get("nombre", "?"),
+                        brillo=round(_mean), std=round(_std), lap=round(_lap),
+                    )
                     self.results_ready.emit(True, conf, info, "OpenCV")
                     return
             except Exception as e:
                 self._record_error("opencv", e)
 
-        # Nada hizo match — emitir no-match para que la UI muestre "Buscando rostro..."
+        # Nada hizo match. Logueamos al panel cada N intentos para que
+        # el admin vea EXACTAMENTE por que no detecto: brillo del frame,
+        # confianza obtenida por cada motor, etc.
+        if should_log_panel:
+            self._log_panel(
+                "recognition_no_match",
+                attempt=attempt,
+                brillo=round(_mean), std=round(_std), lap=round(_lap),
+                hybrid_conf=round(hybrid_conf, 3),
+                hybrid_method=hybrid_method or "none",
+                opencv_conf=round(opencv_conf, 3),
+                disabled=list(self._disabled),
+            )
         self.results_ready.emit(False, 0.0, None, "")
 
 
@@ -812,14 +872,23 @@ class DashboardWindow(QMainWindow):
             logger.error(f"flush_offline_queue: {e}")
 
     def _init_face_recognition(self):
-        """Inicializa el sistema facial en un thread separado para no bloquear la UI."""
-        self._js("setStatus('Inicializando reconocimiento...', 'warn');")
+        """Inicializa el sistema facial. Crea el thread y lo deja listo
+        para arrancar cuando _prep_tick (o el failsafe) lo dispare."""
         _lazy_load_face_recognition()
         self._rec_thread = _RecognitionThread(self)
         self._rec_thread.results_ready.connect(self._on_recognition)
 
+        # Reportar al panel que el reconocimiento esta inicializado.
+        # Util para distinguir "thread creado" vs "thread procesando".
+        self._log_to_panel(
+            "recognition_init",
+            available=bool(FACE_RECOGNITION_AVAILABLE),
+            has_init_fn=bool(inicializar_sistema_facial),
+        )
+
         if not (FACE_RECOGNITION_AVAILABLE and inicializar_sistema_facial):
             self._js("setStatus('Reconocimiento no disponible', 'warn');")
+            self._log_to_panel("recognition_unavailable")
             return
 
         import threading
@@ -831,11 +900,37 @@ class DashboardWindow(QMainWindow):
                 except Exception:
                     pass
                 inicializar_sistema_facial()
-                QTimer.singleShot(0, lambda: self._js("setStatus('Sistema listo', 'ok');"))
+                # NO sobreescribir el status aqui — _prep_tick ya puso
+                # "Buscando rostro..." y nos sobreescribir crearia
+                # confusion ("Sistema listo" en pantalla cuando en
+                # realidad esta buscando rostro).
+                self._log_to_panel("recognition_ready")
             except Exception as e:
                 logger.error(f"init facial: {e}")
+                self._log_to_panel("recognition_init_error", error=str(e)[:200])
                 QTimer.singleShot(0, lambda: self._js("setStatus('Reconocimiento parcial', 'warn');"))
         threading.Thread(target=_bg_init, daemon=True).start()
+
+    def _log_to_panel(self, tipo: str, **detalle):
+        """Sube un log de la estacion al panel (logs_estacion). Best-effort:
+        falla silencioso si no hay red o api_key — sirve solo para debug
+        remoto, no debe romper el flujo del dashboard."""
+        import threading
+        def _bg():
+            try:
+                from utils.station_manager import get_station_api_key
+                api_key = get_station_api_key()
+                sb = get_supabase_client()
+                if not api_key or not sb:
+                    return
+                sb.rpc("insertar_log_estacion", {
+                    "p_api_key": api_key,
+                    "p_tipo": tipo,
+                    "p_detalle": detalle or {},
+                }).execute()
+            except Exception:
+                pass
+        threading.Thread(target=_bg, daemon=True).start()
 
     def _start_camera(self):
         if self._cam_thread:

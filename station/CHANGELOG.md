@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.6.7](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.6...station-v5.6.7) (2026-05-18)
+
+
+### 🐛 Correcciones
+
+* **station:** telemetria remota del reconocimiento + fix race del status ([890fbdc](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/890fbdc2b3345a48b1e44df67052df5c7d94e23a))
+
 ## [5.6.6](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.5...station-v5.6.6) (2026-05-14)
 
 

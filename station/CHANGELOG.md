@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.6.11](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.10...station-v5.6.11) (2026-05-19)
+
+
+### 🐛 Correcciones
+
+* **station:** _find_models_dir busca tambien en bundled_models_root ([ad283eb](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/ad283eb6af961a3aea55ce2f12f22a41a6a19814))
+
 ## [5.6.10](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.9...station-v5.6.10) (2026-05-19)
 
 

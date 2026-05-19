@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.6.15](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.14...station-v5.6.15) (2026-05-19)
+
+
+### 🐛 Correcciones
+
+* **station:** Haar cascade vacio + bajar AUTO_REGISTER_THRESHOLD a 0.40 ([708fc86](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/708fc86912df5ccfed603fe3d1932c9989286f54))
+
 ## [5.6.14](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.13...station-v5.6.14) (2026-05-19)
 
 

@@ -104,6 +104,12 @@ def _migrate_sqlite():
         ("trabajadores", "foto_path", "VARCHAR"),
         ("trabajadores", "embedding_idx", "INTEGER"),
         ("registros_asistencia", "sincronizado", "BOOLEAN DEFAULT 0"),
+        # A7: telemetria de calidad del reconocimiento (cosine real,
+        # metodo usado, conteo de embeddings). Sin estas columnas el
+        # modelo SQLAlchemy peta al cargar registros_asistencia.
+        ("registros_asistencia", "score_raw", "REAL"),
+        ("registros_asistencia", "metodo", "VARCHAR"),
+        ("registros_asistencia", "embedding_count", "INTEGER"),
     ]
     for table, col, col_def in migrations:
         cur.execute(f"PRAGMA table_info({table})")

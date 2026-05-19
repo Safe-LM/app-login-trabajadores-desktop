@@ -139,6 +139,20 @@ def _do_sync() -> int:
 
     empresa_id: str = result.data["empresa_id"]
     empleados: list = result.data["empleados"]
+
+    # Propagar empresa_id a StationInfo si la station arranco en modo
+    # legacy (con solo STATION_API_KEY en .env, sin station_config.json).
+    # Sin esto, get_opencv_recognizer() no resuelve cache_root() / empresa_id
+    # y cae al fallback legacy 'database_fotos/' que no existe — entonces
+    # los modelos no se cargan y el reconocimiento queda sin embeddings.
+    try:
+        from utils.station_manager import StationInfo
+        if not StationInfo.empresa_id:
+            StationInfo.empresa_id = empresa_id
+            logger.info(f"StationInfo.empresa_id auto-poblado desde sync: {empresa_id}")
+    except Exception:
+        pass
+
     cache_dir = _get_cache_dir(empresa_id)
     json_path = cache_dir / "json" / "employees_db.json"
     photos_dir = cache_dir / "photos"
@@ -411,11 +425,58 @@ def _download_embeddings_from_supabase(sb, empresa_id: str, cache_dir: Path, emp
     return True
 
 
+def _crop_face_bbox(frame, detector, padding_ratio: float = 0.4):
+    """
+    Detecta el rostro mas grande de la imagen y devuelve un crop centrado
+    con padding alrededor para preservar contexto facial (frente, menton,
+    orejas). Si no hay deteccion devuelve None.
+
+    El crop centrado en la cara es CRITICO para enrollment robusto:
+      - El embedding deja de mezclar fondo/ropa que cambian de dia a dia.
+      - Las rotaciones leves NO sacan la cara del frame.
+      - Las variaciones de brillo no se ven dominadas por background.
+
+    padding_ratio=0.4 es el sweet spot empirico: incluye contexto facial
+    suficiente para alignment landmarks pero excluye torso/fondo.
+    """
+    import cv2
+    import numpy as np
+
+    h, w = frame.shape[:2]
+    detector.setInputSize((w, h))
+    _, faces = detector.detect(frame)
+    if faces is None or len(faces) == 0:
+        return None
+
+    # Tomar la cara mas grande (no la de mayor score — mas robusto en
+    # fotos donde puede haber otras personas en background lejano)
+    areas = (faces[:, 2] * faces[:, 3]) * faces[:, -1]  # area * score
+    face_info = faces[np.argmax(areas)]
+    x, y, fw, fh = int(face_info[0]), int(face_info[1]), int(face_info[2]), int(face_info[3])
+
+    # Padding proporcional al tamaño detectado, clamp a bordes
+    pad_x = int(fw * padding_ratio)
+    pad_y = int(fh * padding_ratio)
+    x1 = max(0, x - pad_x)
+    y1 = max(0, y - pad_y)
+    x2 = min(w, x + fw + pad_x)
+    y2 = min(h, y + fh + pad_y)
+
+    crop = frame[y1:y2, x1:x2]
+    if crop.size == 0 or crop.shape[0] < 64 or crop.shape[1] < 64:
+        return None
+    return crop
+
+
 def _augment_image(frame):
     """
     Genera 10 variaciones por foto siguiendo el approach del v3 SFace original.
     Esto pasa la precisión de ~85% con 1 embedding a ~99% con 10.
     Variaciones: original, flip H, 4 brillo/contraste, 2 rotaciones, ruido, blur.
+
+    IMPORTANTE: idealmente `frame` ya viene cropeado a la cara (via
+    _crop_face_bbox) — el augmentation sobre la foto completa puede
+    mover la cara fuera del frame en las rotaciones.
     """
     import cv2
     import numpy as np
@@ -512,8 +573,21 @@ def _regenerate_encodings(cache_dir: Path, _empleados: list) -> tuple:
                     })
                     continue
 
-                # Generar 10 variaciones de la foto
-                variants = _augment_image(frame)
+                # PASO 1: detectar bbox del rostro PRIMERO y crop centrado.
+                # Esto elimina fondo/ropa del embedding y garantiza que
+                # las rotaciones del augmentation no muevan la cara fuera
+                # del frame. Si no hay deteccion en la foto original,
+                # fallback a la foto completa (mejor algo que nada).
+                face_crop = _crop_face_bbox(frame, detector, padding_ratio=0.4)
+                if face_crop is None:
+                    logger.warning(f"  [{emp_id[:8]}] no se detecto rostro en foto original, usando foto completa")
+                    _log_to_supabase("enrollment_no_bbox", {
+                        "empleado_id": emp_id, "fallback": "foto_completa",
+                    })
+                    face_crop = frame
+
+                # PASO 2: generar 10 variaciones SOBRE EL CROP centrado.
+                variants = _augment_image(face_crop)
                 emb_count = 0
 
                 for variant in variants:
@@ -524,8 +598,10 @@ def _regenerate_encodings(cache_dir: Path, _empleados: list) -> tuple:
                     if faces is None or len(faces) == 0:
                         continue
 
-                    # Tomar la cara con mayor score
-                    face_info = faces[np.argmax(faces[:, -1])]
+                    # Tomar la cara mas grande (no solo mayor score) —
+                    # robusto contra detecciones espureas en el crop.
+                    areas = (faces[:, 2] * faces[:, 3]) * faces[:, -1]
+                    face_info = faces[np.argmax(areas)]
                     aligned = recognizer.alignCrop(variant, face_info)
                     embedding = recognizer.feature(aligned).flatten()
 
@@ -722,10 +798,23 @@ class SyncManager(QObject):
         self.sync_error.emit(msg)
 
     def stop(self):
-        """Detiene el timer periódico y espera a que el worker activo termine."""
+        """Detiene el timer periódico y espera a que el worker activo termine.
+
+        IMPORTANTE: QTimer.stop() debe llamarse desde el thread donde el
+        timer vive (afinidad de QObject). Si stop() se invoca desde otro
+        thread (ej. atexit handler) sale el warning
+        'Timers cannot be stopped from another thread'. Usamos
+        QMetaObject.invokeMethod con Qt.QueuedConnection para encolar
+        el stop al hilo correcto.
+        """
         if self._timer is not None:
             try:
-                self._timer.stop()
+                from PyQt5.QtCore import QMetaObject, Qt, QThread
+                # Si ya estamos en el hilo del timer, llamada directa
+                if QThread.currentThread() == self._timer.thread():
+                    self._timer.stop()
+                else:
+                    QMetaObject.invokeMethod(self._timer, "stop", Qt.QueuedConnection)
             except Exception:
                 pass
             self._timer = None

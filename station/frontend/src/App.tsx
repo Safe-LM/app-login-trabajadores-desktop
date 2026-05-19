@@ -407,17 +407,35 @@ const HealthPanel: React.FC = () => {
     ['Encodings', healthEncodings > 0 ? 'Listo' : '—', healthEncodings > 0 ? '#22c55e' : '#52525b'],
   ];
   return (
-    <div className="rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+    // Estilo unificado con las otras cards del sidebar (Actividad,
+    // last_reg, Panel de Supervisor): mismo fondo, mismo borde, misma
+    // sombra. Asi las 4 se ven como bloques flotantes consistentes.
+    <div
+      className="rounded-2xl p-4 shadow-lg"
+      style={{
+        background: 'rgba(255,255,255,0.03)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+      }}
+    >
+      {/* Header de la card con titulo + score */}
       <div className="flex items-center justify-between mb-3">
         <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Salud del sistema</span>
         <span className="text-xs font-black tabular-nums" style={{ color }}>{healthScore}/100</span>
       </div>
+      {/* Barra de progreso con mas separacion abajo */}
       <div className="h-1.5 w-full rounded-full overflow-hidden mb-3" style={{ background: 'rgba(255,255,255,0.05)' }}>
         <div className="h-full rounded-full transition-all duration-700" style={{ width: `${healthScore}%`, background: color }} />
       </div>
+      {/* Las 3 mini-tarjetas internas (Camara/Empleados/Encodings).
+          Padding aumentado para que no se vean apretadas. */}
       <div className="grid grid-cols-3 gap-2">
         {items.map(([label, val, c]) => (
-          <div key={label} className="flex flex-col gap-0.5 rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+          <div
+            key={label}
+            className="flex flex-col gap-0.5 rounded-xl px-2.5 py-2.5"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
+          >
             <span className="text-[8px] font-bold text-gray-600 uppercase tracking-wider">{label}</span>
             <span className="text-[11px] font-black" style={{ color: c }}>{val}</span>
           </div>
@@ -637,7 +655,7 @@ const App: React.FC = () => {
         </section>
 
         {/* Right: Info Panel */}
-        <aside className="flex-[2] glass border-l border-white/5 p-12 pt-24 flex flex-col gap-12">
+        <aside className="flex-[2] glass border-l border-white/5 p-6 pt-16 flex flex-col space-y-6">
           {/* Clock */}
           <div className="flex flex-col items-center">
             <DateTimeDisplay />
@@ -712,42 +730,74 @@ const App: React.FC = () => {
             )}
           </AnimatePresence>
 
-          <div className="mt-auto flex flex-col gap-6">
-            {/* Last registration */}
+          {/* Sidebar — 4 cards independientes. Cada bloque es una card
+              completa con su propio padding/borde/fondo, asi se ven
+              flotantes y separadas. gap-12 (48px) da el espacio visible
+              entre las cards. */}
+          <div className="mt-auto flex flex-col space-y-3">
+            {/* === CARD 1: Last registration === */}
             {store.lastReg && (
-              <div className="text-center text-xs font-bold py-2 px-4 rounded-xl bg-white/5 border border-white/10" style={{ color: store.lastReg.color || '#94a3b8' }}>
+              <div
+                className="text-center text-xs font-bold py-3 px-4 rounded-2xl shadow-lg"
+                style={{
+                  color: store.lastReg.color || '#94a3b8',
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+                }}
+              >
                 {store.lastReg.text}
               </div>
             )}
 
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Actividad Reciente</h3>
-              <div className="px-2 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded text-[9px] font-bold text-blue-400">HOY</div>
-            </div>
+            {/* === CARD 2: Actividad Reciente === */}
+            <div
+              className="rounded-2xl p-4 shadow-lg"
+              style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+              }}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Actividad Reciente</h3>
+                <div className="px-2 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded text-[9px] font-bold text-blue-400">HOY</div>
+              </div>
 
-            <div className="flex flex-col gap-3">
-              {store.recentRecords.length > 0 ? store.recentRecords.map((rec, i) => (
-                <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-1 h-8 rounded-full ${rec.tipo === 'entrada' ? 'bg-green-500' : 'bg-blue-500'}`} />
-                    <div className="flex flex-col">
-                      <span className="text-xs font-bold">{rec.nombre}</span>
-                      <span className="text-[10px] text-gray-500 uppercase font-medium">{rec.tipo}</span>
+              <div className="flex flex-col space-y-2">
+                {store.recentRecords.length > 0 ? store.recentRecords.map((rec, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between p-2.5 rounded-xl"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-1 h-8 rounded-full ${rec.tipo === 'entrada' ? 'bg-green-500' : 'bg-blue-500'}`} />
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-xs font-bold">{rec.nombre}</span>
+                        <span className="text-[10px] text-gray-500 uppercase font-medium tracking-wider">{rec.tipo}</span>
+                      </div>
                     </div>
+                    <span className="text-xs font-mono font-bold text-gray-400">{rec.hora}</span>
                   </div>
-                  <span className="text-xs font-mono font-bold text-gray-400">{rec.hora}</span>
-                </div>
-              )) : (
-                <div className="text-center py-6 text-[10px] font-bold text-gray-600 uppercase tracking-tighter">Sin registros hoy</div>
-              )}
+                )) : (
+                  <div className="text-center py-4 text-[10px] font-bold text-gray-600 uppercase tracking-tighter">Sin registros hoy</div>
+                )}
+              </div>
             </div>
 
-            {/* Health status */}
+            {/* === CARD 3: Health status === */}
             <HealthPanel />
 
+            {/* === CARD 4: Panel de Supervisor === */}
             <button
               onClick={() => setSupervisorOpen(true)}
-              className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-sm font-bold active:scale-95 pointer-events-auto"
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl transition-all text-sm font-bold active:scale-95 pointer-events-auto shadow-lg"
+              style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
+              }}
             >
               <Settings size={16} />
               <span>Panel de Supervisor</span>

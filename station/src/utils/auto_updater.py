@@ -128,18 +128,33 @@ def verify_file_sha256(path: str, expected: str) -> bool:
 
 def _compare_versions(remote: str, local: str) -> int:
     """
-    Compara dos versiones semver.
+    Compara dos versiones semver. Maneja sufijos no numericos como
+    "-dev", "-rc1", "-beta", etc. tomando solo la parte numerica de
+    cada segmento ("5.1.0-dev" -> [5, 1, 0]).
 
     Returns:
         > 0 si remote > local (hay update)
         0 si son iguales
         < 0 si remote < local
     """
-    def parse(v):
-        return [int(x) for x in v.split(".")]
+    import re
 
-    remote_parts = parse(remote)
-    local_parts = parse(local)
+    def parse(v: str) -> list[int]:
+        parts = []
+        for segment in v.split("."):
+            # Extraer solo digitos iniciales de cada segmento.
+            # "0-dev" -> "0", "5rc1" -> "5", "" -> 0
+            match = re.match(r"^(\d+)", segment.strip())
+            parts.append(int(match.group(1)) if match else 0)
+        return parts
+
+    try:
+        remote_parts = parse(remote)
+        local_parts = parse(local)
+    except Exception:
+        # Si algo falla parseando, asumir mismo nivel — mejor no proponer
+        # update raro que disparar updates accidentales.
+        return 0
 
     for r, l in zip(remote_parts, local_parts):
         if r > l:

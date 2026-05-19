@@ -156,27 +156,32 @@ class _CameraThread(QThread):
                 # SFace es invariante a horizontal flip.
                 frame = cv2.flip(frame, 1)
 
-                # CLAHE suave en LAB para mejorar contraste con luz pobre.
-                # tileGridSize aumentado a 8x8 (antes 4x4) para evitar el
-                # artefacto "tile" visible que daba look "raro" — 8x8 es
-                # el default recomendado por OpenCV y se ve fluido.
-                # clipLimit reducido a 1.5 (antes 2.0) para no over-process.
-                # Cada 3 frames (antes 2) para reducir carga CPU.
-                if skip % 3 == 0:
-                    try:
+                # CLAHE ADAPTATIVO: aplicamos solo si la imagen esta poco
+                # iluminada (brillo medio <80). En condiciones normales NO
+                # se aplica — la imagen llega cruda y nitida al usuario,
+                # sin el filtro "lavado" que daba look brumoso.
+                #
+                # El recognizer en _process() tiene su propio path y no
+                # depende de CLAHE: SFace tolera variaciones de iluminacion
+                # razonables. Solo en escenarios oscuros activamos el
+                # boost de contraste — donde si hace falta.
+                try:
+                    mean_brightness = float(frame[..., 0].mean())
+                    if mean_brightness < 80 and skip % 3 == 0:
                         lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
                         l, a, b = cv2.split(lab)
-                        clahe = cv2.createCLAHE(clipLimit=1.5, tileGridSize=(8, 8))
+                        # clipLimit reducido (1.2 vs 1.5) y aplicado solo
+                        # cuando ES necesario — preview sigue nitido en
+                        # condiciones normales de oficina.
+                        clahe = cv2.createCLAHE(clipLimit=1.2, tileGridSize=(8, 8))
                         l = clahe.apply(l)
                         frame = cv2.cvtColor(cv2.merge([l, a, b]), cv2.COLOR_LAB2BGR)
-                    except Exception:
-                        pass
+                except Exception:
+                    pass
                 skip += 1
 
-                # Frame pacing: si el procesamiento del loop tardo X ms,
-                # restamos X al sleep para mantener ~30fps reales en vez
-                # de "30fps - latencia de proceso" que es lo que se veia
-                # tirando (laggy / coarse).
+                # Frame pacing: descontar tiempo del processing para
+                # mantener ~30fps reales en lugar de "30fps - latencia".
                 import time as _t
                 t0 = _t.time()
                 self.frame_ready.emit(frame)
@@ -522,13 +527,24 @@ class DashboardWindow(QMainWindow):
         self._bridge.relaunch_setup_requested.connect(self._relaunch_setup)
         self._bridge.sync_requested.connect(self._sync_employees)
 
-        # Capturar errores JS y mensajes de consola
+        # Capturar errores JS y mensajes de consola. Filtramos warnings
+        # conocidos e inocuos (ej. AudioContext bloqueado por Chrome en
+        # modo kiosko sin gesto del usuario) para no llenar el log de ruido
+        # y que se vean solo los errores reales.
         try:
             from PyQt5.QtWebEngineWidgets import QWebEnginePage
-            _orig_msg = QWebEnginePage.javaScriptConsoleMessage
+
+            _NOISE_PATTERNS = (
+                "AudioContext was not allowed",
+                "must be resumed (or created) after a user gesture",
+            )
+
             def _js_console(self_page, level, msg, line, source):
+                if any(p in msg for p in _NOISE_PATTERNS):
+                    return  # Silenciar spam conocido inofensivo
                 tag = ["LOG", "WARN", "ERR"][min(int(level), 2)]
                 logger.info(f"[JS-{tag}] {msg} ({source}:{line})")
+
             QWebEnginePage.javaScriptConsoleMessage = _js_console
         except Exception:
             pass
@@ -703,13 +719,28 @@ class DashboardWindow(QMainWindow):
             pass
 
     def _reload_matchers_from_cache(self, cache_dir):
+        """Resetea TODOS los matchers tras un sync exitoso, asi el cache_dir
+        recien resuelto (con empresa_id real) reemplaza el path placeholder
+        del arranque. Antes solo se reseteaba hybrid y photo, pero el
+        recognizer OpenCV (singleton interno) quedaba con el path legacy
+        y siempre retornaba 'No se encontraron encodings previos'."""
         try:
             import utils.hybrid_opencv_gemini_matcher as hm
             import utils.photo_to_photo_matcher as pm
+            from utils.face_recognition_opencv import (
+                reset_opencv_recognizer, get_opencv_recognizer,
+            )
+
             hm._hybrid_matcher = None
             pm._photo_matcher = None
+            reset_opencv_recognizer()
+
+            # Re-inicializar con el cache_dir correcto. get_opencv_recognizer
+            # ahora detecta el cambio de path y recrea el singleton.
+            get_opencv_recognizer(database_dir=cache_dir)
             hm.get_hybrid_matcher(database_dir=cache_dir)
             pm.get_photo_matcher(database_dir=cache_dir)
+            logger.info(f"Matchers recargados desde cache: {cache_dir}")
         except Exception as e:
             logger.warning(f"reload matchers: {e}")
 
@@ -1019,8 +1050,7 @@ class DashboardWindow(QMainWindow):
             return
         self._current_frame = frame
 
-        # Throttle UI a ~25fps (40ms). Antes era 20fps (50ms) lo que se
-        # veia ligeramente "trabado". 25fps es el sweet spot percibido
+        # Throttle UI a ~25fps (40ms). 25fps es el sweet spot percibido
         # por el ojo humano como "fluido" sin saturar el canal JS.
         import time
         now = time.time()
@@ -1028,11 +1058,46 @@ class DashboardWindow(QMainWindow):
             return
         self._last_frame_ts = now
 
-        # JPEG quality 85 (antes 72): mejora visible de calidad sin
-        # impacto perceptible en tamaño (~30KB vs ~22KB por frame). El
-        # bridge JS-Python en QWebChannel maneja base64 sin problema a
-        # este tamaño.
-        ok, buf = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        # Dibujar bbox del rostro detectado para feedback visual al
+        # usuario. Le indica donde esta mirando el detector y reduce la
+        # confusion ("no se si me esta viendo"). Se hace cada 3 frames
+        # (~8fps) para no saturar CPU — la deteccion es relativamente
+        # cara y la persistencia visual del bbox cubre los huecos.
+        display_frame = frame
+        self._bbox_skip = getattr(self, "_bbox_skip", 0) + 1
+        if self._bbox_skip % 3 == 0:
+            try:
+                from utils.face_recognition_opencv import get_opencv_recognizer
+                rec = get_opencv_recognizer()
+                if rec is not None:
+                    bbox = rec.detect_face(frame)
+                    self._last_bbox = bbox  # cachear para frames intermedios
+                else:
+                    self._last_bbox = None
+            except Exception:
+                self._last_bbox = None
+
+        bbox = getattr(self, "_last_bbox", None)
+        if bbox is not None:
+            display_frame = frame.copy()
+            x1, y1, x2, y2 = bbox
+            color = (0, 220, 130)  # verde menta — coincide con paleta UI
+            cv2.rectangle(display_frame, (x1, y1), (x2, y2), color, 2)
+            # Corner marks tipo "viewfinder" — mas estetico que un cuadro lleno
+            corner_len = max(12, (x2 - x1) // 8)
+            for (px, py, dx, dy) in [
+                (x1, y1, +1, +1), (x2, y1, -1, +1),
+                (x1, y2, +1, -1), (x2, y2, -1, -1),
+            ]:
+                cv2.line(display_frame, (px, py), (px + dx*corner_len, py), color, 4)
+                cv2.line(display_frame, (px, py), (px, py + dy*corner_len), color, 4)
+
+        # JPEG quality 85: mejora visible sin impacto perceptible en tamaño.
+        # JPEG quality 92: calidad alta para que la preview se vea
+        # nitida (sin compresion visible). El tamaño sube de ~30KB a
+        # ~50KB por frame — sin impacto perceptible en latencia del
+        # bridge JS-Python.
+        ok, buf = cv2.imencode('.jpg', display_frame, [cv2.IMWRITE_JPEG_QUALITY, 92])
         if ok:
             b64 = base64.b64encode(buf.tobytes()).decode('ascii')
             self._js(f"updateFrame('{b64}');")

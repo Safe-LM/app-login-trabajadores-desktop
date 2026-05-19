@@ -337,24 +337,61 @@ class OpenCVFaceRecognizer:
 _opencv_recognizer = None
 
 
+def _resolve_default_database_dir() -> Path:
+    """Resuelve el database_dir por defecto.
+
+    Prioridad:
+      1. StationInfo.empresa_id (caso normal: tras sync exitoso)
+      2. database_fotos/ legacy (fallback solo si no hay empresa)
+
+    Esta funcion se llama tanto en get_opencv_recognizer() como en
+    reset_opencv_recognizer() para mantener la logica en un solo lugar.
+    """
+    try:
+        from utils.station_manager import StationInfo
+        from utils.paths import cache_root
+
+        if StationInfo.empresa_id:
+            return cache_root() / StationInfo.empresa_id
+    except Exception:
+        pass
+    STATION_ROOT = Path(__file__).resolve().parent.parent.parent
+    return STATION_ROOT.parent / "database_fotos"
+
+
+def reset_opencv_recognizer() -> None:
+    """Fuerza recreacion del singleton en la proxima llamada a
+    get_opencv_recognizer(). Llamar despues de un sync exitoso para
+    que el recognizer apunte al cache correcto (empresa_id descubierto
+    desde el backend, no desde el .env)."""
+    global _opencv_recognizer
+    _opencv_recognizer = None
+
+
 def get_opencv_recognizer(
     database_dir: Optional[Path] = None,
 ) -> Optional[OpenCVFaceRecognizer]:
+    """Obtiene el singleton. Si `database_dir` se pasa explicitamente y
+    difiere del actual, recrea el singleton (evita el bug donde se
+    inicializo con path malo en arranque y nunca se actualizo)."""
     global _opencv_recognizer
-    if _opencv_recognizer is None:
-        if database_dir is None:
-            try:
-                from utils.station_manager import StationInfo
-                from utils.paths import cache_root
 
-                if StationInfo.empresa_id:
-                    database_dir = cache_root() / StationInfo.empresa_id
-            except Exception:
-                pass
-            # Fallback al dataset legacy solo si no hay empresa configurada
-            if database_dir is None:
-                STATION_ROOT = Path(__file__).resolve().parent.parent.parent
-                database_dir = STATION_ROOT.parent / "database_fotos"
+    if database_dir is None:
+        database_dir = _resolve_default_database_dir()
+
+    # Si ya existe pero apunta a otro directorio, reinicializar
+    if _opencv_recognizer is not None:
+        try:
+            if Path(_opencv_recognizer.database_dir).resolve() != Path(database_dir).resolve():
+                logger.info(
+                    f"Reinicializando OpenCVFaceRecognizer: "
+                    f"{_opencv_recognizer.database_dir} -> {database_dir}"
+                )
+                _opencv_recognizer = None
+        except Exception:
+            pass
+
+    if _opencv_recognizer is None:
         _opencv_recognizer = OpenCVFaceRecognizer(database_dir)
         _opencv_recognizer.load_encodings()
     return _opencv_recognizer

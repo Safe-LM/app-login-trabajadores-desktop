@@ -216,23 +216,33 @@ def _do_sync() -> int:
     # 6. AUTO-HEALING: decidir si regenerar embeddings localmente.
     #
     # Triggers (cualquiera dispara la regeneracion):
-    #  a. Hay fotos nuevas que no se han procesado.
-    #  b. Hay empleados sin enrollar (enrollado=false) con foto.
-    #  c. NUEVO: la station no tiene el .pkl local y hay fotos.
+    #  a. Hay fotos nuevas descargadas en este sync.
+    #  b. Hay empleados sin enrollar (enrollado=false) con foto disponible.
+    #  c. La station no tiene el .pkl local pero hay fotos en cache.
     #
-    # El caso (c) cubre el bug: en BD el empleado tenia enrollado=true
-    # y embeddings en pgvector, pero el pkl local no existe (la station
-    # nunca pudo bajarlo o el download fallo silenciosamente). Sin este
-    # trigger la station se quedaria zombie con cero capacidad de
-    # reconocer indefinidamente.
+    # IMPORTANTE: estos triggers se evaluan INDEPENDIENTEMENTE de si
+    # bajaron embeddings de otros empleados (`embeddings_updated`).
+    #
+    # Bug previo: la condicion incluia `not embeddings_updated`, lo que
+    # bloqueaba el auto-healing en el caso comun "varios empleados, unos
+    # con embeddings en pgvector, otros recien creados sin enrolar".
+    # Ej: si Dante tiene 10 embeddings en pgvector y agregas a Gerardo
+    # nuevo sin foto procesada, embeddings_updated=True (por Dante) ->
+    # nunca se generaban embeddings para Gerardo -> "Entrenando..."
+    # eterno en el panel.
+    #
+    # Ahora: solo regeneramos los empleados que efectivamente lo
+    # necesiten (no_enrollados o con foto nueva), sin importar el
+    # estado de otros. _regenerate_encodings filtra internamente.
     new_encodings = 0
     no_enrollados = [e for e in empleados if not e.get("enrollado", False) and e.get("foto_local")]
     fotos_disponibles = [e for e in empleados if e.get("foto_local")]
     pkl_missing = not encodings_file.exists()
 
     should_regenerate = (
-        not embeddings_updated and
-        (new_photos > 0 or no_enrollados or (pkl_missing and fotos_disponibles))
+        new_photos > 0
+        or bool(no_enrollados)
+        or (pkl_missing and bool(fotos_disponibles))
     )
 
     if should_regenerate:
@@ -247,8 +257,11 @@ def _do_sync() -> int:
                 "fotos_disponibles": len(fotos_disponibles),
                 "supabase_download": "fallido_o_vacio",
             })
-        elif no_enrollados and new_photos == 0:
-            logger.info(f"Generando embeddings para {len(no_enrollados)} empleado(s) no enrollado(s)")
+        elif no_enrollados:
+            logger.info(
+                f"Generando embeddings para {len(no_enrollados)} empleado(s) "
+                f"no enrollado(s) (nuevas fotos: {new_photos})"
+            )
 
         encodings, employee_ids = _regenerate_encodings(cache_dir, empleados)
         if encodings and employee_ids:

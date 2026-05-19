@@ -206,9 +206,10 @@ Estas funciones bypasan RLS y se usan cuando el JWT del usuario aún no tiene `e
 │   │   └── utils/
 │   │       ├── supabase_client.py  # Singleton Supabase, carga .env por path absoluto
 │   │       ├── station_manager.py  # Identidad (api_key) + heartbeat QThread cada 60s
-│   │       ├── face_recognition_opencv.py   # YuNet (detección) + SFace (embeddings 128D)
-│   │       ├── hybrid_opencv_gemini_matcher.py  # Matcher principal (OpenCV + Gemini opcional)
-│   │       ├── photo_to_photo_matcher.py    # Matcher fallback foto-a-foto
+│   │       ├── face_recognition_opencv.py   # YuNet (detección) + SFace (embeddings 128D) — motor principal
+│   │       ├── hybrid_opencv_gemini_matcher.py  # Wrapper sobre OpenCV (Gemini desactivado)
+│   │       ├── photo_to_photo_matcher.py    # Matcher HOG legacy (deshabilitado por default)
+│   │       ├── paths.py                # writable_root + bundled_models_root (--onedir aware)
 │   │       └── employee_mapper.py  # Carga employees_db.json y rutas de fotos
 │   ├── frontend/                   # ◀ UI React (v4.0)
 │   │   ├── src/
@@ -281,20 +282,35 @@ Estas funciones bypasan RLS y se usan cuando el JWT del usuario aún no tiene `e
 
 ## Variables de entorno (.env)
 
+### Estación (`station/.env` en dev, `%LOCALAPPDATA%\Safe Link Station\.env` en `.exe` instalado)
+
 ```env
 # Supabase
 SUPABASE_URL=https://xxxx.supabase.co
 SUPABASE_KEY=eyJhbGci...             # anon key pública
 
-# IA (opcional — mejora precisión del reconocimiento)
-GEMINI_API_KEY=AIzaSy...
-
 # Identidad de esta estación física
 # Generar desde panel web → Dispositivos → Nueva estación
-STATION_API_KEY=sk_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+STATION_API_KEY=slm_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+STATION_NAME=Sucursal-Centro-1
 ```
 
-El panel web usa `web-panel/.env.local`:
+#### Opcionales
+
+| Variable | Default | Qué hace |
+|---|---|---|
+| `STATION_DEV` | `0` | `=1` carga UI desde `localhost:5173` (Vite HMR) en vez de `frontend/dist/`. |
+| `STATION_BEEP_ON_SUCCESS` | `true` | 3 tonos al confirmar asistencia (winsound, no bloquea UI). |
+| `STATION_AUTO_CLOSE` | `false` | `=true` cierra la app tras cada fichaje (single-user). Default = modo kiosko continuo. |
+| `STATION_ENABLE_PHOTO_MATCHER` | `false` | Re-habilita matcher HOG legacy (solo tests). |
+| `AUTO_UPDATE_ENABLED` | `true` | Check de nueva versión en GitHub Releases al arrancar. |
+
+> Gemini Vision API estuvo soportado en v3.x como booster del matcher;
+> está **desactivado por default** desde v5.x para evitar ruido y costos.
+> El motor SFace puro (cosine 0.40 + gap >= 0.03) da ~99% de precisión
+> con 10 embeddings/empleado, sin necesidad de Gemini.
+
+### Panel web (`web-panel/.env.local`)
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
@@ -356,126 +372,73 @@ supabase/migrations/20260501_smart_pairing.sql
 
 ---
 
-## Estado actual del desarrollo
+## Estado del producto
 
-### Completado ✅
+### Sistema funcional end-to-end ✅
 
-**Infraestructura y backend**
-- Schema multi-tenant en Supabase con RLS y pgvector
-- Auth SSR con `@supabase/ssr` 0.10.2 (login, cookies, middleware, redirect)
-- Onboarding wizard para nuevos clientes (crea empresa + sucursal sin SQL)
-- Funciones SECURITY DEFINER que bypasan RLS para onboarding y setup
-- Vista `v_dispositivos_estado` con cálculo de estado automático
-- Heartbeat de estación cada 60s (QThread background)
-- **HWID Locking:** cada estación se vincula a su hardware físico (anti-clonación)
-- **Smart Pairing:** vinculación por código de 6 dígitos (estilo Netflix/Disney+)
-- **Importación masiva:** endpoint `/api/empleados/bulk` para carga desde Excel
+**Reconocimiento facial**
+- Pipeline YuNet (detección) + SFace (embeddings 128D) sobre OpenCV DNN
+- 10 embeddings/empleado con data augmentation v3 (flip, brillo, rotación, ruido, blur)
+- Crop centrado con padding 0.4 antes de augmentar → embeddings estables (cohesión intra-empleado >0.95)
+- Auto-registro al pasar `MIN_COSINE=0.40` + `gap>=0.03` + quality gate (brillo/std/laplaciano)
+- Protección anti-duplicado: 60s entre fichajes del mismo empleado
+- Bbox visible en pantalla estilo *viewfinder* para feedback del usuario
 
-**Panel web (web-panel/)**
-- Sidebar con navegación activa, todas las páginas accesibles
-- Panel de dispositivos: crear, renombrar, ver API key, **vincular por código**, ver HWID
-- **Dispositivos en tiempo real:** Supabase Realtime (indicador verde pulsante)
-- **CRUD completo de empleados:** crear con drag & drop de foto, editar, eliminar, búsqueda instantánea
-- **Excel Import:** modal con guía de formato + carga masiva
-- **Auto-enrollment:** subir foto → estado cambia a "Enrollado" automáticamente
+**Estación (`station/`)**
+- App PyQt5 con UI React + Vite embebida en `QWebEngineView`
+- Provisioning zero-touch (HWID lock + Smart Pairing por código de 6 dígitos)
+- Heartbeat cada 60s + sync de empleados/embeddings cada 4h
+- Offline queue: SQLite local + retry al volver online
+- Auto-healing del `face_encodings_opencv.pkl` si se corrompe o falta
+- Modo kiosko continuo (atiende fila de empleados sin reabrir entre fichajes)
+- Beep audible de confirmación (winsound, thread daemon)
+- Telemetría remota en tiempo real → `logs_estacion` en Supabase (ver `station/README.md`)
+- `.exe` empaquetado con PyInstaller `--onedir` + auto-updater desde GitHub Releases
 
-**App de escritorio (station/)**
-- SetupWindow: wizard con dos modos (credenciales o código de vinculación)
-- SplashScreen — frameless + WebEngine, barra de progreso animada
-- LoginWindow — CSS glassmorphism, layout cámara + formulario
-- DashboardWindow — HUD corners + scan line, arco de confianza SVG
-- Design system OLED dark: `#050810` bg, `#3B82F6` accent, `#22C55E` green
-- **Build .exe:** `build_station.bat` genera ejecutable con icono personalizado vía PyInstaller
-- **Instalador automático:** `setup_station.bat` (venv + deps + acceso directo en escritorio)
-- **Debug reset:** `debug_reset.bat` para limpiar configuración y re-probar onboarding
+**Panel web (`web-panel/`)**
+- Auth SSR con `@supabase/ssr` (cookies + middleware)
+- Onboarding multi-tenant (crea empresa + sucursal + admin en una sola transacción)
+- CRUD de empleados con drag & drop de foto + importación masiva desde Excel
+- Listado de dispositivos en tiempo real (Realtime channel) con indicador online/offline
+- Comandos remotos a estaciones (sync forzado, reiniciar, forzar re-enrollment)
+- Vista `v_dispositivos_estado` con `SECURITY INVOKER` (respeta RLS por empresa)
+- Historial de asistencias + logs de auditoría por empresa
 
-**App de escritorio — sesión v3.0 (mayo 2026)**
-- **Modo kiosco completo:** eliminado el login de empleados. La estación abre `DashboardWindow` directamente tras el splash — cámara siempre activa, sin credenciales.
-- **SetupWindow reescrita en HTML/WebEngine:** diseño profesional con gradientes, animaciones y 4 pasos: credenciales → código de vinculación → selección de empresa/sucursal → éxito.
-- **SetupWindow guarda Supabase en `.env`:** al completar el wizard, además de `STATION_API_KEY` también se escriben `SUPABASE_URL` y `SUPABASE_KEY` en `station/.env`, garantizando conectividad en cualquier PC nueva sin configuración manual.
-- **`supabase_client.py` — fix caché de `None`:** si `URL`/`KEY` no están disponibles al arrancar (antes de completar setup), el cliente ya no cachea el fallo — reintenta en el siguiente call tras escribir `.env`.
-- **`reset_supabase_client()`:** nueva función que fuerza reinicialización del cliente Supabase; se llama desde `main.py` justo antes del check de conectividad en el splash.
-- **`database.py` — auto-migración SQLite:** al importar el módulo se agregan columnas faltantes (`enrollado`, `zona`, `sucursal`, `puesto`, `employee_id`, `foto_path`, `embedding_idx`) sin borrar datos — compatible con instalaciones existentes.
-- **`station_manager.py` — fix QTimer threading:** el `QTimer` del heartbeat se crea dentro del método `start()` del `QThread` en lugar de en `__init__` (main thread), eliminando el warning `Timers cannot be started from another thread`.
-- **DashboardWindow reescrita en HTML/WebEngine:** UI kiosco profesional — columna izquierda 60% cámara con scan line + corners de detección, columna derecha 40% panel de información con reloj grande, tarjeta de empleado, arco SVG de confianza y lista de últimos registros.
-- **Modal de PIN de supervisor:** acceso admin protegido por PIN `1234`, numpad táctil, animación de shake en PIN incorrecto.
-- **Panel supervisor:** overlay completo con lista de registros del día y registro manual por nombre.
-- **Diálogo de confirmación de asistencia:** overlay animado con foto del empleado, tipo entrada/salida con stripe de color, datos de la asistencia y cuenta regresiva de auto-confirmación.
-- **Panel derecho — mejoras visuales v3.0.1:** reloj 64px con glow, avatar empleado ampliado a 64px, arco de confianza aumentado a 96px (de 64px), circunferencia SVG y JS corregidos (251.3), separador en encabezado de registros.
+**Backend / Supabase**
+- Schema multi-tenant con RLS endurecida usando `app_metadata.empresa_id` (inmutable desde cliente)
+- 35+ funciones `SECURITY DEFINER` con `search_path` fijado
+- `pgvector` para embeddings (índice HNSW)
+- Auto-sync trigger: cambios en `empleados` → comando push a estaciones de la empresa
+- Edge Functions: `generate-embedding` para enrollment server-side
+- Migraciones versionadas en `supabase/migrations/` (aplicadas vía Supabase CLI o Dashboard)
 
-### Pendiente 🔧
-
-**Alta prioridad**
-- **Enrollment en estación:** captura guiada de fotos → embedding pgvector → subida a Supabase.
-- **Reportes con gráficas:** `/reportes` — gráficas de asistencia (Recharts o Chart.js).
+### Roadmap 🔧
 
 **Media prioridad**
-- **Configuración de empresa:** `/configuracion` — editar nombre, timezone, logo, sucursales.
-- **Notificaciones:** alertas cuando una estación pasa a offline, llegadas tarde, ausencias.
-- **Historial de asistencias mejorado:** filtros por empleado, sucursal, rango de fechas, exportar CSV/Excel.
-- **Logs de seguridad:** página web para ver intentos de heartbeat rechazados por HWID.
+- Reportes con gráficas: `/reportes` (Recharts) — horas trabajadas, retardos, ausencias
+- Configuración de empresa: `/configuracion` — editar logo, timezone, sucursales desde UI
+- Notificaciones push al admin (estación offline, fichajes anómalos)
+- Filtros avanzados en historial (rango fechas, sucursal, empleado) + export CSV/Excel
+- Página de logs de seguridad (HWID rechazados, intentos de api_key inválida)
 
 **Baja prioridad / futuro**
-- **Instalador NSIS:** `.msi` profesional con wizard de instalación Windows.
-- **Billing con Stripe:** planes Starter / Business / Enterprise con límites por tenant.
-- **API pública REST:** integración con sistemas de RH (Personio, BambooHR, SAP).
-- **App móvil:** consulta de asistencia desde celular (React Native o PWA).
+- Migrar bucket `fotos-empleados` a privado con signed URLs (cuando haya >10 empresas o datos sensibles)
+- Liveness detection (anti-foto): blink, movement, texture analysis
+- Cloudflare R2 cuando el egress de Supabase Storage supere ~$50/mes
+- Google OAuth para admins del panel
+- Billing con Stripe (Starter / Business / Enterprise)
+- API pública REST para integración con sistemas de RH externos
+- App móvil de consulta (React Native o PWA)
 
-### Completado en sesión v5.0 — Zero-Touch Provisioning + Health System ✅
+### Cambios de seguridad 2026-05-18
 
-**Provisioning automático (zero-touch)**
-- **`ProvisioningWindow`** nueva ventana que reemplaza `SetupWindow`: muestra el HWID de la máquina, hace polling silencioso a Supabase cada 5s esperando activación del admin, y al detectarla guarda `data/station_config.json` y salta al dashboard automáticamente sin intervención manual.
-- **`station_config.json`**: reemplaza el `.env` manual. Guarda `api_key`, `dispositivo_id`, `empresa_id`, `sucursal_id` y `nombre`. La estación lo lee al arrancar y lo inyecta en `os.environ`.
-- **`main.py` reescrito**: lógica de arranque clara — config JSON → legacy .env → provisioning. Detecta revocación desde heartbeat y relanza provisioning automáticamente.
-- **`get_api_key_by_hwid(hwid)`**: nueva RPC que la estación consulta cada 5s; retorna la api_key cuando el admin activa la estación.
-- **`vincular_estacion_hwid(...)`**: nueva RPC que el panel web llama al registrar; vincula HWID con la estación y genera api_key nueva.
-
-**Health Score (0–100)**
-- `station_heartbeat` ahora recibe y calcula `health_score`: cámara OK (+30) + empleados > 0 (+40) + encodings > 0 (+30).
-- `report_health()` en `station_manager.py`: función global que sync_manager y dashboard_window llaman para actualizar métricas antes de cada heartbeat.
-- Panel web — `DispositivoCard` muestra `HealthBar` con score, cámara, empleados sincronizados y hora del último sync.
-- Estación React — `HealthPanel` en sidebar muestra barra de progreso y píldoras Cámara / Empleados / Encodings en tiempo real.
-
-**Auto-sync al modificar empleados**
-- `trg_empleado_sync`: trigger SQL en tabla `empleados` — al cambiar `foto_url`, `nombre`, `apellido` o `activo`, inserta automáticamente un comando `sync_empleados` en `comandos_estacion` para todas las estaciones de la empresa.
-- `notificar_sync_empleados(empresa_id)`: RPC que también se llama explícitamente desde `/api/empleados/create` y `/api/empleados/update` para cobertura doble.
-- Estaciones reciben el comando en el siguiente poll (≤10s) y hacen sync inmediato.
-
-**Modal unificado de registro de estaciones**
-- Eliminados `CrearModal`, `PairCodeModal` y `ActivarHwidModal` — reemplazados por `RegistrarEstacionModal` único con detección automática de modo: HWID presente → zero-touch (`vincular_estacion_hwid`); sin HWID → manual (genera api_key para copiar).
-
-**Nuevas columnas en `dispositivos`**
-- `hwid`, `ultima_ip`, `version_app`, `activa`, `par_codigo`, `par_expira_en`, `empleados_count`, `ultimo_sync_at`, `encodings_version`, `camara_ok`, `health_score`, `updated_at`.
-
-**Migración aplicada**
-- `supabase/migrations/20260503_provisioning.sql` — todas las RPCs y el trigger en un solo archivo. Aplicada en producción el 2026-05-03.
-
-**Estado del sistema al cierre de sesión (2026-05-03)**
-- Panel web corriendo en `localhost:3000`
-- Estación `Prueba1-LOCAL` registrada en Supabase con `api_key = slm_b7990d5e...`, `activa = true`
-- Heartbeat OK confirmado (logs: `Heartbeat OK — Prueba1-LOCAL`)
-- Sync corriendo con 1 empleado de prueba desde el panel web
-- **Pendiente**: descargar modelos DNN (`python download_models.py`) para activar reconocimiento facial — sin los modelos YuNet/SFace el sistema no puede generar embeddings ni reconocer rostros
-
-### Completado en sesión v4.0 — React UI ✅
-
-**Migración a Arquitectura React (completada)**
-- **Frontend React + Vite:** `station/frontend/` — proyecto independiente que compila a un único `dist/index.html` inlineado (CSS + JS) para cargarse en `QWebEngineView`.
-- **Tailwind v3 + PostCSS:** Tailwind v4 usa `@layer` CSS que Chrome 83 no soporta — migrado a v3 con `postcss.config.js` y `tailwind.config.js`.
-- **QWebChannel dinámico:** `qwebchannel.js` no se inyecta automáticamente en `file://` — se carga dinámicamente desde `qrc:///qtwebchannel/qwebchannel.js` antes de conectar el canal.
-- **Globals de Python registrados al montar:** `window.setStatus`, `window.setStationInfo`, `window.setConnectivity`, `window.updateFrame`, `window.setCamState`, `window.setBadgeText`, `window.setEmployeeInfo`, `window.setAvatar`, `window.resetEmployee`, `window.showNotRecognized`, `window.showAlreadyRegistered`, `window.setLastReg` — todos expuestos en `useEffect` antes del bridge para que Python pueda llamarlos desde el momento de carga.
-- **Feed de cámara en React:** `updateFrame(b64)` muestra el frame como `<img>` base64. Cuando no hay frame, muestra un placeholder animado según el estado de la cámara (`offline`, `connecting`, `preparing`, `live`, `error`).
-- **Notificaciones con auto-clear:** overlays de "No Reconocido" y "Ya Registrado" con Framer Motion, se limpian solos a los 3 segundos.
-- **Fix rutas `database_fotos`:** los 5 archivos de reconocimiento facial apuntaban a `station/database_fotos/` (incorrecto) — corregido a `app_loginTrabajadores_desktop_pyqt/database_fotos/` (donde están los 57 empleados y fotos reales).
-
-### Pendiente estación (station/) — próximos pasos 🚧
-
-**Funcionalidad core**
-- **Lógica real de reconocimiento facial:** el sistema ya corre `hybrid_opencv_gemini_matcher` y `photo_to_photo_matcher` en background — falta conectar el resultado con el registro real en Supabase (`asistencias`) y el diálogo de confirmación de asistencia en React.
-- **Diálogo de confirmación en React:** al reconocer a un empleado, mostrar overlay con foto, nombre, tipo entrada/salida y botón de confirmar (con auto-confirmación por countdown).
-- **Enrollment desde la estación:** el supervisor puede capturar fotos de un empleado nuevo directamente desde la cámara, generar el embedding y subirlo a Supabase.
-- **Lógica entrada/salida automática:** consultar el último registro del empleado en SQLite/Supabase para proponer el tipo correcto automáticamente.
-- **Sincronización offline → online:** cuando no hay internet, guardar asistencias en SQLite local (`data/db/trabajadores.db`) y subirlas a Supabase cuando se restaure la conexión.
+Ver [`web-panel/README.md` → "Decisiones de seguridad"](./web-panel/README.md) para
+auditoría completa. Resumen:
+- 9 ERRORS críticos de Supabase advisor → 0
+- 134 WARNs → 99 (resto son por diseño: SECURITY DEFINER funcs ejecutables por anon es intencional)
+- RLS hardening: `audit_log` y `webhooks` ahora usan `app_metadata.empresa_id` (no `user_metadata` modificable)
+- Views `v_asistencias_hoy`, `v_kpis_sucursal_30d`, `v_dispositivos_estado` convertidas a `SECURITY INVOKER`
+- 15 índices de FK creados, 35 funciones con `search_path` fijado
 
 **UX y flujo kiosco**
 - **Reset automático tras inactividad:** si no se detecta ningún rostro por X segundos después de un registro, llamar `resetEmployee()` y volver al estado idle.

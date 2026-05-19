@@ -22,12 +22,21 @@ con un panel web administrado por el equipo de Safe Link.
 ## Flujo end-to-end (resumen)
 
 ```
-1. Admin crea empleado en panel web (con foto)
-2. Edge Function marca empleado como pendiente de embedding
-3. Estación recibe comando de sync por Realtime (<1s)
-4. Estación descarga foto, genera embedding facial, sube a Supabase
-5. Empleado se acerca a la cámara → reconocimiento → registro
-6. Panel web muestra el registro EN VIVO (sin refresh)
+1. Admin crea empleado en panel web (con foto drag & drop)
+2. Foto sube a Supabase Storage (fotos-empleados/<empresa>/<empleado>.jpg)
+3. Edge Function 'generate-embedding' marca empleado como enrollado=false
+4. Trigger SQL + RPC notificar_sync_empleados encolan comando para las
+   estaciones de la empresa
+5. Estación recibe el comando vía Realtime (<500ms)
+6. Estación descarga foto, genera 10 embeddings con data augmentation
+   (crop centrado + flip + brillo + rotaciones + ruido + blur) usando
+   YuNet + SFace, sube via subir_embeddings_estacion_batch
+7. Empleado se acerca a la cámara → YuNet detecta cara → SFace embedding
+   → cosine match vs cache local → si pasa threshold (0.40) + gap + quality
+   gate, dispara _auto_register → INSERT local + RPC registrar_asistencia_station
+8. Panel web muestra el registro EN VIVO via Realtime subscription
+9. Logs de cada intento de reconocimiento suben a logs_estacion para
+   diagnóstico remoto sin acceso físico al kiosko
 ```
 
 ## Roles

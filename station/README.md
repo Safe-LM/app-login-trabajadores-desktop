@@ -91,6 +91,8 @@ python run_station.py build
 
 ## Configuración (`.env`)
 
+### Variables obligatorias
+
 ```env
 SUPABASE_URL=https://<proyecto>.supabase.co
 SUPABASE_KEY=<anon_key>
@@ -99,6 +101,25 @@ STATION_NAME=Sucursal-Centro-1
 ```
 
 > El `STATION_API_KEY` se genera al crear la estación desde el panel web. Si no lo configuras, la app entra en **modo provisioning** y muestra un código QR para parear con el panel.
+
+### Variables opcionales
+
+| Variable | Default | Qué hace |
+|---|---|---|
+| `STATION_DEV` | `0` | Si `=1`, carga la UI desde `localhost:5173` (Vite dev server) en lugar de `frontend/dist/`. Útil para hot reload del frontend. |
+| `STATION_BEEP_ON_SUCCESS` | `true` | Reproduce 3 tonos ascendentes via `winsound` al confirmar asistencia. Set a `false` para entornos donde el ruido sea molesto (oficinas silenciosas). |
+| `STATION_AUTO_CLOSE` | `false` | Si `=true`, cierra la app completa tras un fichaje (modo single-user). Default `false` = modo kiosko continuo (atiende fila de empleados sin reabrir). |
+| `STATION_ENABLE_PHOTO_MATCHER` | `false` | Re-habilita el matcher legacy HOG (`photo_to_photo_matcher.py`). Desactivado por default — generaba falsos positivos con embeddings modernos. Solo para tests. |
+| `AUTO_UPDATE_ENABLED` | `true` | Verifica si hay nueva versión en GitHub Releases al arrancar. |
+
+### Ubicación del `.env`
+
+| Contexto | Ruta del `.env` |
+|---|---|
+| Dev local (`python run_station.py`) | `station/.env` (en el repo) |
+| `.exe` instalado en Windows | `%LOCALAPPDATA%\Safe Link Station\.env` |
+
+El instalador NSIS copia el `.env` plantilla al `%LOCALAPPDATA%` la primera vez.
 
 ---
 
@@ -120,15 +141,16 @@ station/
 │   │   ├── enrollment_window.py
 │   │   └── activation_window.py
 │   ├── utils/
-│   │   ├── face_recognition_opencv.py    # YuNet + SFace
-│   │   ├── hybrid_opencv_gemini_matcher.py  # Fallback con Gemini
-│   │   ├── photo_to_photo_matcher.py
-│   │   ├── sync_manager.py        # Sync nube ↔ local
-│   │   ├── realtime_listener.py   # Supabase Realtime
+│   │   ├── face_recognition_opencv.py    # YuNet + SFace — motor PRINCIPAL
+│   │   ├── hybrid_opencv_gemini_matcher.py  # Wrapper sobre OpenCV (Gemini desactivado)
+│   │   ├── photo_to_photo_matcher.py  # Matcher legacy HOG (deshabilitado por default)
+│   │   ├── sync_manager.py        # Sync nube ↔ local + auto-healing pkl
+│   │   ├── realtime_listener.py   # Supabase Realtime para comandos
 │   │   ├── station_manager.py     # Heartbeat + StationInfo
 │   │   ├── supabase_client.py
-│   │   ├── database.py            # SQLite local
-│   │   ├── models.py              # SQLAlchemy ORM
+│   │   ├── database.py            # SQLite local (init_db + auto-migration)
+│   │   ├── models.py              # SQLAlchemy ORM (Trabajador, RegistroAsistencia)
+│   │   ├── paths.py               # writable_root + bundled_models_root (--onedir aware)
 │   │   ├── auth.py
 │   │   ├── hwid.py                # Hardware fingerprint
 │   │   └── auto_updater.py
@@ -156,17 +178,36 @@ station/
 ```
 ┌──────────┐   ┌──────────────┐   ┌────────────────┐   ┌──────────────┐
 │  Cámara  │──▶│ YuNet detect │──▶│ SFace embedding│──▶│ Cosine match │
-│ 30 fps   │   │  cara/frame  │   │   128 floats   │   │  vs cache    │
+│ ~30 fps  │   │  cara/frame  │   │   128 floats   │   │  vs cache    │
 └──────────┘   └──────────────┘   └────────────────┘   └──────────────┘
                                                               │
                                                               ▼
                                                    ┌──────────────────────┐
-                                                   │ ¿confianza >= 0.85?  │
+                                                   │ ¿cosine >= 0.40?     │
+                                                   │ + gap >= 0.03 vs 2do │
+                                                   │ + quality gate ok    │
                                                    ├──────────────────────┤
-                                                   │ Sí → registrar       │
+                                                   │ Sí → auto-registrar  │
                                                    │ No → seguir buscando │
                                                    └──────────────────────┘
 ```
+
+**Threshold de auto-registro:** `AUTO_REGISTER_THRESHOLD = 0.40` (cosine raw).
+Coincide con el `MIN_COSINE` del matcher: si el recognizer ya validó que es
+la misma persona (pasó threshold + gap + quality gate), el registro persiste
+sin requerir confianza extra. La protección anti-duplicado (60s entre fichajes
+del mismo empleado) evita registros accidentales.
+
+> Nota: versiones anteriores usaban 0.50, pero generaba la confusión
+> "dice IDENTIFICADO pero no me ficha" cuando el match legítimo caía en
+> 0.42–0.49. Ahora ambos thresholds son consistentes.
+
+### Bbox en vivo
+
+Sobre el feed de la cámara se dibujan marcas estilo *viewfinder* (corners
+verdes) alrededor del rostro detectado por YuNet. Feedback visual inmediato
+al empleado: ve dónde está mirando el sistema y si su cara está bien
+encuadrada.
 
 ### Sync automático con Supabase
 
@@ -205,14 +246,26 @@ git push origin station-v5.0.0
 
 ## Troubleshooting
 
-| Problema | Solución |
+| Síntoma | Diagnóstico / solución |
 |---|---|
-| `ImportError: QtWebEngineWidgets must be imported before QApplication` | Tu `main.py` está desactualizado — `git pull origin main` |
-| `Could not find function subir_embeddings_estacion_batch` | Falta aplicar migración → `tools/migration/run_supabase_migration.py` |
-| `Encodings cargados: 0 (0 empleados)` | El caché está vacío. Borra `station/data/cache/` y reinicia para forzar re-sync |
-| `Camera not found` | Verifica que ningún otro proceso (Teams, Zoom) esté usando la cámara |
-| La estación no aparece en el panel | El heartbeat falla — revisa `SUPABASE_URL` y `STATION_API_KEY` en `.env` |
-| `face_recognition no disponible (opcional)` | Es solo un warning, el matcher OpenCV cubre todo. Ignorar |
+| **UI dice "IDENTIFICADO" pero no registra asistencia** | Verifica que la confianza supere `AUTO_REGISTER_THRESHOLD=0.40`. Si está por debajo, el match se muestra pero no persiste. Mejora luz o calidad de la foto enrollada. |
+| **Status queda en "SISTEMA LISTO" eternamente** | El thread de reconocimiento no arrancó. Revisa en panel: `recognition_init` debe tener `available=true`. Si dice `false`, falta el modelo DNN en el bundle (build mal hecho). |
+| **`No such table: trabajadores`** en log | `init_db()` falló. Borrar `<writable_root>/data/db/trabajadores.db` y reiniciar — la auto-migration la recrea. |
+| **`Modelos DNN no encontrados`** | Solo en dev local: corre `python download_models.py`. En `.exe` instalado los modelos vienen bundleados en `_internal/models/` — si faltan, el build se hizo mal (revisa `SafeLink_Station.spec`). |
+| **`Encodings cargados: 0 (0 empleados)`** | El caché está vacío. Borra `<writable_root>/data/cache/` y reinicia para forzar re-sync desde Supabase. |
+| **`Camera not found` / cámara congelada** | Verifica que ningún otro proceso (Teams, Zoom, OBS) esté usando la cámara. El `_CameraThread` tiene watchdog que reabre si detecta frames congelados. |
+| **La estación no aparece en el panel** | Heartbeat falla — revisa `SUPABASE_URL` y `STATION_API_KEY` en `.env`. Si la api_key fue revocada desde el panel, hay que re-provisioning. |
+| **`ImportError: QtWebEngineWidgets must be imported before QApplication`** | `main.py` desactualizado — `git pull origin main`. |
+| **Beep no suena** | Verifica `STATION_BEEP_ON_SUCCESS=true` y que el sistema tenga audio activo. Es no-bloqueante (corre en thread daemon). |
+| **App no cierra entre fichajes (modo single-user)** | Set `STATION_AUTO_CLOSE=true` en `.env` para cerrar tras cada registro. Default `false` = modo kiosko continuo. |
+| **AudioContext warnings spameando consola** | Cosmético — Chrome embebido bloquea audio en kiosko sin gesto del usuario. Ya silenciado a nivel Python en el filtro `_js_console`. El beep real usa `winsound` (no web audio). |
+
+### Diagnóstico remoto (desde el panel)
+
+Para una estación en producción sin acceso físico, consulta los eventos
+`recognition_*` en `logs_estacion` (sección [Telemetría remota](#telemetría-remota-panel)).
+La métricas `brillo`, `std`, `lap` de cada intento permiten saber si el
+problema es iluminación, blur, o el motor de matching.
 
 ### Reset completo (cuando algo se rompe feo)
 
@@ -221,6 +274,8 @@ git push origin station-v5.0.0
 ```
 
 Borra caché, base local y vuelve al estado de fábrica (mantiene `.env`).
+En el `.exe` instalado: borrar manualmente
+`%LOCALAPPDATA%\Safe Link Station\data\` y reiniciar la app.
 
 ---
 
@@ -237,13 +292,50 @@ CI corre `pytest-qt` con `QT_QPA_PLATFORM=offscreen` en cada push a `main` (work
 
 ## Logs
 
-La app loga a stdout. Para guardar a archivo:
+### Log local
+
+La app escribe a `<writable_root>/logs/station.log` (en `.exe` instalado:
+`%LOCALAPPDATA%\Safe Link Station\logs\station.log`). En dev local va a
+stdout y también a `station/logs/station.log`.
+
+Para guardar stdout adicional a un archivo con timestamp:
 
 ```powershell
 python run_station.py 2>&1 | Tee-Object -FilePath logs\station_$(Get-Date -Format yyyyMMdd_HHmmss).log
 ```
 
-Logs importantes en Supabase: tabla `logs_estacion` (insertados via RPC `insertar_log_estacion`).
+### Telemetría remota (panel)
+
+La estación sube eventos en tiempo real a `logs_estacion` en Supabase vía
+RPC `insertar_log_estacion`. Permite debuguear "no detecta" o "no registra"
+sin acceso físico al kiosko.
+
+| Evento | Cuándo se emite | Payload relevante |
+|---|---|---|
+| `recognition_init` | Dashboard crea el thread de reconocimiento | `available`, `has_init_fn` |
+| `recognition_unavailable` | Motor no se pudo cargar (DNN no encontrado) | — |
+| `recognition_ready` | `inicializar_sistema_facial()` terminó OK | — |
+| `recognition_init_error` | Excepción en init | `error` |
+| `recognition_thread_started` | Loop de reconocimiento arrancó | `interval` |
+| `recognition_match` | Match exitoso (cualquier intento) | `method`, `conf`, `empleado`, `brillo`, `std`, `lap` |
+| `recognition_no_match` | Sin match (cada 5 intentos para no saturar) | `attempt`, `hybrid_conf`, `opencv_conf`, `brillo`, `std`, `lap` |
+| `recognition_error` | Excepción procesando un intento | `attempt`, `error` |
+| `recognition_thread_stopped` | Loop detenido (cierre o stop) | `total_attempts` |
+| `enrollment_no_bbox` | Foto no tenía cara detectable al regenerar embeddings | `empleado_id`, `fallback` |
+| `sync_ok` / `sync_error` | Sincronización completada o fallida | `empleados`, `embeddings_nuevos` |
+| `embeddings_download_*` | Descarga de embeddings desde Supabase | `embeddings`, `parse_errors` |
+
+Cómo consultar desde el panel admin: tabla `logs_estacion` en Supabase, o
+sección "Logs en vivo" del panel de cada estación. Filtros típicos:
+
+```sql
+-- ¿Por qué no detecta a un empleado?
+SELECT tipo, detalle, creado_en
+FROM logs_estacion
+WHERE creado_en > now() - interval '5 minutes'
+  AND tipo LIKE 'recognition%'
+ORDER BY creado_en DESC;
+```
 
 ---
 

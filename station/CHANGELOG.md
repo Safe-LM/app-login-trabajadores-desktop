@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.6.10](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.9...station-v5.6.10) (2026-05-19)
+
+
+### 🐛 Correcciones
+
+* **station:** apuntar _lazy_load_face_recognition a face_recognition_opencv ([8e693db](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/8e693dbbb22ccbeb0164c54e5efeeba795ec86c4))
+
 ## [5.6.9](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.8...station-v5.6.9) (2026-05-19)
 
 

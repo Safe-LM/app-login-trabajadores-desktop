@@ -19,10 +19,21 @@ from sqlalchemy.orm import sessionmaker, Session, DeclarativeBase
 
 
 # ── Paths ────────────────────────────────────────────────────────────────────
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-DB_DIR = PROJECT_ROOT / "data" / "db"
-DB_PATH = DB_DIR / "trabajadores.db"
+# La BD SQLite local DEBE vivir en una ruta escribible. En dev local
+# resuelve a station/data/db/. En el .exe instalado (--onedir en
+# C:\Program Files\) sin esto resolvia a la ruta read-only de la
+# instalacion -> tabla 'trabajadores' nunca se creaba -> error
+# "no such table" al intentar registrar asistencia tras un match.
+try:
+    from utils.paths import writable_root
 
+    DB_DIR = writable_root() / "data" / "db"
+except Exception:
+    # Fallback solo si paths.py no esta disponible (ej. tests aislados)
+    PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+    DB_DIR = PROJECT_ROOT / "data" / "db"
+
+DB_PATH = DB_DIR / "trabajadores.db"
 DB_DIR.mkdir(parents=True, exist_ok=True)
 
 DATABASE_URL = f"sqlite:///{DB_PATH}"

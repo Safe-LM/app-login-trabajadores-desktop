@@ -1406,17 +1406,29 @@ class DashboardWindow(QMainWindow):
             # ambientes ruidosos donde el empleado no mira la pantalla.
             # Opcional via env STATION_BEEP_ON_SUCCESS (default true).
             # Usamos winsound (stdlib Windows) — sin dependencias extra.
+            #
+            # IMPORTANTE: winsound.Beep BLOQUEA el thread llamante mientras
+            # suena. Si se llama desde el thread principal (Qt event loop),
+            # la UI se congela ~400ms. Lo lanzamos en un thread daemon
+            # separado para no afectar la fluidez del feedback visual.
             import os
             beep_enabled = os.environ.get("STATION_BEEP_ON_SUCCESS", "true").lower() in ("true", "1", "yes")
             if beep_enabled:
-                try:
-                    import winsound
-                    # Dos tonos cortos ascendentes — sonido tipico de OK
-                    winsound.Beep(900, 100)
-                    winsound.Beep(1200, 120)
-                except Exception:
-                    # No critico si falla (no-Windows, sin altavoz, etc.)
-                    pass
+                import threading
+
+                def _play_beep():
+                    try:
+                        import winsound
+                        # 3 tonos ascendentes mas largos y audibles —
+                        # claros en ambiente ruidoso de kiosko/oficina.
+                        winsound.Beep(800, 150)
+                        winsound.Beep(1000, 150)
+                        winsound.Beep(1300, 200)
+                        logger.info("Beep de asistencia reproducido")
+                    except Exception as e:
+                        logger.warning(f"winsound.Beep fallo: {e}")
+
+                threading.Thread(target=_play_beep, daemon=True).start()
 
             # 4. Agregar al historial reciente
             nombre_full = f"{nombre_display} {apellido_display}".strip()
@@ -1427,13 +1439,16 @@ class DashboardWindow(QMainWindow):
 
             # 6. Despues de 4s decidir si cerramos o reseteamos.
             #
-            # A2: por default la estacion RESETEA al estado de espera
-            # para servir la siguiente persona en fila. Antes se cerraba
-            # entera (QApplication.quit) lo que requeria reabrir manual
-            # entre empleados — pesima UX para kioscos.
+            # Default: STATION_AUTO_CLOSE=false (modo kiosko continuo).
+            # La estacion RESETEA al estado de espera tras cada fichaje
+            # para servir la siguiente persona sin reabrir la app —
+            # comportamiento estandar de la industria (ZKTeco, Suprema,
+            # etc.) para kioscos de entrada/salida con fila de empleados.
+            # La proteccion anti-doble-fichaje (60s entre registros del
+            # mismo empleado) ya evita duplicados accidentales.
             #
-            # Si quieres el comportamiento viejo (cerrar tras cada
-            # fichaje, ej. para testing aislado), set STATION_AUTO_CLOSE=true
+            # Si el caso de uso es "1 empleado por estacion" o quieres
+            # cierre completo entre fichajes, set STATION_AUTO_CLOSE=true
             # en el .env.
             import os
             auto_close = os.environ.get("STATION_AUTO_CLOSE", "false").lower() in ("true", "1", "yes")

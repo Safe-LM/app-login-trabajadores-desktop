@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.6.8](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.7...station-v5.6.8) (2026-05-19)
+
+
+### 🐛 Correcciones
+
+* **station:** mejorar fluidez y calidad visual del feed de camara ([6919cbc](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/6919cbcad3eb59c018bdad0053ef5be19e2ad430))
+
 ## [5.6.7](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.6...station-v5.6.7) (2026-05-18)
 
 

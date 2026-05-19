@@ -90,7 +90,35 @@ def models_root() -> Path:
 
 
 def bundled_models_root() -> Path:
-    """Modelos pre-empaquetados en la instalacion (read-only)."""
+    """
+    Modelos pre-empaquetados en la instalacion (read-only).
+
+    PyInstaller --onedir pone los datos en `<install>/_internal/`, no en
+    `<install>/` directamente. _STATION_ROOT resuelve a `<install>/`
+    (porque paths.py vive en `_internal/utils/`), asi que el path
+    "naive" `_STATION_ROOT / 'models'` queda fuera del bundle y los
+    .onnx no se encuentran.
+
+    Detectamos el bundle en orden:
+      1. sys._MEIPASS — definido en --onefile y --onedir modernos
+      2. parent de __file__ subiendo 2 niveles + 'models' — caso --onedir
+         donde paths.py vive en `_internal/utils/`
+      3. _STATION_ROOT/models — dev local (sin bundle)
+    """
+    # 1. PyInstaller expone _MEIPASS apuntando a la carpeta de extraccion
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        candidate = Path(meipass) / "models"
+        if candidate.exists():
+            return candidate
+
+    # 2. --onedir clasico: utils/ esta en _internal/, modelos en _internal/models/
+    here = Path(__file__).resolve()
+    candidate = here.parent.parent / "models"  # _internal/utils -> _internal/models
+    if candidate.exists():
+        return candidate
+
+    # 3. Dev local: station/src/utils/paths.py -> station/models/
     return _STATION_ROOT / "models"
 
 

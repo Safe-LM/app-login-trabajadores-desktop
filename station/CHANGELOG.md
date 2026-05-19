@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.6.13](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.12...station-v5.6.13) (2026-05-19)
+
+
+### 🐛 Correcciones
+
+* **station:** DB SQLite local debe vivir en writable_root, no en _internal ([631b924](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/631b92493814097e8c28297323d056300d4b0a62))
+
 ## [5.6.12](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.11...station-v5.6.12) (2026-05-19)
 
 

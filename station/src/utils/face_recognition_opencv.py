@@ -90,14 +90,25 @@ class OpenCVFaceRecognizer:
         self._recognizer: Optional[cv2.FaceRecognizerSF] = None
         self._dnn_available = False
 
-        # Haar cascade como fallback
+        # Haar cascade como fallback de deteccion. En PyInstaller bundle
+        # cv2.data.haarcascades puede apuntar a una ruta donde el XML no
+        # esta empaquetado — CascadeClassifier() no lanza error pero crea
+        # un objeto vacio que peta al usarlo ("Assertion failed: !empty()").
+        # Validamos .empty() y descartamos el cascade si esta vacio para
+        # que _get_embedding caiga directo a YuNet sin intentar el fallback.
         self._cascade = None
         try:
-            self._cascade = cv2.CascadeClassifier(
-                cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-            )
-        except Exception:
-            pass
+            cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+            c = cv2.CascadeClassifier(cascade_path)
+            if not c.empty():
+                self._cascade = c
+            else:
+                logger.warning(
+                    f"Haar cascade vacio ({cascade_path}) — fallback desactivado, "
+                    f"YuNet manejara toda la deteccion."
+                )
+        except Exception as e:
+            logger.warning(f"Haar cascade no disponible: {e}")
 
         self._init_dnn()
 
@@ -188,15 +199,22 @@ class OpenCVFaceRecognizer:
     def _detect_face_cascade(
         self, frame: np.ndarray
     ) -> Optional[Tuple[int, int, int, int]]:
-        """Fallback: Haar Cascade."""
+        """Fallback: Haar Cascade. Defensa profunda: si por alguna razon
+        el cascade quedo vacio post-init, capturamos el error en lugar de
+        propagar el assertion failure de OpenCV."""
         if self._cascade is None:
             return None
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = self._cascade.detectMultiScale(gray, 1.1, 5, minSize=(50, 50))
-        if len(faces) == 0:
+        try:
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            faces = self._cascade.detectMultiScale(gray, 1.1, 5, minSize=(50, 50))
+            if len(faces) == 0:
+                return None
+            x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
+            return (x, y, x + w, y + h)
+        except cv2.error:
+            # Cascade en estado invalido — desactivar definitivamente
+            self._cascade = None
             return None
-        x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
-        return (x, y, x + w, y + h)
 
     def _get_embedding(self, frame: np.ndarray) -> Optional[np.ndarray]:
         """Obtener embedding facial de un frame."""

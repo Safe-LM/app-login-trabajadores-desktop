@@ -1191,11 +1191,16 @@ class DashboardWindow(QMainWindow):
                 self._last_avatar_b64 = ""
 
             # Threshold de auto-registro sobre cosine raw (no display
-            # inflado). 0.50 raw es ~95% display antiguo. Es un poco mas
-            # estricto que el min para match (0.40) — solo registramos
-            # auto cuando hay alta confianza, sino mostramos pero
-            # esperamos confirmacion manual.
-            AUTO_REGISTER_THRESHOLD = 0.50
+            # inflado). 0.40 coincide con MIN_COSINE del matcher: si el
+            # motor ya valido que es la misma persona (paso threshold +
+            # gap vs segundo mejor en recognize()), aceptamos el registro.
+            #
+            # Antes era 0.50 — pero matches legitimos a 0.42-0.48 se
+            # mostraban en UI pero nunca disparaban auto_register,
+            # generando confusion ("dice IDENTIFICADO pero no me ficha").
+            # 0.40 es el threshold honesto: si paso los gates del
+            # recognize(), el registro debe persistir.
+            AUTO_REGISTER_THRESHOLD = 0.40
             if conf >= AUTO_REGISTER_THRESHOLD and not self._attendance_done:
                 self._auto_register(info, conf, method)
         else:

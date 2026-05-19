@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.6.9](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.8...station-v5.6.9) (2026-05-19)
+
+
+### 🐛 Correcciones
+
+* **station:** hardening del reconocimiento facial + telemetria remota + UX ([d381aa6](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/d381aa696c874547603f6605cb015521f0449832))
+
 ## [5.6.8](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.7...station-v5.6.8) (2026-05-19)
 
 

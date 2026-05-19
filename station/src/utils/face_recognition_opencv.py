@@ -20,18 +20,50 @@ logger = logging.getLogger(__name__)
 
 def _find_models_dir(start: Path) -> Path:
     """
-    Busca la carpeta 'models' subiendo en la jerarquía desde `start`.
-    Devuelve el primer match. Si no encuentra, retorna start.parent / 'models'
-    (path "esperado" — el caller validará si existe).
+    Resuelve la ruta de los modelos DNN (YuNet + SFace).
+
+    En orden de prioridad:
+      1. writable_root() / 'models' — APPDATA en .exe instalado.
+         Modelos descargados/copiados al primer arranque.
+      2. bundled_models_root() — modelos que vienen pre-empaquetados en
+         el .exe (PyInstaller los pone aqui via spec.datas).
+      3. Buscar subiendo en la jerarquia desde `start` — fallback para
+         dev local donde station/models/ vive 3-4 niveles arriba del cache.
+      4. start.parent / 'models' — path "esperado", caller validara.
+
+    Bug previo: solo usaba (3), lo que en el .exe instalado encontraba
+    APPDATA\\Safe Link Station\\models (creado vacio por models_root()
+    en paths.py) y se quedaba ahi sin nunca chequear el bundle. Como
+    los .onnx solo viven en el bundle, dnn_available quedaba False y
+    el reconocimiento entero se rompia silenciosamente.
     """
+    # 1. Ruta escribible (puede tener modelos copiados/descargados)
+    try:
+        from utils.paths import models_root, bundled_models_root
+
+        writable = models_root()
+        if writable.exists() and any(writable.glob("*.onnx")):
+            return writable
+
+        # 2. Bundle PyInstaller (read-only pero contiene los modelos)
+        bundled = bundled_models_root()
+        if bundled.exists() and any(bundled.glob("*.onnx")):
+            return bundled
+    except Exception:
+        # paths.py podria no estar disponible en algun contexto de test
+        pass
+
+    # 3. Busqueda jerarquica clasica (compat dev local)
     p = start.resolve()
-    for _ in range(6):  # subir hasta 6 niveles
+    for _ in range(6):
         candidate = p / "models"
-        if candidate.exists():
+        if candidate.exists() and any(candidate.glob("*.onnx")):
             return candidate
         if p.parent == p:
             break
         p = p.parent
+
+    # 4. Path "esperado" — caller validara existencia
     return start.parent / "models"
 
 

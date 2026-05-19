@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.6.14](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.13...station-v5.6.14) (2026-05-19)
+
+
+### 🐛 Correcciones
+
+* **station:** init_db crea tablas correctamente — bug raiz del registro ([83caffd](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/83caffdb49ec28bf78c5384113dd5d91ff2a9eb3))
+
 ## [5.6.13](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.12...station-v5.6.13) (2026-05-19)
 
 

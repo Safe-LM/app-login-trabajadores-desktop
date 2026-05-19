@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.7.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.16...station-v5.7.0) (2026-05-19)
+
+
+### ✨ Nuevas funcionalidades
+
+* **station:** auto-cierre de la app tras fichaje exitoso (default) ([be82ae2](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/be82ae22f9cfc911b7c27acdca90f53e8e719b95))
+
 ## [5.6.16](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.15...station-v5.6.16) (2026-05-19)
 
 

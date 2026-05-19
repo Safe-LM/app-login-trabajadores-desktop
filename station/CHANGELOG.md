@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.7.1](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.7.0...station-v5.7.1) (2026-05-19)
+
+
+### 🐛 Correcciones
+
+* **station:** credenciales Supabase embebidas en el bundle ([3aadd9c](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/3aadd9cbd080c84c917ed43349abdef9206d9099))
+
 ## [5.7.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.16...station-v5.7.0) (2026-05-19)
 
 

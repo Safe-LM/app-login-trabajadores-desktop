@@ -35,19 +35,53 @@ inicializar_sistema_facial = None
 
 
 def _lazy_load_face_recognition():
+    """Carga el motor de reconocimiento facial moderno (YuNet + SFace via
+    OpenCV DNN). La estacion usa solo este motor desde v5.x — el modulo
+    `face_recognition` legacy (dlib) fue removido pero el codigo aun
+    intentaba importarlo y dejaba FACE_RECOGNITION_AVAILABLE=False
+    permanentemente, lo que desactivaba TODO el reconocimiento en
+    produccion aunque YuNet+SFace funcionara perfecto.
+
+    Ahora apuntamos directamente a face_recognition_opencv y exponemos
+    la API esperada por el resto del dashboard (reconocer_desde_frame,
+    inicializar_sistema_facial)."""
     global FACE_RECOGNITION_AVAILABLE, reconocer_desde_frame, inicializar_sistema_facial
     if reconocer_desde_frame is not None:
         return
     try:
-        from utils.face_recognition import (
-            FACE_RECOGNITION_AVAILABLE as _av,
-            inicializar_sistema_facial as _ini,
-            reconocer_desde_frame as _rec,
+        from utils.face_recognition_opencv import (
+            get_opencv_recognizer,
+            recognize_opencv,
         )
-        reconocer_desde_frame = _rec
-        inicializar_sistema_facial = _ini
-        FACE_RECOGNITION_AVAILABLE = _av
-    except ImportError:
+
+        def _init() -> bool:
+            """Forzar carga del singleton + encodings desde el cache de
+            la empresa. Retorna True si quedo listo, False en caso
+            contrario (ej. modelos DNN faltantes)."""
+            try:
+                rec = get_opencv_recognizer()
+                if rec is None:
+                    return False
+                # load_encodings es idempotente y rapido si ya cargo
+                if not rec.loaded:
+                    rec.load_encodings()
+                return rec._dnn_available
+            except Exception as e:
+                logger.warning(f"inicializar_sistema_facial: {e}")
+                return False
+
+        def _recognize(frame, trabajador_id=None, embedding_idx=None):
+            """Wrapper compatible con la firma esperada por el dashboard.
+            Los args trabajador_id/embedding_idx se aceptan por
+            compatibilidad pero el motor moderno hace match global."""
+            ok, conf, info = recognize_opencv(frame)
+            return ok, conf, info
+
+        reconocer_desde_frame = _recognize
+        inicializar_sistema_facial = _init
+        FACE_RECOGNITION_AVAILABLE = True
+    except ImportError as e:
+        logger.error(f"face_recognition_opencv no disponible: {e}")
         FACE_RECOGNITION_AVAILABLE = False
         reconocer_desde_frame = lambda *a, **k: (False, 0.0, None)
         inicializar_sistema_facial = lambda: False

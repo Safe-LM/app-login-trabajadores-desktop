@@ -66,32 +66,21 @@ Page custom ConfigPage ConfigPageLeave
 
 ; ─── Variables para la pagina custom ─────────────────────────────────
 Var Dialog
+Var LblIntro
 Var LblNombre
 Var TxtNombre
-Var LblApiKey
-Var TxtApiKey
-Var LblSupabaseUrl
-Var TxtSupabaseUrl
-Var LblSupabaseKey
-Var TxtSupabaseKey
-Var LblIntro
 Var ChkAutostart
 Var ChkAutostartState
 
 ; ─── Pagina de configuracion ─────────────────────────────────────────
-; Layout compacto para que TODOS los campos quepan en la pagina del
-; wizard sin necesidad de scroll. Espaciado vertical: 18u por campo.
-;
-;   0u  - 16u: Intro (2 lineas)
-;  20u  - 31u: Label "Nombre"   + TextBox
-;  44u  - 55u: Label "API Key"  + TextBox
-;  68u  - 79u: Label "URL"      + TextBox
-;  92u  - 103u: Label "Anon Key" + TextBox
-; 116u - 122u: Checkbox autostart
-; Total: ~125u, cabe en los ~140u disponibles del wizard.
+; Wizard simplificado: las credenciales de Supabase viajan embebidas
+; en el .exe (config/server.env dentro del bundle), por lo que el
+; operario solo elige el nombre de la estacion y si arranca con Windows.
+; La identidad de la estacion (STATION_API_KEY) se obtiene en el primer
+; arranque mediante el SetupWindow (login admin o codigo de 6 digitos).
 Function ConfigPage
   !insertmacro MUI_HEADER_TEXT "Configuracion inicial" \
-    "Vincula esta estacion con tu cuenta de Safe Link Monitoring."
+    "Asigna un nombre a esta estacion."
 
   nsDialogs::Create 1018
   Pop $Dialog
@@ -99,37 +88,19 @@ Function ConfigPage
     Abort
   ${EndIf}
 
-  ; Intro (2 lineas)
-  ${NSD_CreateLabel} 0 0 100% 16u \
-    "Datos del panel web. Dejalos vacios si quieres configurarlos despues editando .env"
+  ; Intro
+  ${NSD_CreateLabel} 0 0 100% 24u \
+    "Tras la instalacion, Safe Link Station te pedira las credenciales del administrador (o un codigo de vinculacion) para registrar esta estacion en tu cuenta."
   Pop $LblIntro
 
   ; Nombre de la estacion
-  ${NSD_CreateLabel} 0 20u 100% 9u "Nombre de la estacion:"
+  ${NSD_CreateLabel} 0 32u 100% 9u "Nombre de la estacion:"
   Pop $LblNombre
-  ${NSD_CreateText} 0 30u 100% 11u "Estacion-1"
+  ${NSD_CreateText} 0 42u 100% 11u "Estacion-1"
   Pop $TxtNombre
 
-  ; API Key
-  ${NSD_CreateLabel} 0 44u 100% 9u "API Key (slm_...):"
-  Pop $LblApiKey
-  ${NSD_CreateText} 0 54u 100% 11u ""
-  Pop $TxtApiKey
-
-  ; Supabase URL
-  ${NSD_CreateLabel} 0 68u 100% 9u "URL Supabase:"
-  Pop $LblSupabaseUrl
-  ${NSD_CreateText} 0 78u 100% 11u "https://ctmpsokjdguygjqmxyob.supabase.co"
-  Pop $TxtSupabaseUrl
-
-  ; Supabase Anon Key
-  ${NSD_CreateLabel} 0 92u 100% 9u "Supabase Anon Key (publica, eyJ...):"
-  Pop $LblSupabaseKey
-  ${NSD_CreateText} 0 102u 100% 11u ""
-  Pop $TxtSupabaseKey
-
   ; Checkbox: arrancar al iniciar Windows
-  ${NSD_CreateCheckbox} 0 118u 100% 10u "Iniciar automaticamente con Windows"
+  ${NSD_CreateCheckbox} 0 62u 100% 10u "Iniciar automaticamente con Windows"
   Pop $ChkAutostart
   ${NSD_Check} $ChkAutostart
 
@@ -138,18 +109,14 @@ FunctionEnd
 
 Function ConfigPageLeave
   ${NSD_GetText} $TxtNombre $0
-  ${NSD_GetText} $TxtApiKey $1
-  ${NSD_GetText} $TxtSupabaseUrl $2
-  ${NSD_GetText} $TxtSupabaseKey $3
   ${NSD_GetState} $ChkAutostart $ChkAutostartState
 
-  ; Escribir .env en el directorio de instalacion
+  ; Escribir .env minimo en el directorio de instalacion. SUPABASE_URL/KEY
+  ; NO se escriben aqui — vienen embebidos en config/server.env del bundle
+  ; y se cargan por _bootstrap_env() en el arranque.
   FileOpen $4 "$INSTDIR\.env" w
   FileWrite $4 "# Generado por el instalador de Safe Link Station$\r$\n"
   FileWrite $4 "STATION_NAME=$0$\r$\n"
-  FileWrite $4 "STATION_API_KEY=$1$\r$\n"
-  FileWrite $4 "SUPABASE_URL=$2$\r$\n"
-  FileWrite $4 "SUPABASE_KEY=$3$\r$\n"
   FileClose $4
 
   ; Autostart con Windows si esta marcado

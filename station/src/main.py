@@ -25,32 +25,50 @@ SRC_DIR = BASE_DIR / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 
 def _bootstrap_env() -> None:
     """
-    Carga .env priorizando ubicacion escribible (%LOCALAPPDATA% en
-    builds instalados) sobre la copia del bundle (read-only).
+    Resuelve la configuracion de entorno en tres capas, de menor a mayor
+    prioridad:
 
-    Si la app se instala en C:\\Program Files y el wizard NSIS dejo un
-    .env ahi, lo migramos al primer arranque a writable_root() para
-    que la app pueda escribirlo despues (refresh tokens, cambios de
-    config, etc.).
+      1. server.env embebido en el bundle  -> defaults del fabricante
+         (SUPABASE_URL, SUPABASE_KEY). Garantiza que la estacion arranca
+         "out of the box" en cualquier maquina, sin que el operario tenga
+         que tocar variables de entorno.
+
+      2. .env junto al .exe (bundled_env_path)  -> compatibilidad con
+         instalaciones NSIS antiguas. Si existe, se migra a la ruta
+         escribible para que la app pueda mutarlo despues.
+
+      3. .env de usuario en %LOCALAPPDATA% (env_path)  -> identidad de
+         esta estacion concreta (STATION_API_KEY) y overrides locales.
+
+    Politica: las capas 2 y 3 sobreescriben a la 1. Si una clave queda
+    vacia tras cargar capas 2/3, se reinstala desde la capa 1 para evitar
+    el bug clasico "SUPABASE_KEY= vacio bloquea el arranque".
     """
-    from utils.paths import env_path, bundled_env_path
+    from utils.paths import env_path, bundled_env_path, bundled_server_env_path
 
-    writable = env_path()
-    bundled  = bundled_env_path()
+    server_env = bundled_server_env_path()
+    writable   = env_path()
+    bundled    = bundled_env_path()
 
-    # Migracion: si writable no existe pero bundled si, copiamos.
+    # Capa 1: defaults embebidos. override=False — no pisamos lo que ya
+    # pudiera existir en el entorno del proceso (CI, tests, env vars del
+    # SO). Si el .env de usuario los reescribe luego, gana el usuario.
+    if server_env.exists():
+        load_dotenv(server_env, override=False)
+
+    # Migracion legacy: si writable no existe pero bundled si, copiar.
     if not writable.exists() and bundled.exists() and bundled != writable:
         try:
             writable.write_text(bundled.read_text("utf-8"), "utf-8")
         except Exception:
             pass
 
-    # Cargar el .env escribible si existe; si no, caer al bundle; si
-    # nada, hacer load_dotenv() default por compatibilidad con dev.
+    # Capa 2/3: .env del usuario. override=True — la configuracion local
+    # de la estacion manda sobre los defaults.
     if writable.exists():
         load_dotenv(writable, override=True)
     elif bundled.exists():
@@ -61,6 +79,16 @@ def _bootstrap_env() -> None:
             if _env.exists():
                 load_dotenv(_env, override=True)
                 break
+
+    # Reparacion: si las capas 2/3 dejaron SUPABASE_URL/KEY vacios
+    # (caso del wizard NSIS antiguo que escribia campos en blanco),
+    # restauramos los defaults embebidos. Sin esto, una sola linea
+    # "SUPABASE_KEY=" en el .env del usuario rompe la app.
+    if server_env.exists():
+        defaults = dotenv_values(server_env)
+        for k, v in defaults.items():
+            if v and not os.environ.get(k):
+                os.environ[k] = v
 
 _bootstrap_env()
 

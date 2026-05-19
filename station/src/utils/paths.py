@@ -148,3 +148,24 @@ def env_path() -> Path:
 def bundled_env_path() -> Path:
     """.env que el instalador NSIS deja junto al .exe (read-only en builds)."""
     return _STATION_ROOT / ".env"
+
+
+def bundled_server_env_path() -> Path:
+    """
+    server.env embebido en el bundle: defaults read-only de SUPABASE_URL /
+    SUPABASE_KEY que viajan dentro del .exe. Garantiza que la estacion
+    arranca aunque no exista ningun .env de usuario.
+
+    Resolucion en orden:
+      1. sys._MEIPASS/config/server.env -- --onefile / --onedir moderno
+      2. _internal/config/server.env    -- --onedir clasico
+      3. src/config/server.env          -- dev local
+    """
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        candidate = Path(meipass) / "config" / "server.env"
+        if candidate.exists():
+            return candidate
+
+    here = Path(__file__).resolve()
+    return here.parent.parent / "config" / "server.env"

@@ -18,6 +18,10 @@ block_cipher = None
 datas = [
     # Iconos, logos
     ("src/assets", "src/assets"),
+    # Credenciales Supabase embebidas (defaults read-only del fabricante).
+    # Se cargan en _bootstrap_env() para que el .exe arranque sin que el
+    # operario tenga que configurar SUPABASE_URL / SUPABASE_KEY.
+    ("src/config/server.env", "config"),
 ]
 
 # Frontend React compilado (UI embebida) — solo si fue compilado

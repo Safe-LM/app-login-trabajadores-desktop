@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.6.16](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.15...station-v5.6.16) (2026-05-19)
+
+
+### 🐛 Correcciones
+
+* **station:** auto-healing regenera embeddings aunque otros empleados ya tengan ([9c9271d](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/9c9271d9e77ea20933cdd658829210ac384af358))
+
 ## [5.6.15](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.14...station-v5.6.15) (2026-05-19)
 
 

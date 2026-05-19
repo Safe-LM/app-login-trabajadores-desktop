@@ -2,7 +2,7 @@ import os
 import sys
 import logging
 from pathlib import Path
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 from supabase import create_client, Client
 
 logging.basicConfig(level=logging.INFO)
@@ -24,13 +24,35 @@ def _get_base_dir() -> Path:
         return Path(__file__).resolve().parent.parent.parent
 
 
+def _reapply_server_defaults() -> None:
+    """
+    Rellena SUPABASE_URL/KEY desde el server.env embebido si la carga
+    posterior del .env de usuario los dejo vacios. Sin esto, un .env
+    legacy con "SUPABASE_KEY=" en blanco rompe la conexion aunque
+    _bootstrap_env() haya restaurado los defaults al arranque.
+    """
+    try:
+        from utils.paths import bundled_server_env_path
+        server_env = bundled_server_env_path()
+        if not server_env.exists():
+            return
+        for k, v in dotenv_values(server_env).items():
+            if v and not os.environ.get(k):
+                os.environ[k] = v
+    except Exception:
+        pass
+
+
 def _find_and_load_env():
-    """Carga el .env desde la ruta escribible (utils/paths.env_path)."""
+    """Carga el .env desde la ruta escribible (utils/paths.env_path)
+    y reaplica los defaults embebidos para evitar que claves vacias
+    en el .env del usuario pisen las credenciales del fabricante."""
     try:
         from utils.paths import env_path as _ep
         env_file = _ep()
         if env_file.exists():
             load_dotenv(env_file, override=True)
+            _reapply_server_defaults()
             return
     except Exception:
         pass
@@ -39,8 +61,9 @@ def _find_and_load_env():
     env_file = base / ".env"
     if env_file.exists():
         load_dotenv(env_file, override=True)
-    else:
+    elif not os.environ.get("SUPABASE_URL") or not os.environ.get("SUPABASE_KEY"):
         logger.warning("No se encontró archivo .env")
+    _reapply_server_defaults()
 
 
 def get_supabase_client() -> Client:

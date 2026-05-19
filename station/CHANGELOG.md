@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.6.12](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.11...station-v5.6.12) (2026-05-19)
+
+
+### 🐛 Correcciones
+
+* **station:** bundled_models_root apunta a _internal/models en --onedir ([5ae8c9e](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/5ae8c9e4ddfd9f73d5ad093b0cd13fc633a270e4))
+
 ## [5.6.11](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.6.10...station-v5.6.11) (2026-05-19)
 
 

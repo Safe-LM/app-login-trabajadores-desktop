@@ -1442,21 +1442,19 @@ class DashboardWindow(QMainWindow):
             # 5. Intentar flush de cola offline en background
             QTimer.singleShot(2000, self._flush_offline_queue)
 
-            # 6. Despues de 4s decidir si cerramos o reseteamos.
+            # 6. Despues de 4s, cerrar la estacion automaticamente.
             #
-            # Default: STATION_AUTO_CLOSE=false (modo kiosko continuo).
-            # La estacion RESETEA al estado de espera tras cada fichaje
-            # para servir la siguiente persona sin reabrir la app —
-            # comportamiento estandar de la industria (ZKTeco, Suprema,
-            # etc.) para kioscos de entrada/salida con fila de empleados.
-            # La proteccion anti-doble-fichaje (60s entre registros del
-            # mismo empleado) ya evita duplicados accidentales.
+            # Default: STATION_AUTO_CLOSE=true. Tras un fichaje exitoso
+            # la estacion se cierra completamente. Evita que un empleado
+            # fiche dos veces accidentalmente (entrada -> salida) por
+            # quedarse parado frente a la camara. El sistema operativo
+            # / supervisor reabre la app cuando sea necesario.
             #
-            # Si el caso de uso es "1 empleado por estacion" o quieres
-            # cierre completo entre fichajes, set STATION_AUTO_CLOSE=true
+            # Para el modo "kiosko continuo" (atender fila de empleados
+            # sin reabrir la app entre cada uno), set STATION_AUTO_CLOSE=false
             # en el .env.
             import os
-            auto_close = os.environ.get("STATION_AUTO_CLOSE", "false").lower() in ("true", "1", "yes")
+            auto_close = os.environ.get("STATION_AUTO_CLOSE", "true").lower() in ("true", "1", "yes")
             if auto_close:
                 QTimer.singleShot(4000, self._close_station_after_attendance)
             else:

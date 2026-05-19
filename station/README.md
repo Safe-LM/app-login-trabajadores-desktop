@@ -108,7 +108,7 @@ STATION_NAME=Sucursal-Centro-1
 |---|---|---|
 | `STATION_DEV` | `0` | Si `=1`, carga la UI desde `localhost:5173` (Vite dev server) en lugar de `frontend/dist/`. Útil para hot reload del frontend. |
 | `STATION_BEEP_ON_SUCCESS` | `true` | Reproduce 3 tonos ascendentes via `winsound` al confirmar asistencia. Set a `false` para entornos donde el ruido sea molesto (oficinas silenciosas). |
-| `STATION_AUTO_CLOSE` | `false` | Si `=true`, cierra la app completa tras un fichaje (modo single-user). Default `false` = modo kiosko continuo (atiende fila de empleados sin reabrir). |
+| `STATION_AUTO_CLOSE` | `true` | Cierra la app completa 4s después de un fichaje exitoso. Evita re-fichado accidental. Set a `false` para modo kiosko continuo (atiende fila sin cerrar entre empleados). |
 | `STATION_ENABLE_PHOTO_MATCHER` | `false` | Re-habilita el matcher legacy HOG (`photo_to_photo_matcher.py`). Desactivado por default — generaba falsos positivos con embeddings modernos. Solo para tests. |
 | `AUTO_UPDATE_ENABLED` | `true` | Verifica si hay nueva versión en GitHub Releases al arrancar. |
 

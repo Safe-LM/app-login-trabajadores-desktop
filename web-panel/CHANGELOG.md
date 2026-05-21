@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.8.0...web-panel-v0.8.1) (2026-05-21)
+
+
+### 🐛 Correcciones
+
+* **web-panel:** /invitacion/[token] intercambia ?code= inline ([dbbc5ad](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/dbbc5ad8e4f3ebd7f1fdca561a4d625f04adbb61))
+
 ## [0.8.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.7.0...web-panel-v0.8.0) (2026-05-21)
 
 

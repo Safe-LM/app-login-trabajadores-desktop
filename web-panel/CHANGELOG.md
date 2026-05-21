@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.8.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.7.0...web-panel-v0.8.0) (2026-05-21)
+
+
+### ✨ Nuevas funcionalidades
+
+* **web-panel:** gestion de equipo con invitaciones, roles y multi-tenant ([d9e9ebc](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/d9e9ebc591c064f7f8c362a43658cf2a9ff7d5fd))
+
+
+### 🐛 Correcciones
+
+* **web-panel:** auth callback para invitaciones por email + ruta publica ([4dccff3](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/4dccff3c451deee4a9c698531ef5a3ec52b547e9))
+* **web-panel:** mensaje claro cuando SUPABASE_SERVICE_ROLE_KEY falta ([8fbd083](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/8fbd083ba40b2a46e84fa20cc57a1931731cbbc0))
+
 ## [0.7.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.6.0...web-panel-v0.7.0) (2026-05-21)
 
 

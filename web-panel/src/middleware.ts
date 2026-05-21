@@ -1,7 +1,12 @@
 ﻿import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/auth"];
+// Rutas que se sirven sin autenticacion ni chequeo de empresa.
+// /invitacion/[token] muestra preview publico de la invitacion (server
+// component decide que pintar segun si hay sesion o no, y si el email
+// coincide). Saltar middleware aqui es necesario porque el invitado
+// puede no tener empresa_id aun (estaria a punto de unirse a una).
+const PUBLIC_PATHS = ["/login", "/auth", "/invitacion"];
 const ONBOARDING   = "/onboarding";
 
 function redirectWithCookies(url: URL, supabaseResponse: NextResponse) {

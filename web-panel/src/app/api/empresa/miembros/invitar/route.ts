@@ -39,9 +39,14 @@ export async function POST(request: NextRequest) {
 
   const token: string = invitacion.token;
 
-  // 2. Determinar URL de redirect (la pagina /invitacion/[token])
+  // 2. Determinar URL de redirect. Para usuarios NUEVOS via Supabase
+  //    inviteUserByEmail, el magic link verifica + redirige con un ?code=...
+  //    que debe canjearse por sesion en /auth/confirm. De ahi va a /invitacion/[token].
+  //    Para usuarios EXISTENTES (caso manualUrl), no hay magic link asi que
+  //    apuntamos directo a /invitacion/[token] — entran con su sesion normal.
   const origin = request.headers.get("origin") ?? new URL(request.url).origin;
   const invitationUrl = `${origin}/invitacion/${token}`;
+  const inviteRedirectUrl = `${origin}/auth/confirm?next=${encodeURIComponent(`/invitacion/${token}`)}`;
 
   // 3. Disparar el envio de email.
   //    a) Si el email NO esta en auth.users -> inviteUserByEmail (Supabase crea
@@ -62,7 +67,7 @@ export async function POST(request: NextRequest) {
     // Heuristica: probar inviteUserByEmail. Si falla por "ya existe", caer a
     // magic link.
     const { error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, {
-      redirectTo: invitationUrl,
+      redirectTo: inviteRedirectUrl,
     });
 
     if (!inviteErr) {

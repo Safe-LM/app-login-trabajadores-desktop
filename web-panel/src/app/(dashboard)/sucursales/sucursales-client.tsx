@@ -360,10 +360,10 @@ function ModalSucursal({ sucursal, onClose, onDone }: { sucursal?: Sucursal; onC
                   <p style={{ fontSize: 10, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
                     Coordenadas
                   </p>
-                  <p style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)", marginTop: 2 }}>
+                  <p className="font-mono" style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)", marginTop: 2 }}>
                     {lat != null && lng != null
-                      ? `${lat.toFixed(5)}°,  ${lng.toFixed(5)}°`
-                      : <span style={{ color: "var(--text-faint)" }}>Sin ubicación</span>}
+                      ? `${lat.toFixed(5)}°  ${lng.toFixed(5)}°`
+                      : <span style={{ color: "var(--text-faint)", fontFamily: "var(--font-body)" }}>Sin ubicación</span>}
                   </p>
                 </div>
                 {lat != null && lng != null && (

@@ -103,7 +103,7 @@ export function DashboardClient({ initial }: { initial: AsistenciaHoy[] }) {
           </p>
           <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 6 }}>
             <StatusDot
-              kind={realtimeOk ? "online" : "offline"}
+              kind={realtimeOk ? "live" : "offline"}
               label={realtimeOk ? "En vivo" : "Conectando…"}
               strong={realtimeOk}
             />

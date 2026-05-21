@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.7.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.6.0...web-panel-v0.7.0) (2026-05-21)
+
+
+### ✨ Nuevas funcionalidades
+
+* **web-panel:** identidad visual nueva + login editorial + mapa pro ([8c7d6b3](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/8c7d6b3e4fb9804e49a051b0cbffa002f69e0f6b))
+
+## [0.6.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.5.1...web-panel-v0.6.0) (2026-05-21)
+
+
+### ✨ Nuevas funcionalidades
+
+* **web-panel:** redesign UI estilo Argus + nuevas paginas Tablero/Mapa ([0e1377e](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/0e1377e0dd8d0fe41b54004d8700bda1b8a94215))
+
 ## [0.5.1](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.5.0...web-panel-v0.5.1) (2026-05-11)
 
 

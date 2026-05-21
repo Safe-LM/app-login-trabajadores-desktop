@@ -682,7 +682,7 @@ export function DispositivosClient({
           <MetricChip color="#ef4444" label="Offline"   value={offline} />
           <div className="tablero-hero__live">
             <StatusBadge
-              kind={realtimeOk ? "online" : "offline"}
+              kind={realtimeOk ? "live" : "offline"}
               label={realtimeOk ? "En vivo" : "Sin conexión"}
               strong={realtimeOk}
             />

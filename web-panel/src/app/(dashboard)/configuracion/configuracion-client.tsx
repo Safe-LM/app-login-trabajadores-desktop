@@ -49,6 +49,7 @@ export function ConfiguracionClient({ empresa, sucursales }: { empresa: Empresa;
       <div className="stagger-fade-up" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         <EmpresaSection empresa={empresa} />
         <SucursalesSection initial={sucursales} />
+        <EquipoCard />
         <DangerZone />
       </div>
     </div>
@@ -356,6 +357,50 @@ function trimSeconds(t: string | null): string {
 function clampInt(n: number, lo: number, hi: number): number {
   if (!Number.isFinite(n)) return lo;
   return Math.min(hi, Math.max(lo, Math.round(n)));
+}
+
+/* ─────────────── EQUIPO ─────────────── */
+function EquipoCard() {
+  return (
+    <Link
+      href="/configuracion/equipo"
+      style={{
+        display: "flex", alignItems: "center", gap: 16,
+        padding: "20px 22px", borderRadius: 14,
+        background: "var(--bg-card)", border: "1px solid var(--border)",
+        textDecoration: "none", color: "inherit",
+        transition: "all .15s",
+      }}
+      onMouseOver={(e) => { e.currentTarget.style.borderColor = "rgba(59,130,246,.4)"; }}
+      onMouseOut={(e)  => { e.currentTarget.style.borderColor = "var(--border)"; }}
+    >
+      <div style={{
+        width: 44, height: 44, borderRadius: 12,
+        background: "linear-gradient(135deg, rgba(59,130,246,.18), rgba(59,130,246,.06))",
+        border: "1px solid rgba(59,130,246,.3)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        color: "#3b82f6", flexShrink: 0,
+      }}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 2 }}>
+          Equipo
+        </div>
+        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+          Gestiona quién tiene acceso a tu empresa. Invita admins y viewers por email.
+        </div>
+      </div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-faint)", flexShrink: 0 }}>
+        <polyline points="9 18 15 12 9 6"/>
+      </svg>
+    </Link>
+  );
 }
 
 /* ─────────────── DANGER ZONE ─────────────── */

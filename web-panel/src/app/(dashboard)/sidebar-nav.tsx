@@ -16,9 +16,9 @@ import {
   Shield,
   LogOut,
   Menu,
-  ChevronsUpDown,
   type LucideIcon,
 } from "lucide-react";
+import { EmpresaSwitcher } from "./empresa-switcher";
 
 type NavGroup = "operacion" | "analisis" | "sistema";
 type NavEntry = {
@@ -136,22 +136,7 @@ export function SidebarNav({ userEmail, empresaNombre }: { userEmail: string; em
         </Link>
 
         {/* Organization switcher */}
-        <div className="sidebar-org">
-          <p className="sidebar-org__label">Empresa</p>
-          <button
-            type="button"
-            className="sidebar-org__switcher"
-            aria-haspopup="menu"
-            aria-expanded="false"
-            title={empresaNombre ?? "Sin empresa"}
-          >
-            <span className="sidebar-org__avatar">
-              {(empresaNombre ?? "?")[0]?.toUpperCase()}
-            </span>
-            <span className="sidebar-org__name">{empresaNombre ?? "Sin empresa"}</span>
-            <ChevronsUpDown size={12} strokeWidth={2} style={{ color: "var(--text-faint)", flexShrink: 0 }} />
-          </button>
-        </div>
+        <EmpresaSwitcher empresaNombre={empresaNombre} />
 
         {/* Nav */}
         <nav style={{ flex: 1, padding: "12px 10px", display: "flex", flexDirection: "column", gap: 1, overflowY: "auto" }}>

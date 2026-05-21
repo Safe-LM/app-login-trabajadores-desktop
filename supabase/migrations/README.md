@@ -93,6 +93,31 @@ Las siguientes migraciones aplicaron hardening de RLS y performance:
 
 Detalle completo en [`web-panel/README.md` → "Decisiones de seguridad"](../../web-panel/README.md).
 
+## Linaje y desincronía con el historial de Supabase
+
+A partir de `20260509042832_embeddings_batch_rpc`, todas las migraciones
+quedan registradas en `supabase_migrations.schema_migrations` (visible vía
+`supabase migration list` o `mcp__claude_ai_Supabase__list_migrations`).
+
+Las migraciones anteriores a esa fecha se aplicaron por fuera (SQL Editor
+del dashboard) y **no aparecen en el historial registrado**. Si haces
+`supabase db push` desde cero contra una base limpia, todas se ejecutarían
+en orden alfabético; en una base ya migrada, las recientes se omiten por
+estar en el historial.
+
+**Archivos legacy retirados (nunca aplicados a prod):**
+
+- `20260430_crear_dispositivo_fn.sql` — versión inicial sin HWID. Superseded.
+- `20260501_hwid_lock.sql` — añade HWID + redefine `station_heartbeat`. Su
+  `crear_dispositivo` fue reemplazado por `20260519193010_crear_dispositivo_fn_with_hwid.sql`
+  (aplicado vía MCP). Su `station_heartbeat` quedó obsoleto: la versión en
+  prod tiene 8 parámetros (empleados_count, camara_ok, encodings_ver) que
+  el archivo legacy no contemplaba — no se debe rollback a la versión vieja.
+
+Si necesitas reconstruir prod desde cero, este README + el archivo `20260519193010_*`
+documentan la divergencia. Para una sincronización completa considera
+`supabase db pull` para extraer el schema actual como una migración nueva.
+
 ## Cómo deshacer una migración
 
 Supabase no tiene rollback automático. Si una migración rompió algo:

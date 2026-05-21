@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.7.2](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.7.1...station-v5.7.2) (2026-05-21)
+
+
+### 🐛 Correcciones
+
+* **station:** _find_and_load_env reaplica defaults embebidos ([bce3ac8](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/bce3ac88da41326379ded209486e3db2962a4c15))
+
 ## [5.7.1](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.7.0...station-v5.7.1) (2026-05-19)
 
 

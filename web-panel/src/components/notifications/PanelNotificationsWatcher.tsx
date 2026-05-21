@@ -46,6 +46,10 @@ export function PanelNotificationsWatcher({ empresaId }: { empresaId: string }) 
   const offlineSeen = useRef<Set<string>>(new Set());
   const cameraErrorSeen = useRef<Set<string>>(new Set());
   const healthLowSeen = useRef<Set<string>>(new Set());
+  // En el primer check despues de cargar el panel NO toasteamos:
+  // el bell ya muestra el count, y solo nos importa avisar de eventos *nuevos*.
+  // Asi evitamos pila de toasts al entrar (UX intrusiva).
+  const isFirstRun = useRef(true);
   const horariosRef = useRef<Map<string, SucursalHorario>>(new Map());
   const empleadosRef = useRef<Map<string, EmpleadoLite>>(new Map());
   const sucursalesRef = useRef<Map<string, SucursalLite>>(new Map());
@@ -115,6 +119,8 @@ export function PanelNotificationsWatcher({ empresaId }: { empresaId: string }) 
 
       if (cancelled) return;
 
+      const silent = isFirstRun.current;
+
       const stillOffline = new Set<string>();
       const stillCamErr = new Set<string>();
       const stillHealthLow = new Set<string>();
@@ -131,12 +137,14 @@ export function PanelNotificationsWatcher({ empresaId }: { empresaId: string }) 
             const mensaje = d.sucursal_nombre
               ? `${d.sucursal_nombre} · sin heartbeat hace ${minutos} min`
               : `Sin heartbeat hace ${minutos} min`;
-            notify({
-              kind: "warning", title: titulo, message: mensaje,
-              dedupeKey: `station-offline:${d.id}`,
-              action: { label: "Ver estaciones", href: "/dispositivos" },
-              duration: 8000,
-            });
+            if (!silent) {
+              notify({
+                kind: "warning", title: titulo, message: mensaje,
+                dedupeKey: `station-offline:${d.id}`,
+                action: { label: "Ver estaciones", href: "/dispositivos" },
+                duration: 8000,
+              });
+            }
             persistNotif({
               tipo: "station_offline",
               severidad: minutos >= 30 ? "critical" : "warn",
@@ -149,7 +157,9 @@ export function PanelNotificationsWatcher({ empresaId }: { empresaId: string }) 
           // Recovery: estaba offline y ahora esta online
           const titulo = `Estación recuperada: ${d.nombre}`;
           const mensaje = d.sucursal_nombre ? `${d.sucursal_nombre} · conexión restablecida` : "Conexión restablecida";
-          notify({ kind: "success", title: titulo, message: mensaje, duration: 5000 });
+          if (!silent) {
+            notify({ kind: "success", title: titulo, message: mensaje, duration: 5000 });
+          }
           persistNotif({
             tipo: "station_recovered", severidad: "info",
             titulo, mensaje,
@@ -172,11 +182,13 @@ export function PanelNotificationsWatcher({ empresaId }: { empresaId: string }) 
           if (!cameraErrorSeen.current.has(d.id)) {
             const titulo = `Cámara con problemas: ${d.nombre}`;
             const mensaje = "La estación no puede acceder a la cámara. Verifica conexión USB y permisos.";
-            notify({
-              kind: "error", title: titulo, message: mensaje,
-              dedupeKey: `camera:${d.id}`, duration: 9000,
-              action: { label: "Ver estación", href: "/dispositivos" },
-            });
+            if (!silent) {
+              notify({
+                kind: "error", title: titulo, message: mensaje,
+                dedupeKey: `camera:${d.id}`, duration: 9000,
+                action: { label: "Ver estación", href: "/dispositivos" },
+              });
+            }
             persistNotif({
               tipo: "station_camera_error", severidad: "error",
               titulo, mensaje,
@@ -191,10 +203,12 @@ export function PanelNotificationsWatcher({ empresaId }: { empresaId: string }) 
           if (!healthLowSeen.current.has(d.id)) {
             const titulo = `Salud baja: ${d.nombre} (${score}/100)`;
             const mensaje = "La estación reporta multiples errores. Revisa logs y considera reiniciar.";
-            notify({
-              kind: "warning", title: titulo, message: mensaje,
-              dedupeKey: `health:${d.id}`, duration: 8000,
-            });
+            if (!silent) {
+              notify({
+                kind: "warning", title: titulo, message: mensaje,
+                dedupeKey: `health:${d.id}`, duration: 8000,
+              });
+            }
             persistNotif({
               tipo: "station_health_low", severidad: "warn",
               titulo, mensaje,
@@ -208,6 +222,7 @@ export function PanelNotificationsWatcher({ empresaId }: { empresaId: string }) 
       offlineSeen.current = stillOffline;
       cameraErrorSeen.current = stillCamErr;
       healthLowSeen.current = stillHealthLow;
+      isFirstRun.current = false;
     }
 
     check();

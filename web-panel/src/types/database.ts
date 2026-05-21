@@ -26,6 +26,8 @@ type SucursalRow = {
   hora_apertura: string | null;
   hora_cierre: string | null;
   tolerancia_min: number;
+  lat: number | null;
+  lng: number | null;
 };
 
 type EmpleadoRow = {

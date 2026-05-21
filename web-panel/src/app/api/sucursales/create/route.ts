@@ -7,9 +7,12 @@ type SucursalInsert = {
   empresa_id: string;
   nombre: string;
   direccion?: string | null;
+  activa?: boolean;
   hora_apertura?: string | null;
   hora_cierre?: string | null;
   tolerancia_min?: number;
+  lat?: number | null;
+  lng?: number | null;
 };
 
 export async function POST(request: NextRequest) {
@@ -20,9 +23,12 @@ export async function POST(request: NextRequest) {
   const body = await request.json() as {
     nombre?: string;
     direccion?: string | null;
+    activa?: boolean;
     hora_apertura?: string | null;
     hora_cierre?: string | null;
     tolerancia_min?: number | null;
+    lat?: number | null;
+    lng?: number | null;
   };
   const nombre = body.nombre?.trim();
   if (!nombre) return NextResponse.json({ error: "Nombre requerido" }, { status: 400 });
@@ -42,6 +48,7 @@ export async function POST(request: NextRequest) {
     nombre,
     direccion: body.direccion ?? null,
   };
+  if (body.activa !== undefined) insert.activa = !!body.activa;
   if (body.hora_apertura) insert.hora_apertura = normalizeTime(body.hora_apertura);
   if (body.hora_cierre)   insert.hora_cierre   = normalizeTime(body.hora_cierre);
   if (body.tolerancia_min != null) {
@@ -50,6 +57,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "tolerancia_min fuera de rango (0-240)" }, { status: 400 });
     }
     insert.tolerancia_min = Math.round(n);
+  }
+  if (body.lat != null || body.lng != null) {
+    const lat = Number(body.lat);
+    const lng = Number(body.lng);
+    if (!Number.isFinite(lat) || lat < -90  || lat > 90)  return NextResponse.json({ error: "lat fuera de rango (-90 a 90)" },   { status: 400 });
+    if (!Number.isFinite(lng) || lng < -180 || lng > 180) return NextResponse.json({ error: "lng fuera de rango (-180 a 180)" }, { status: 400 });
+    insert.lat = lat;
+    insert.lng = lng;
   }
 
   const { data, error } = await supabase

@@ -14,7 +14,7 @@ export default async function SucursalesPage() {
 
   const { data: sucursales } = await supabase
     .from("sucursales")
-    .select("id, nombre, direccion, activa, hora_apertura, hora_cierre, tolerancia_min")
+    .select("id, nombre, direccion, activa, hora_apertura, hora_cierre, tolerancia_min, lat, lng")
     .eq("empresa_id", empresaId)
     .order("nombre");
 
@@ -26,6 +26,8 @@ export default async function SucursalesPage() {
     hora_apertura: s.hora_apertura,
     hora_cierre: s.hora_cierre,
     tolerancia_min: s.tolerancia_min ?? 10,
+    lat: s.lat,
+    lng: s.lng,
   }));
 
   return <SucursalesClient sucursales={rows} />;

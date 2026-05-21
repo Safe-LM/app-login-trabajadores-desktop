@@ -10,6 +10,8 @@ type SucursalUpdate = {
   hora_apertura?: string | null;
   hora_cierre?: string | null;
   tolerancia_min?: number;
+  lat?: number | null;
+  lng?: number | null;
 };
 
 export async function POST(request: NextRequest) {
@@ -25,6 +27,8 @@ export async function POST(request: NextRequest) {
     hora_apertura?: string | null;
     hora_cierre?: string | null;
     tolerancia_min?: number | null;
+    lat?: number | null;
+    lng?: number | null;
   };
   const { id } = body;
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
@@ -52,6 +56,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "tolerancia_min fuera de rango (0-240)" }, { status: 400 });
     }
     update.tolerancia_min = Math.round(n);
+  }
+  if (body.lat !== undefined || body.lng !== undefined) {
+    if (body.lat === null || body.lng === null) {
+      // explicit clear
+      update.lat = null;
+      update.lng = null;
+    } else {
+      const lat = Number(body.lat);
+      const lng = Number(body.lng);
+      if (!Number.isFinite(lat) || lat < -90  || lat > 90)  return NextResponse.json({ error: "lat fuera de rango (-90 a 90)" },   { status: 400 });
+      if (!Number.isFinite(lng) || lng < -180 || lng > 180) return NextResponse.json({ error: "lng fuera de rango (-180 a 180)" }, { status: 400 });
+      update.lat = lat;
+      update.lng = lng;
+    }
   }
 
   const { error } = await supabase

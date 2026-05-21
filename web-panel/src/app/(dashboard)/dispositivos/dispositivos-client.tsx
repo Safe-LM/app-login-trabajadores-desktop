@@ -4,17 +4,20 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 import { useNotifications } from "@/components/notifications/NotificationProvider";
-import { PageHeader } from "@/components/ui/PageHeader";
+import { StatusBadge, type StatusKind } from "@/components/ui/StatusBadge";
+import {
+  Monitor, Plus, FileText, Settings, Eye, EyeOff, Copy, Check, AlertTriangle,
+} from "lucide-react";
 import { Modal, FieldLabel, btnGhost, inputStyle, type Dispositivo, type Sucursal } from "./_shared";
 // Lazy-load: estos modales solo se abren ocasionalmente. Sacarlos del bundle
 // inicial baja el JS de la pagina principal ~30%.
 const RegistrarEstacionModal = dynamic(() => import("./RegistrarEstacionModal"), { ssr: false });
 const LogsModal = dynamic(() => import("./LogsModal"), { ssr: false });
-const ESTADO = {
-  online:  { color: "#22c55e", glow: "rgba(34,197,94,0.35)",  bg: "rgba(34,197,94,0.07)",  border: "rgba(34,197,94,0.18)",  label: "En línea",        dot: true  },
-  alerta:  { color: "#f59e0b", glow: "rgba(245,158,11,0.35)", bg: "rgba(245,158,11,0.07)", border: "rgba(245,158,11,0.18)", label: "Sin señal",       dot: false },
-  offline: { color: "#ef4444", glow: "rgba(239,68,68,0.35)",  bg: "rgba(239,68,68,0.07)",  border: "rgba(239,68,68,0.18)",  label: "Offline",         dot: false },
-  nunca:   { color: "#52525b", glow: "transparent",           bg: "rgba(39,39,42,0.5)",    border: "rgba(63,63,70,0.4)",   label: "Sin activar",     dot: false },
+const ESTADO: Record<Dispositivo["estado_conexion"], { color: string; border: string; kind: StatusKind; label: string }> = {
+  online:  { color: "#22c55e", border: "rgba(34,197,94,0.22)",  kind: "online",  label: "En línea"    },
+  alerta:  { color: "#eab308", border: "rgba(234,179,8,0.22)",  kind: "warn",    label: "Sin señal"   },
+  offline: { color: "#ef4444", border: "rgba(239,68,68,0.22)",  kind: "error",   label: "Offline"     },
+  nunca:   { color: "#52525b", border: "rgba(82,82,91,0.22)",   kind: "neutral", label: "Sin activar" },
 };
 function fmtLabel(secs: number | null) {
   if (secs == null) return "Nunca";
@@ -86,41 +89,21 @@ function ApiKey({ apiKey }: { apiKey: string }) {
         {vis ? apiKey : masked}
       </code>
       <button onClick={() => setVis(!vis)} title={vis ? "Ocultar" : "Ver"} aria-label={vis ? "Ocultar API key" : "Ver API key"} style={btnGhost}>
-        {vis
-          ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-          : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-        }
+        {vis ? <EyeOff size={11} strokeWidth={2} /> : <Eye size={11} strokeWidth={2} />}
       </button>
       <button onClick={copy} title="Copiar" aria-label="Copiar API key al portapapeles" style={{ ...btnGhost, color: copied ? "#22c55e" : undefined }}>
-        {copied
-          ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-        }
+        {copied ? <Check size={11} strokeWidth={2.5} /> : <Copy size={11} strokeWidth={2} />}
       </button>
     </div>
   );
 }
-/* ── Pill de estado ── */
+/* ── Pill de estado (wrapper sobre StatusBadge) ── */
 function EstadoPill({ estado }: { estado: keyof typeof ESTADO }) {
   const m = ESTADO[estado];
-  return (
-    <span style={{
-      display: "inline-flex", alignItems: "center", gap: 5,
-      fontSize: 10, fontWeight: 600, letterSpacing: "0.04em",
-      padding: "3px 8px", borderRadius: 99,
-      background: m.bg, border: `1px solid ${m.border}`, color: m.color,
-    }}>
-      <span style={{
-        width: 5, height: 5, borderRadius: "50%", background: m.color, flexShrink: 0,
-        boxShadow: m.dot ? `0 0 6px ${m.glow}` : "none",
-        animation: m.dot ? "pulse-dot 2s ease-in-out infinite" : "none",
-      }} />
-      {m.label}
-    </span>
-  );
+  return <StatusBadge kind={m.kind} label={m.label} strong={m.kind === "online"} />;
 }
 /* ── Card de dispositivo ── */
-function DispositivoCard({ d, onConfig, onLogs, index, maxEncodings }: {
+function DispositivoCard({ d, onConfig, onLogs, maxEncodings }: {
   d: Dispositivo;
   onConfig: (d: Dispositivo) => void;
   onLogs: (d: Dispositivo) => void;
@@ -128,59 +111,33 @@ function DispositivoCard({ d, onConfig, onLogs, index, maxEncodings }: {
   maxEncodings: number;
 }) {
   const m = ESTADO[d.estado_conexion];
-  const [hov, setHov] = useState(false);
-  // S1.4: detectar drift de encodings (esta station tiene menos version
-  // que el max de la empresa -> esta atrasada).
   const encodingsBehind = maxEncodings > 0 && (d.encodings_version ?? 0) < maxEncodings;
   return (
     <div
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        background: "var(--bg-card)",
-        border: `1px solid ${hov ? m.border : "var(--border)"}`,
-        borderRadius: 14,
-        overflow: "hidden",
-        display: "flex", flexDirection: "column",
-        transition: "border-color 200ms, box-shadow 200ms, transform 200ms",
-        boxShadow: hov ? `0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px ${m.border}` : "0 2px 8px rgba(0,0,0,0.2)",
-        transform: hov ? "translateY(-1px)" : "translateY(0)",
-        animationDelay: `${index * 50}ms`,
-        animation: "fadeUp 0.4s cubic-bezier(0.16,1,0.3,1) both",
-      }}
+      className="card estacion-tile"
+      data-status={m.kind}
+      style={{ display: "flex", flexDirection: "column", padding: 0 }}
     >
-      {/* Barra de color superior según estado */}
-      <div style={{
-        height: 2,
-        background: d.estado_conexion === "online"
-          ? `linear-gradient(90deg, transparent, ${m.color} 40%, ${m.color} 60%, transparent)`
-          : d.estado_conexion === "nunca"
-          ? "var(--border)"
-          : `linear-gradient(90deg, transparent, ${m.color} 40%, ${m.color} 60%, transparent)`,
-        opacity: d.estado_conexion === "nunca" ? 0.3 : 0.7,
-      }} />
-      <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 14, flex: 1 }}>
+      {/* Acento superior segun estado */}
+      <div className="estacion-tile__accent" style={{ background: m.color }} />
+
+      <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: 14, flex: 1 }}>
         {/* Header: icono + nombre + estado */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
             <div style={{
-              width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-              background: d.estado_conexion === "online" ? "rgba(34,197,94,0.08)" : "var(--bg-elevated)",
-              border: `1px solid ${d.estado_conexion === "online" ? "rgba(34,197,94,0.2)" : "var(--border)"}`,
+              width: 34, height: 34, borderRadius: "var(--radius-md)", flexShrink: 0,
+              background: m.kind === "online" ? "rgba(34,197,94,0.10)" : "var(--bg-elevated)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              transition: "background 200ms, border-color 200ms",
+              color: m.kind === "online" ? "#4ade80" : "var(--text-faint)",
             }}>
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
-                stroke={d.estado_conexion === "online" ? "#22c55e" : "var(--text-faint)"}
-                strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
-              </svg>
+              <Monitor size={16} strokeWidth={1.75} />
             </div>
             <div style={{ minWidth: 0 }}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)", marginBottom: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", letterSpacing: "-0.01em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {d.nombre}
               </p>
-              <p style={{ fontSize: 11, color: "var(--text-faint)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <p style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 2, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {d.sucursal_nombre ?? "Sin sucursal"}
               </p>
             </div>
@@ -193,16 +150,14 @@ function DispositivoCard({ d, onConfig, onLogs, index, maxEncodings }: {
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 4,
                   fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
-                  padding: "2px 6px", borderRadius: 5,
-                  background: "rgba(245,158,11,0.12)",
-                  border: "1px solid rgba(245,158,11,0.3)",
-                  color: "#fbbf24", textTransform: "uppercase",
+                  padding: "2px 6px", borderRadius: 4,
+                  background: "rgba(234,179,8,0.10)",
+                  border: "1px solid rgba(234,179,8,0.22)",
+                  color: "#facc15", textTransform: "uppercase",
                   cursor: "help",
                 }}
               >
-                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 9v4M12 17h.01M10.29 3.86l-8.18 14.18A2 2 0 003.83 21h16.34a2 2 0 001.72-2.96L13.71 3.86a2 2 0 00-3.42 0z"/>
-                </svg>
+                <AlertTriangle size={9} strokeWidth={2.5} />
                 Desactualizada
               </span>
             )}
@@ -266,43 +221,12 @@ function DispositivoCard({ d, onConfig, onLogs, index, maxEncodings }: {
             </div>
           ) : <span />}
           <div style={{ display: "flex", gap: 6 }}>
-            <button
-              onClick={() => onLogs(d)}
-              title="Ver logs"
-              style={{
-                display: "flex", alignItems: "center", gap: 5,
-                padding: "6px 10px",
-                background: "transparent",
-                border: "1px solid var(--border)",
-                borderRadius: 7, fontSize: 11, fontWeight: 600,
-                color: "var(--text-faint)",
-                cursor: "pointer", fontFamily: "inherit",
-                transition: "all 150ms",
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = "var(--text-primary)"; e.currentTarget.style.borderColor = "var(--border-hover)"; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-faint)"; e.currentTarget.style.borderColor = "var(--border)"; }}
-            >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
-              </svg>
+            <button onClick={() => onLogs(d)} className="btn btn-ghost btn-sm" title="Ver logs">
+              <FileText size={11} strokeWidth={2} />
               Logs
             </button>
-            <button
-              onClick={() => onConfig(d)}
-              style={{
-                display: "flex", alignItems: "center", gap: 5,
-                padding: "6px 12px",
-                background: hov ? "var(--bg-elevated)" : "transparent",
-                border: `1px solid ${hov ? "var(--border-hover)" : "var(--border)"}`,
-                borderRadius: 7, fontSize: 11, fontWeight: 600,
-                color: hov ? "var(--text-primary)" : "var(--text-muted)",
-                cursor: "pointer", fontFamily: "inherit",
-                transition: "all 150ms",
-              }}
-            >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
-              </svg>
+            <button onClick={() => onConfig(d)} className="btn btn-secondary btn-sm">
+              <Settings size={11} strokeWidth={2} />
               Configurar
             </button>
           </div>
@@ -654,80 +578,41 @@ function ConfigModal({ d, onClose, onOptimisticDelete, onOptimisticUpdate, sucur
     </Modal>
   );
 }
-/* ── Stat card ── */
-function StatCard({ label, value, color, icon, total }: {
-  label: string; value: number; color: string; total: number;
-  icon: React.ReactNode;
-}) {
-  const pct = total > 0 ? (value / total) * 100 : 0;
+/* ── Metric chip (consistente con Tablero) ── */
+function MetricChip({ color, label, value }: { color: string; label: string; value: number }) {
   return (
-    <div style={{
-      background: "var(--bg-card)", border: "1px solid var(--border)",
-      borderRadius: 12, padding: "16px 18px",
-      display: "flex", flexDirection: "column", gap: 10,
-    }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ width: 32, height: 32, borderRadius: 8, background: `${color}12`, border: `1px solid ${color}28`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          {icon}
-        </div>
-        <span style={{ fontSize: 26, fontWeight: 800, color: "var(--text-primary)", letterSpacing: "-0.05em", lineHeight: 1 }}>
-          {value}
-        </span>
-      </div>
-      <div>
-        <p style={{ fontSize: 11, fontWeight: 600, color, marginBottom: 6 }}>{label}</p>
-        <div style={{ height: 2, background: "rgba(255,255,255,0.05)", borderRadius: 99, overflow: "hidden" }}>
-          <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 99, transition: "width 0.8s ease" }} />
-        </div>
-      </div>
+    <div className="metric-chip" style={{ "--mc": color } as React.CSSProperties}>
+      <span className="metric-chip__dot" />
+      <span className="metric-chip__label">{label}</span>
+      <span className="metric-chip__value">{value}</span>
     </div>
   );
 }
 /* ── Empty state ── */
 function EmptyState({ onNew }: { onNew: () => void }) {
   return (
-    <div className="card animate-fade-up" style={{
-      padding: "64px 32px", textAlign: "center", position: "relative", overflow: "hidden",
-    }}>
-      {/* Background pattern grid sutil */}
-      <div aria-hidden="true" style={{
-        position: "absolute", inset: 0,
-        backgroundImage: "radial-gradient(circle at 1px 1px, rgba(37,99,235,0.06) 1px, transparent 0)",
-        backgroundSize: "20px 20px",
-        opacity: 0.5,
-        pointerEvents: "none",
-      }} />
-      <div style={{
-        position: "relative",
-        width: 64, height: 64, borderRadius: 16,
-        background: "linear-gradient(135deg, rgba(37,99,235,0.14) 0%, rgba(37,99,235,0.04) 100%)",
-        border: "1px solid rgba(37,99,235,0.25)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        margin: "0 auto 20px", color: "var(--accent-hover)",
-        boxShadow: "0 12px 30px -10px rgba(37,99,235,0.5)",
-      }}>
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
-        </svg>
-        <span style={{
-          position: "absolute", inset: -6, borderRadius: 20,
-          border: "1px solid rgba(37,99,235,0.18)",
-          animation: "pulse-ring 2.4s cubic-bezier(0.16,1,0.3,1) infinite",
-        }} />
+    <div className="empty-state animate-fade-up" style={{ marginTop: 8 }}>
+      <div className="empty-state-icon">
+        <Monitor size={22} strokeWidth={1.5} />
       </div>
-      <p style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginBottom: 6, letterSpacing: "-0.02em", position: "relative" }}>
+      <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
         Sin estaciones registradas
+      </h3>
+      <p className="text-muted-sm" style={{ maxWidth: 380 }}>
+        Crea tu primera estación y copia la API Key al archivo <code style={{
+          fontSize: 11, background: "var(--bg-elevated)", padding: "2px 6px",
+          borderRadius: 5, color: "var(--accent-hover)",
+          border: "1px solid var(--border)",
+        }}>.env</code> de la máquina física.
       </p>
-      <p style={{ fontSize: 12, color: "var(--text-faint)", marginBottom: 22, lineHeight: 1.65, maxWidth: 380, margin: "0 auto 22px", position: "relative" }}>
-        Crea tu primera estación y copia la API Key al archivo <code style={{ fontSize: 11, background: "rgba(255,255,255,0.06)", padding: "2px 6px", borderRadius: 5, color: "#60a5fa", border: "1px solid rgba(37,99,235,0.15)" }}>.env</code> de la máquina física.
-      </p>
-      <button onClick={onNew} className="btn btn-primary" style={{ position: "relative" }}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <button onClick={onNew} className="btn btn-primary btn-sm" style={{ marginTop: 6 }}>
+        <Plus size={14} strokeWidth={2.5} />
         Crear primera estación
       </button>
     </div>
   );
 }
+
 /* ── Componente principal ── */
 export function DispositivosClient({
   dispositivos: initial,
@@ -780,39 +665,38 @@ export function DispositivosClient({
         onOptimisticUpdate={(updated) => setDispositivos((prev) => prev.map((x) => x.id === updated.id ? { ...x, ...updated } : x))}
       />}
       {logsDevice    && <LogsModal   d={logsDevice} onClose={() => setLogsDevice(null)} />}
-      <PageHeader
-        title="Estaciones"
-        subtitle={
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <span
-              style={{
-                width: 6, height: 6, borderRadius: "50%",
-                background: realtimeOk ? "#22c55e" : "#52525b",
-                boxShadow: realtimeOk ? "0 0 8px rgba(34,197,94,0.6)" : "none",
-              }}
-              className={realtimeOk ? "animate-pulse-dot" : undefined}
+      <header className="tablero-hero" style={{ marginBottom: 18 }}>
+        <div className="tablero-hero__title">
+          <h1 className="heading-1" style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+            <span>Estaciones</span>
+            <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-muted)" }}>
+              <span style={{ color: "var(--text-faint)", marginRight: 6 }}>·</span>
+              {total} {total === 1 ? "estación" : "estaciones"}
+            </span>
+          </h1>
+          <p className="text-muted-sm">Gestión y monitoreo de las estaciones de registro</p>
+        </div>
+        <div className="tablero-hero__metrics">
+          <MetricChip color="#22c55e" label="En línea"  value={online}  />
+          <MetricChip color="#eab308" label="Sin señal" value={alerta}  />
+          <MetricChip color="#ef4444" label="Offline"   value={offline} />
+          <div className="tablero-hero__live">
+            <StatusBadge
+              kind={realtimeOk ? "online" : "offline"}
+              label={realtimeOk ? "En vivo" : "Sin conexión"}
+              strong={realtimeOk}
             />
-            {realtimeOk ? "Tiempo real activo" : "Conectando..."}
-          </span>
-        }
-        icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>}
-        iconColor="#3b82f6"
-        stats={[
-          { label: "Total", value: total },
-        ]}
-        actions={
-          <button onClick={() => setShowRegistrar(true)} className="btn btn-primary btn-sm">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </div>
+          <button
+            onClick={() => setShowRegistrar(true)}
+            className="btn btn-primary btn-sm"
+            style={{ marginLeft: 6 }}
+          >
+            <Plus size={13} strokeWidth={2.5} />
             Registrar estación
           </button>
-        }
-      />
-      {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 24 }} className="animate-fade-up">
-        <StatCard label="En línea"   value={online}  color="#22c55e" total={total} icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>} />
-        <StatCard label="Sin señal"  value={alerta}  color="#f59e0b" total={total} icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>} />
-        <StatCard label="Offline"    value={offline} color="#ef4444" total={total} icon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0119 12.55M5 12.55a10.94 10.94 0 015.17-2.39M10.71 5.05A16 16 0 0122.56 9M1.42 9a15.91 15.91 0 014.7-2.88M8.53 16.11a6 6 0 016.95 0M12 20h.01"/></svg>} />
-      </div>
+        </div>
+      </header>
       {/* Grid de cards */}
       {total > 0 ? (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(310px, 1fr))", gap: 12 }}>

@@ -85,6 +85,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const banners = notifications.filter(n => n.persistent);
   const toasts = notifications.filter(n => !n.persistent);
+  // Mostramos solo las 3 mas recientes. Resto se cuenta en "+N mas".
+  const VISIBLE = 3;
+  const visibleToasts = toasts.slice(-VISIBLE);
+  const overflow = Math.max(0, toasts.length - VISIBLE);
 
   return (
     <NotificationContext.Provider value={value}>
@@ -97,22 +101,32 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         </div>
       )}
       {children}
-      <div style={{
-        position: "fixed", bottom: 16, right: 16, zIndex: 70,
-        display: "flex", flexDirection: "column", gap: 8,
-        pointerEvents: "none",
-      }}>
-        {toasts.map(n => <Toast key={n.id} n={n} onDismiss={() => dismiss(n.id)} />)}
+      <div
+        className="toast-stack"
+        aria-live="polite"
+        aria-atomic="false"
+      >
+        {visibleToasts.map(n => <Toast key={n.id} n={n} onDismiss={() => dismiss(n.id)} />)}
+        {overflow > 0 && (
+          <button
+            type="button"
+            className="toast-overflow"
+            onClick={clear}
+            title="Limpiar todas las notificaciones"
+          >
+            +{overflow} más · Limpiar
+          </button>
+        )}
       </div>
     </NotificationContext.Provider>
   );
 }
 
-const KIND_STYLES: Record<NotifKind, { bg: string; border: string; color: string; icon: React.ReactNode }> = {
-  info:    { bg: "rgba(37,99,235,0.10)",  border: "rgba(37,99,235,0.30)",  color: "#60a5fa", icon: <InfoIcon /> },
-  success: { bg: "rgba(34,197,94,0.10)",  border: "rgba(34,197,94,0.30)",  color: "#4ade80", icon: <CheckIcon /> },
-  warning: { bg: "rgba(234,179,8,0.10)",  border: "rgba(234,179,8,0.30)",  color: "#facc15", icon: <WarnIcon /> },
-  error:   { bg: "rgba(239,68,68,0.10)",  border: "rgba(239,68,68,0.30)",  color: "#f87171", icon: <ErrorIcon /> },
+const KIND_STYLES: Record<NotifKind, { color: string; icon: React.ReactNode }> = {
+  info:    { color: "#60a5fa", icon: <InfoIcon /> },
+  success: { color: "#4ade80", icon: <CheckIcon /> },
+  warning: { color: "#facc15", icon: <WarnIcon /> },
+  error:   { color: "#f87171", icon: <ErrorIcon /> },
 };
 
 function Toast({ n, onDismiss }: { n: Notification; onDismiss: () => void }) {
@@ -120,48 +134,24 @@ function Toast({ n, onDismiss }: { n: Notification; onDismiss: () => void }) {
   return (
     <div
       role="status"
-      className="animate-fade-up"
-      style={{
-        pointerEvents: "auto",
-        minWidth: 280, maxWidth: 380,
-        background: "var(--bg-card)",
-        border: `1px solid ${s.border}`,
-        borderRadius: 12,
-        padding: "12px 14px",
-        boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
-        display: "flex", gap: 10, alignItems: "flex-start",
-      }}
+      className="toast animate-fade-up"
+      data-kind={n.kind}
+      style={{ "--toast-accent": s.color } as React.CSSProperties}
     >
-      <div style={{
-        width: 28, height: 28, flexShrink: 0,
-        borderRadius: 8,
-        background: s.bg, color: s.color,
-        display: "flex", alignItems: "center", justifyContent: "center",
-      }}>
+      <span className="toast__dot" />
+      <div className="toast__icon" style={{ color: s.color }}>
         {s.icon}
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.3 }}>
-          {n.title}
-        </p>
-        {n.message && (
-          <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2, lineHeight: 1.45 }}>
-            {n.message}
-          </p>
-        )}
-        {n.action && (
-          <ActionLink action={n.action} color={s.color} />
-        )}
+      <div className="toast__body">
+        <p className="toast__title">{n.title}</p>
+        {n.message && <p className="toast__msg">{n.message}</p>}
+        {n.action && <ActionLink action={n.action} color={s.color} />}
       </div>
       <button
         type="button"
         aria-label="Cerrar notificación"
         onClick={onDismiss}
-        style={{
-          background: "transparent", border: "none", cursor: "pointer",
-          color: "var(--text-faint)", padding: 4, borderRadius: 6,
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}
+        className="toast__close"
       >
         <CloseIcon />
       </button>
@@ -174,31 +164,22 @@ function Banner({ n, onDismiss }: { n: Notification; onDismiss: () => void }) {
   return (
     <div
       role="alert"
-      style={{
-        background: s.bg,
-        borderBottom: `1px solid ${s.border}`,
-        color: s.color,
-        padding: "10px 24px",
-        display: "flex", alignItems: "center", gap: 12,
-      }}
+      className="notif-banner"
+      data-kind={n.kind}
+      style={{ "--banner-accent": s.color } as React.CSSProperties}
     >
-      <div style={{ display: "flex", alignItems: "center", color: s.color }}>{s.icon}</div>
-      <div style={{ flex: 1, minWidth: 0, display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
-        <span style={{ fontSize: 13, fontWeight: 700, color: s.color }}>{n.title}</span>
-        {n.message && (
-          <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{n.message}</span>
-        )}
+      <div className="notif-banner__icon" style={{ color: s.color }}>{s.icon}</div>
+      <div className="notif-banner__body">
+        <span className="notif-banner__title" style={{ color: s.color }}>{n.title}</span>
+        {n.message && <span className="notif-banner__msg">{n.message}</span>}
       </div>
       {n.action && <ActionLink action={n.action} color={s.color} />}
       <button
         type="button"
         aria-label="Cerrar"
         onClick={onDismiss}
-        style={{
-          background: "transparent", border: "none", cursor: "pointer",
-          color: s.color, padding: 4, borderRadius: 6,
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}
+        className="notif-banner__close"
+        style={{ color: s.color }}
       >
         <CloseIcon />
       </button>

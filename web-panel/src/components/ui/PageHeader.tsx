@@ -6,6 +6,8 @@ export type PageHeaderProps = {
   eyebrow?: string;
   /** Título principal de la página */
   title: string;
+  /** Caption inline al lado del título (ej: "5 estaciones"). Estilo Argus "· N items". */
+  count?: React.ReactNode;
   /** Subtítulo opcional debajo del título (string o ReactNode) */
   subtitle?: React.ReactNode;
   /** Icono opcional al lado del título (chip) */
@@ -18,19 +20,17 @@ export type PageHeaderProps = {
   stats?: Array<{ label: string; value: React.ReactNode }>;
 };
 
-export function PageHeader({ eyebrow, title, subtitle, icon, iconColor, actions, stats }: PageHeaderProps) {
+export function PageHeader({ eyebrow, title, count, subtitle, icon, iconColor, actions, stats }: PageHeaderProps) {
   return (
     <div className="page-header animate-fade-up" style={{ marginBottom: 24 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
         {icon && (
           <div
             style={{
-              width: 40, height: 40, borderRadius: 11, flexShrink: 0,
+              width: 36, height: 36, borderRadius: "var(--radius-md)", flexShrink: 0,
               display: "flex", alignItems: "center", justifyContent: "center",
-              background: `linear-gradient(135deg, color-mix(in srgb, ${iconColor ?? "var(--accent)"} 18%, transparent) 0%, color-mix(in srgb, ${iconColor ?? "var(--accent)"} 6%, transparent) 100%)`,
-              border: `1px solid color-mix(in srgb, ${iconColor ?? "var(--accent)"} 25%, transparent)`,
+              background: `color-mix(in srgb, ${iconColor ?? "var(--accent)"} 10%, transparent)`,
               color: iconColor ?? "var(--accent-hover)",
-              boxShadow: `0 8px 20px -10px color-mix(in srgb, ${iconColor ?? "var(--accent)"} 50%, transparent)`,
             }}
             aria-hidden="true"
           >
@@ -43,8 +43,22 @@ export function PageHeader({ eyebrow, title, subtitle, icon, iconColor, actions,
               {eyebrow}
             </p>
           )}
-          <h1 className="heading-1" style={{ marginBottom: subtitle ? 4 : 0, lineHeight: 1.15 }}>
-            {title}
+          <h1 className="heading-1" style={{
+            marginBottom: subtitle ? 4 : 0, lineHeight: 1.15,
+            display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap",
+          }}>
+            <span>{title}</span>
+            {count != null && (
+              <span style={{
+                fontSize: 13, fontWeight: 500,
+                color: "var(--text-muted)",
+                letterSpacing: 0,
+                fontVariantNumeric: "tabular-nums",
+              }}>
+                <span style={{ color: "var(--text-faint)", marginRight: 6 }}>·</span>
+                {count}
+              </span>
+            )}
           </h1>
           {subtitle && (
             <div className="text-muted-sm" style={{ fontSize: 13 }}>
@@ -71,8 +85,8 @@ export function PageHeader({ eyebrow, title, subtitle, icon, iconColor, actions,
                     {s.label}
                   </span>
                   <span style={{
-                    fontSize: 18, fontWeight: 800, color: "var(--text-primary)",
-                    letterSpacing: "-0.03em", fontVariantNumeric: "tabular-nums", lineHeight: 1.2,
+                    fontSize: 18, fontWeight: 700, color: "var(--text-primary)",
+                    letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums", lineHeight: 1.2,
                   }}>
                     {s.value}
                   </span>

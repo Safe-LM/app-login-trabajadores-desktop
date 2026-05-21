@@ -93,3 +93,9 @@ dashboard_web/
 models/
 _pdf_extract.txt
 app_loginTrabajadores.pdf
+
+# ─── Word (manuales generados, no commitear el output) ───────
+# Se genera con: cd docs && python generate_docx.py
+docs/*.docx
+~$*.docx
+~$*.doc

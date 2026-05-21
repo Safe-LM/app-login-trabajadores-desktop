@@ -168,14 +168,31 @@ Estas funciones bypasan RLS y se usan cuando el JWT del usuario aún no tiene `e
 
 | Ruta | Estado | Descripción |
 |---|---|---|
-| `/login` | ✅ | Auth con Supabase, cookies SSR, redirect post-login |
+| `/login` | ✅ | Auth con Supabase + hero editorial (Geist + gradient + 3 pills) + Caps Lock detector |
 | `/onboarding` | ✅ | Wizard 4 pasos: crear empresa + sucursal para nuevos clientes |
-| `/dashboard` | ✅ | Estadísticas del día, tabla de asistencias recientes |
+| `/tablero` | ✅ | **Wall en vivo** de estaciones — tiles con border-glow por estado, marcaciones recientes |
+| `/mapa` | ✅ | **Vista geográfica** Leaflet — pines custom con halo, filtros, leyenda, fit-bounds |
+| `/dashboard` | ✅ | KPIs del día: presentes / ausentes / salieron, tabla de actividad reciente |
 | `/empleados` | ✅ | CRUD completo: crear, editar, eliminar empleados. Búsqueda en tiempo real. |
+| `/sucursales` | ✅ | CRUD con horarios + **tab Ubicación** con click-to-place + geolocation API |
 | `/asistencia` | ✅ | Historial de registros de asistencia |
-| `/dispositivos` | ✅ | Tiempo real (Realtime), crear/renombrar, ver API key, **vincular por código**, ver HWID |
+| `/dispositivos` (Estaciones) | ✅ | Tiempo real (Realtime), crear/renombrar, ver API key, vincular por código, ver HWID |
 | `/reportes` | 🔧 | Placeholder — gráficas pendientes |
+| `/ejecutivo` | ✅ | Vista resumida para gerentes |
+| `/actividad` | ✅ | Audit log de acciones admin |
+| `/notificaciones` | ✅ | Histórico de eventos (estación offline, llegada tarde, etc.) |
 | `/configuracion` | 🔧 | Placeholder — ajustes de empresa pendientes |
+
+### Sistema de diseño (v0.7+)
+
+| Aspecto | Valor |
+|---|---|
+| **Tipografía** | Geist Sans (titulares) · Inter (UI) · JetBrains Mono (datos tabulares) |
+| **Paleta** | Azul `#2563eb` (acción) + Teal `#14b8a6` (datos en vivo / heartbeat) + semantic (green/yellow/red) |
+| **Shell** | Sidebar (recursos) + TopBar (tabs contextuales + bell + search Cmd+K + avatar) |
+| **Componentes UI** | `<PageHeader>`, `<StatusBadge>` (6 kinds), `<StatCard>`, `<LocationPicker>`, `<EmptyState>` |
+| **Iconos** | `lucide-react` (uniforme, tree-shakeable) |
+| **Mapa** | Leaflet vanilla + tiles CartoDB Dark (sin API key) |
 
 ### API Routes
 

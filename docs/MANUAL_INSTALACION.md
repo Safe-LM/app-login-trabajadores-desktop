@@ -1,61 +1,215 @@
-# Safe Link Station — Manual de Instalación
+# Safe Link — Manual de instalación
 
-> **Para administradores de sucursal.** Este manual explica cómo instalar y configurar
-> la estación de control de asistencia en una computadora Windows.
+> **Para administradores y operadores.** Este manual cubre la instalación y puesta en
+> marcha de los dos componentes de Safe Link Monitoring:
+>
+> 1. **Panel web** (`panel.safelink.app`) — consola SaaS de administración multi-tenant
+> 2. **Estación física** (`SafeLinkStation_Setup.exe`) — app de escritorio para reconocimiento
+>    facial en cada sucursal
+>
+> Tiempo total: **5–10 min por componente**. No requiere conocimientos de SQL ni programación.
 
 ---
 
-## ✅ Antes de empezar — qué necesitas
+## Tabla de contenido
+
+- [1. ¿Qué es Safe Link?](#1-qué-es-safe-link)
+- [2. Antes de empezar — requisitos](#2-antes-de-empezar--requisitos)
+- [3. Instalación del Panel Web](#3-instalación-del-panel-web)
+- [4. Instalación de la Estación física](#4-instalación-de-la-estación-física)
+- [5. Verificación end-to-end](#5-verificación-end-to-end)
+- [6. Operación diaria](#6-operación-diaria)
+- [7. Actualizaciones](#7-actualizaciones)
+- [8. Desinstalación](#8-desinstalación)
+- [9. Solución de problemas](#9-solución-de-problemas)
+- [10. Soporte](#10-soporte)
+
+---
+
+## 1. ¿Qué es Safe Link?
+
+**Safe Link Monitoring** es una plataforma SaaS B2B para control biométrico de asistencia
+laboral. Cada empresa cliente instala estaciones físicas en sus sucursales (una PC con
+cámara web) que reconocen a los empleados por su rostro y registran sus marcaciones de
+entrada/salida en la nube. El administrador gestiona empleados, sucursales y reportes
+desde un panel web sin necesidad de tocar bases de datos.
+
+### Arquitectura simplificada
+
+```
+┌──────────────────┐        ┌─────────────────┐        ┌──────────────────┐
+│  Estación física │──────▶ │    Supabase     │ ◀──────│   Panel web      │
+│  (PC + cámara)   │  API   │  (cloud DB)     │  SSR   │ (panel.safelink) │
+│                  │  REST  │  PostgreSQL +   │  API   │  Multi-tenant    │
+│  Python + React  │        │  RLS + Realtime │        │  Next.js 15      │
+└──────────────────┘        └─────────────────┘        └──────────────────┘
+       ▲                                                          │
+       │ heartbeat cada 60s                                       │
+       └────── estado online/offline visible en tiempo real ──────┘
+```
+
+### Roles
+
+| Rol | Quién | Qué hace |
+|---|---|---|
+| **Empleado** | Colaborador de la empresa | Se para frente a la estación → marca entrada/salida |
+| **Administrador** | Dueño/RH de la empresa cliente | Crea empleados, sucursales y estaciones desde el panel |
+| **Superadmin** | Equipo Safe Link | Soporte, monitoreo cross-empresa, releases |
+
+---
+
+## 2. Antes de empezar — requisitos
+
+### Para el Panel web
 
 | Requisito | Detalle |
 |---|---|
-| 🖥️ Computadora | Windows 10 / 11 (64 bits) |
-| 📷 Cámara | Webcam USB o integrada del laptop |
-| 🌐 Internet | Estable (la primera vez para sincronizar) |
-| 🔑 API Key | Te la dimos en el panel web (sección "Estaciones") |
-| 📦 Instalador | Archivo `SafeLinkStation_Setup.exe` (te lo enviamos por email o descarga) |
+| Navegador | Chrome 120+, Edge 120+, Firefox 121+, Safari 17+ |
+| Internet | Estable (≥5 Mbps) |
+| Cuenta | Email + contraseña entregados por Safe Link (o link de onboarding) |
+| Dispositivo | Cualquier laptop/desktop. Resolución mínima recomendada: 1366×768 |
 
-> ⏱ **Tiempo estimado:** 3–5 minutos.
+### Para la Estación física
 
----
-
-## 📥 Paso 1 — Descargar el instalador
-
-Recibiste por email un link como:
-
-```
-https://github.com/Safe-LM/.../releases/download/station-v5.1.0/SafeLinkStation_Setup.exe
-```
-
-1. Click en el link → se descarga el archivo
-2. Guárdalo en **Descargas** (donde sea fácil de encontrar)
+| Requisito | Detalle |
+|---|---|
+| Sistema operativo | Windows 10 / 11 (64 bits) |
+| Cámara | Webcam USB o integrada del laptop (resolución mínima 720p) |
+| Procesador | Intel i3 8va gen o equivalente AMD (para inferencia ML local) |
+| RAM | 4 GB mínimo, 8 GB recomendado |
+| Espacio | 280 MB libres en disco |
+| Internet | Estable para sincronizar (la estación tiene buffer offline) |
+| Permisos | Administrador local en la PC para instalar |
+| Instalador | `SafeLinkStation_Setup.exe` (descarga de [GitHub Releases](https://github.com/Safe-LM/app-login-trabajadores-desktop/releases/latest)) |
 
 ---
 
-## 🚀 Paso 2 — Ejecutar el instalador
+## 3. Instalación del Panel Web
 
-1. Doble click sobre **`SafeLinkStation_Setup.exe`**
-2. Windows mostrará un aviso de **"Editor desconocido"** (porque aún no firmamos el `.exe` digitalmente).
-   Click en **"Más información"** → **"Ejecutar de todas formas"**.
-3. Acepta el aviso de **Control de cuentas (UAC)** → "Sí"
+> No requiere instalación de software — es una aplicación web. Solo necesitas un navegador.
 
-Verás el wizard de instalación de Safe Link Station:
+### Paso 3.1 — Recibir credenciales
+
+El equipo de Safe Link te proporciona uno de estos dos accesos:
+
+**Opción A: Credenciales directas** (empresa ya creada)
+
+```
+URL:        https://panel.safelink.app
+Email:      admin@tuempresa.com
+Password:   (entregada en sobre sellado o por canal seguro)
+```
+
+**Opción B: Link de onboarding** (empresa nueva — zero-touch)
+
+```
+https://panel.safelink.app/activar?token=ABC-123-XYZ
+```
+
+### Paso 3.2 — Primer ingreso
+
+1. Abre el navegador en la URL proporcionada
+2. Si tienes credenciales: ingresa email + password en el form de login
+3. Si tienes link de onboarding: llena el wizard
+   - Nombre de tu empresa
+   - Tu email como administrador
+   - Contraseña (mínimo 8 caracteres)
+   - Primera sucursal (nombre + ciudad)
+4. Al hacer login serás redirigido a `/tablero` (vista principal)
+
+### Paso 3.3 — Recorrido inicial (5 min)
+
+Familiarízate con las secciones del sidebar:
+
+| Grupo | Sección | Para qué |
+|---|---|---|
+| **Operación** | Inicio (`/tablero`) | Wall en vivo de tus estaciones |
+| | Empleados (`/empleados`) | Crear y gestionar personas |
+| | Sucursales (`/sucursales`) | Locales físicos con ubicación en mapa |
+| | Estaciones (`/dispositivos`) | Las PCs físicas con cámara |
+| **Análisis** | Reportes (`/reportes`) | Horas trabajadas, retardos |
+| | Ejecutivo (`/ejecutivo`) | KPIs para gerencia |
+| | Actividad (`/actividad`) | Audit log |
+| **Sistema** | Notificaciones (`/notificaciones`) | Histórico de eventos |
+| | Configuración (`/configuracion`) | Datos de la empresa |
+
+**Búsqueda global**: presiona `Cmd+K` (Mac) o `Ctrl+K` (Windows) para abrir la paleta
+de comandos y navegar rápido.
+
+### Paso 3.4 — Configurar primera sucursal con ubicación
+
+1. Sidebar → **Sucursales** → botón **`+ Nueva sucursal`**
+2. Tab **Información**: nombre, dirección
+3. Tab **Horario**: hora apertura, cierre, tolerancia (minutos)
+4. Tab **Ubicación**:
+   - Click en **"Mi ubicación"** para usar el GPS de tu equipo, o
+   - Click en cualquier punto del mapa para colocar el pin manualmente
+   - Arrastra el pin para afinar
+   - Las coordenadas se muestran en formato `19.43260° -99.13320°`
+5. Click **"Crear sucursal"**
+6. Verifica en sidebar → **Mapa** que el pin aparezca con halo cyan pulsando
+
+### Paso 3.5 — Crear empleados
+
+1. Sidebar → **Empleados** → **`+ Nuevo empleado`**
+2. Llena nombre, apellido, código de empleado, sucursal asignada
+3. **Sube una foto frontal clara** del empleado (idealmente con buena iluminación,
+   sin lentes oscuros, mirando a cámara)
+4. Click **Guardar**
+
+> 📸 La foto se sube a Supabase Storage y la estación la descargará automáticamente
+> en su próxima sincronización para generar los embeddings faciales.
+
+---
+
+## 4. Instalación de la Estación física
+
+### Paso 4.1 — Descargar el instalador
+
+Desde el equipo donde vas a instalar la estación, ve a:
+
+```
+https://github.com/Safe-LM/app-login-trabajadores-desktop/releases/latest
+```
+
+Descarga el archivo `SafeLinkStation_Setup.exe` (~280 MB). Guárdalo en **Descargas**.
+
+### Paso 4.2 — Generar la API Key en el panel
+
+Antes de ejecutar el instalador, necesitas crear la estación en el panel web para
+obtener su API Key:
+
+1. Panel web → sidebar → **Estaciones** → botón **`+ Registrar estación`**
+2. Llena:
+   - Nombre (ej: `Recepción Norte`, `Almacén Centro`)
+   - Sucursal asignada (la creaste en el paso 3.4)
+3. Click **Registrar**
+4. **Copia la API Key** que aparece (formato `sk_xxxxxxxxxxxxxxxx`)
+   - 🚨 Solo se muestra una vez. Guárdala en un lugar seguro temporalmente.
+
+### Paso 4.3 — Ejecutar el instalador
+
+1. Doble click en `SafeLinkStation_Setup.exe`
+2. Si Windows muestra **"Editor desconocido"** (normal — el `.exe` aún no está
+   firmado digitalmente):
+   - Click en **"Más información"** → **"Ejecutar de todas formas"**
+3. Acepta el aviso UAC ("Control de cuentas") → **Sí**
+
+Aparece el wizard:
 
 ```
 ┌─────────────────────────────────────────────┐
 │   Bienvenido al Asistente de Instalación   │
 │                                             │
-│   Safe Link Station 5.1.0                   │
+│   Safe Link Station 5.7.x                   │
 │                                             │
 │            [ Siguiente > ]  [ Cancelar ]   │
 └─────────────────────────────────────────────┘
 ```
 
-4. Click **Siguiente**
+Click **Siguiente**.
 
----
-
-## 📂 Paso 3 — Carpeta de instalación
+### Paso 4.4 — Carpeta de instalación
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -65,33 +219,28 @@ Verás el wizard de instalación de Safe Link Station:
 │                              [ Examinar ]   │
 │                                             │
 │   Espacio requerido: ~280 MB                │
-│   Espacio disponible: 142 GB                │
 │                                             │
 │         [ < Atrás ]  [ Siguiente > ]        │
 └─────────────────────────────────────────────┘
 ```
 
-Deja la ruta por defecto (`C:\Program Files\Safe Link Station\`) y click **Siguiente**.
+Deja la ruta por defecto y click **Siguiente**.
 
-> 💡 Si tu disco C: tiene poco espacio, puedes cambiar la ruta a `D:\Safe Link Station\`.
+> 💡 Si tu disco C: tiene poco espacio, puedes cambiar a `D:\Safe Link Station\`.
 
----
-
-## ⚙️ Paso 4 — Configuración inicial
-
-Después de copiar archivos (~1 min), aparecerá la **pantalla de configuración**:
+### Paso 4.5 — Configuración inicial (la importante)
 
 ```
 ┌──────────────────────────────────────────────────────────┐
 │  Configuración inicial                                   │
 │  Vincula esta estación con tu cuenta Safe Link.          │
 │                                                          │
-│  Nombre de la estación (ej: Sucursal Norte):             │
+│  Nombre de la estación:                                  │
 │  ┌────────────────────────────────────────────────────┐  │
 │  │ Estacion-1                                         │  │
 │  └────────────────────────────────────────────────────┘  │
 │                                                          │
-│  API Key (la genera el panel al crear la estación):      │
+│  API Key (la generaste en el panel):                     │
 │  ┌────────────────────────────────────────────────────┐  │
 │  │ sk_xxxxxxxxxxxxxxxxxxxxxxxxxxx                     │  │
 │  └────────────────────────────────────────────────────┘  │
@@ -112,135 +261,189 @@ Después de copiar archivos (~1 min), aparecerá la **pantalla de configuración
 └──────────────────────────────────────────────────────────┘
 ```
 
-### Cómo obtener estos datos
+| Campo | Valor |
+|---|---|
+| **Nombre de la estación** | El que tú quieras. Recomendado: descriptivo del lugar (ej: `Recepción`, `Almacén Norte`). |
+| **API Key** | La que copiaste en el paso 4.2 (empieza con `sk_`). |
+| **URL Supabase** | Viene precargada. Si te dieron credenciales personalizadas, pégalas aquí. |
+| **Anon Key** | Viene precargada igual que URL. |
+| **Iniciar con Windows** | ☑ Marca esta casilla si la PC se usa 24/7 (recomendado para producción). |
 
-1. **Nombre de la estación**: el que tú quieras. Ej: `"Recepción"`, `"Almacén Norte"`, `"Sucursal Centro"`.
+Click **Siguiente** → **Finalizar**.
 
-2. **API Key**: 
-   - Entra al panel web ([panel.safelink.app](https://panel.safelink.app))
-   - Ve a **Estaciones** → click en **"Registrar estación"**
-   - Ponle un nombre, asigna sucursal, y click en **"Registrar"**
-   - Copia la **API Key** que aparece (empieza con `sk_...`)
-   - 🚨 **Solo se muestra una vez** — guárdala bien
+### Paso 4.6 — Primera ejecución de la estación
 
-3. **URL Supabase** y **Anon Key**: viene precargada con los valores correctos. Si te dimos credenciales personalizadas, pégalas aquí.
+Al finalizar, la estación se abre automáticamente en pantalla completa (modo kiosco):
 
-4. **Iniciar con Windows**: marca esta casilla si quieres que la estación arranque sola al prender la computadora (recomendado para uso 24/7).
+1. Splash con logo Safe Link mientras carga (~5 seg)
+2. Pide acceso a la cámara → acepta cuando Windows pregunte
+3. **Sincroniza la lista de empleados** con Supabase (~30 seg)
+4. Por cada empleado con foto, genera **10 embeddings faciales** y los sube a la nube
+5. Cuando aparece el mensaje **"Listo — buscando rostro…"**, la estación está activa
 
-Click **Siguiente**.
-
----
-
-## ✨ Paso 5 — Finalizar
-
-```
-┌─────────────────────────────────────────────┐
-│   ¡Instalación completada!                  │
-│                                             │
-│   Safe Link Station se instaló              │
-│   correctamente.                            │
-│                                             │
-│   ☑ Iniciar Safe Link Station ahora        │
-│                                             │
-│   🔗 Visitar el panel web                   │
-│                                             │
-│            [ Finalizar ]                    │
-└─────────────────────────────────────────────┘
-```
-
-Click **Finalizar**.
-
----
-
-## 🎬 Primera ejecución — qué pasa
-
-1. La estación abre en pantalla completa (modo kiosco)
-2. Pide acceso a la cámara (acepta cuando Windows lo pregunte)
-3. Sincroniza la lista de empleados con Supabase (~30 segundos)
-4. Por cada empleado con foto: genera **10 embeddings faciales** y los sube a la nube
-5. Cuando aparece **"Listo — buscando rostro..."**, la estación está activa
-
-> 📸 **Nota**: la primera sincronización puede tardar 1-2 min si hay muchos empleados.
+> 📡 La primera sincronización puede tardar 1-2 min si hay muchos empleados.
 > Verás "Sincronizando..." en la parte superior derecha.
 
 ---
 
-## ✅ Verificar que está bien instalada
+## 5. Verificación end-to-end
 
-### En la estación
-- [ ] Aparece logo "SAFE LINK MONITORING" en pantalla
-- [ ] La cámara muestra video en vivo
-- [ ] El indicador "EN LÍNEA" está verde (esquina superior derecha)
-- [ ] Reloj en vivo
+### Checklist en la estación
+
+- [ ] Logo `SAFE LINK MONITORING` visible arriba a la izquierda
+- [ ] Cámara muestra video en vivo (no pantalla negra)
+- [ ] Indicador "EN LÍNEA" verde en esquina superior derecha
+- [ ] Reloj en vivo actualizándose cada segundo
 - [ ] Mensaje "Buscando rostro..." abajo de la cámara
+- [ ] Al pararse frente a la cámara: detecta el rostro (cuadro rojo/verde)
 
-### En el panel web (`panel.safelink.app`)
-- [ ] Vé a **Estaciones**
-- [ ] La estación nueva aparece con badge **"En línea"** (punto verde animado)
-- [ ] Heartbeat reciente (hace <1 min)
+### Checklist en el panel web
+
+1. Sidebar → **Tablero** → debes ver la nueva estación como tile con border verde y halo pulsando
+2. Sidebar → **Estaciones** → la estación aparece con badge **`● En línea`** (dot verde animado)
+3. El heartbeat debe ser reciente (`hace 12s`, `hace 30s`, etc.)
+4. Sidebar → **Mapa** → si la sucursal de esta estación tiene ubicación, el pin debe ser verde
+
+### Prueba de marcación
+
+1. Para frente a la estación a un empleado con foto enrollada en el panel
+2. La estación debe reconocerlo en <1 segundo y mostrar `✓ Bienvenido, [Nombre]`
+3. Suena la campanita 🔔
+4. Panel web → Sidebar → **Dashboard** → el empleado aparece en la tabla de asistencias
+5. Sidebar → **Tablero** → aside derecho "Marcaciones recientes" actualiza en tiempo real
+
+✅ **Si todo lo anterior pasa, la instalación es exitosa.**
 
 ---
 
-## 🔧 Configurar después de instalar
+## 6. Operación diaria
 
-Si quieres cambiar algo (nombre, autostart, API key), edita el archivo:
+### Para el administrador (panel web)
+
+- **Tablero**: revisar al inicio del día que todas las estaciones estén "En línea"
+- **Dashboard**: ver KPIs del día (presentes, ausentes, asistencia %)
+- **Notificaciones**: revisar el bell 🔔 — alertas de estaciones offline o llegadas tarde
+- **Empleados**: agregar/desactivar empleados cuando cambien en la empresa
+- **Reportes**: exportar a Excel al final del mes
+
+### Para los empleados (estación)
+
+- Solo pararse frente a la cámara con la cara visible
+- Esperar la confirmación visual + sonora (~1 seg)
+- Si no reconoce: alejarse 1 metro y volver a acercarse
+- Si persiste: avisar al admin para verificar que su foto esté actualizada
+
+### Para tickets/incidencias (panel)
+
+- **Estación se cae** (offline): el panel notifica vía toast top-right + bell
+- **Empleado no reconoce**: el panel registra en logs; admin puede regenerar foto
+- **Cambio de sucursal**: editar el empleado, asignar nueva sucursal
+
+---
+
+## 7. Actualizaciones
+
+### Panel web
+
+Se actualiza automáticamente — solo recarga la página (`Ctrl+Shift+R`). No requiere
+acción del cliente. Los releases se anuncian en el panel mediante banner top.
+
+### Estación
+
+La estación detecta nuevas versiones al arrancar y muestra una notificación:
+
+- **Aceptar** → descarga e instala automáticamente (~2 min)
+- **Rechazar** → sigue con la versión actual; te avisará la próxima vez
+
+Para desactivar auto-updates, agrega al archivo `C:\Program Files\Safe Link Station\.env`:
+
+```
+AUTO_UPDATE_ENABLED=false
+```
+
+---
+
+## 8. Desinstalación
+
+### Estación
+
+**Opción A — Desde menú Inicio:**
+1. Menú Inicio → buscar `Safe Link Station`
+2. Click derecho → **Desinstalar**
+
+**Opción B — Desde Configuración de Windows:**
+1. Configuración → Aplicaciones → Aplicaciones instaladas
+2. Buscar `Safe Link Station` → `⋯` → **Desinstalar**
+
+> 💾 **Tus datos** (asistencias offline en `data/db/`, logs) se conservan por seguridad.
+> Si quieres borrarlo todo, elimina manualmente `C:\Program Files\Safe Link Station\`
+> después de desinstalar.
+
+### Panel web
+
+No hay que desinstalar nada. Si una empresa quiere darse de baja, contacta al soporte
+de Safe Link para eliminar su tenant y datos.
+
+---
+
+## 9. Solución de problemas
+
+### Panel web
+
+| Problema | Solución |
+|---|---|
+| Login OK pero `/dashboard` redirige a `/login` | El middleware no encuentra `empresa_id` en el JWT — pide al admin que vuelva a crear tu usuario vía onboarding |
+| Tabla de empleados vacía aunque existen | RLS está bloqueando — contacta soporte |
+| Mapa no carga (pantalla negra) | Verifica internet — los tiles vienen de CartoDB CDN |
+| Pin de sucursal no aparece en `/mapa` | La sucursal no tiene `lat/lng` — edita en `/sucursales` → tab Ubicación |
+| Notificaciones no llegan en tiempo real | Verifica que Realtime esté habilitado en tu plan Supabase |
+
+### Estación
+
+| Problema | Solución |
+|---|---|
+| "Editor desconocido" al ejecutar el instalador | Normal sin firma digital. Click "Más información" → "Ejecutar de todas formas". |
+| "Cámara no disponible" | Cierra Teams/Zoom/Skype/cualquier app que use la cámara. Reinicia la estación. |
+| "Estación sin conexión" en el panel | Verifica internet. La estación reintentará cada 60s. |
+| El instalador se cierra sin avisar | Ejecuta como administrador (click derecho → "Ejecutar como administrador"). |
+| No genera embeddings | Verifica que los empleados tengan foto subida en el panel. |
+| Cámara invertida o lateral | Es una limitación de la cámara, no del software. |
+| No reconoce empleados nuevos | Espera 60s tras crearlos en el panel — la sincronización es automática. |
+| Heartbeat se queda en "hace 5 min" o más | La estación perdió internet o se cerró. Verifica que esté corriendo + conectividad. |
+
+### Cómo editar la configuración después de instalar
+
+Edita el archivo:
 
 ```
 C:\Program Files\Safe Link Station\.env
 ```
 
-Abre con **Bloc de notas como administrador** y modifica los valores. Reinicia la estación.
+Abre con **Bloc de notas como administrador** (click derecho → "Ejecutar como administrador").
+Modifica los valores y reinicia la estación.
 
-> ⚠️ Si **abres con doble click** sin "como administrador", Windows no te dejará guardar.
-
----
-
-## 🗑️ Desinstalar
-
-**Opción A — Desde menú Inicio:**
-1. Menú Inicio → busca **"Safe Link Station"**
-2. Click en **"Desinstalar"**
-
-**Opción B — Desde Configuración:**
-1. Configuración → Aplicaciones → Aplicaciones instaladas
-2. Busca **"Safe Link Station"** → click en `⋯` → Desinstalar
-
-> 💾 **Tus datos** (asistencias offline en `data/db/`, logs) se conservan por seguridad.
-> Si quieres borrarlo todo, elimina manualmente la carpeta `C:\Program Files\Safe Link Station\` después de desinstalar.
+> ⚠️ Si abres con doble click sin "como administrador", Windows no te dejará guardar.
 
 ---
 
-## 🆘 Problemas comunes
+## 10. Soporte
 
-| Problema | Solución |
+| Canal | Para qué |
 |---|---|
-| **"Editor desconocido"** al ejecutar el instalador | Normal sin firma digital. Click "Más información" → "Ejecutar de todas formas". |
-| **"Cámara no disponible"** | Cierra Teams/Zoom/Skype/cualquier app que use cámara. Reinicia la estación. |
-| **"Estación sin conexión"** en el panel | Verifica internet. La estación reintentará cada 60s. |
-| **El instalador se cierra sin avisar** | Ejecuta como administrador (click derecho → "Ejecutar como administrador"). |
-| **No genera embeddings** | Verifica que los empleados tengan foto subida en el panel. |
-| **Cámara invertida o lateral** | Es una limitación de la cámara, no del software. |
-| **No reconoce empleados nuevos** | Espera 60s tras crearlos en el panel — la sincronización es automática. |
+| **Email** | soporte@safelink.app — soporte general, dudas, incidencias |
+| **GitHub** | [github.com/Safe-LM/app-login-trabajadores-desktop](https://github.com/Safe-LM/app-login-trabajadores-desktop) — issues técnicos, request de features |
+| **Logs estación** | `C:\Program Files\Safe Link Station\logs\` — útil al reportar bugs |
+| **Docs técnicas** | [`docs/arquitectura.md`](arquitectura.md), [`docs/runbook-estacion.md`](runbook-estacion.md), [`docs/runbook-panel.md`](runbook-panel.md) |
+
+### Datos a incluir en un ticket de soporte
+
+1. **ID de empresa** (visible en el panel → Configuración)
+2. **Nombre de la estación afectada** (si aplica)
+3. **Captura de pantalla** del problema
+4. **Hora exacta** del incidente
+5. **Logs** (si es un problema de estación, adjuntar archivos de `logs/`)
 
 ---
 
-## 🔄 Actualizaciones
-
-La estación **te avisa cuando hay versión nueva** mediante una notificación.
-
-- **Aceptar**: descarga e instala automáticamente
-- **Rechazar**: sigues con la versión actual; te avisará la próxima vez
-
-> 🚫 Si **NO quieres** auto-updates, agrega esta línea al `.env`:
-> ```
-> AUTO_UPDATE_ENABLED=false
-> ```
-
----
-
-## 📞 Soporte
-
-- **Email**: soporte@safelink.app
-- **Documentación técnica**: [github.com/Safe-LM/...](https://github.com/Safe-LM/app-login-trabajadores-desktop)
-- **Logs locales**: `C:\Program Files\Safe Link Station\logs\`
-- **Si necesitas reinstalar todo**: desinstala → borra carpeta → vuelve a instalar
+**Versión del manual**: para Safe Link Station 5.7+ y Panel web 0.7+.
+**Última actualización**: 2026-05-20.

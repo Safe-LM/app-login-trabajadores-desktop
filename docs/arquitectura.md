@@ -224,11 +224,79 @@ EMPLEADO         ESTACIÓN              SUPABASE              PANEL
 | Realtime | Supabase Realtime (Phoenix Channels) | WebSockets nativos sobre PostgreSQL changes |
 | Storage | Supabase Storage (S3 compat) | Fotos de empleados, logos |
 | Panel UI | Next.js 15 (App Router) | SSR + RSC, mejor SEO/perf |
-| Panel UI lib | React 19 + CSS-in-JS | Modern, server components |
+| Panel UI lib | React 18 + Tailwind CSS | Modern, server components, design tokens |
+| Panel tipografía | Geist Sans + Inter + JetBrains Mono | Identidad B2B SaaS pro con datos tabulares legibles |
+| Panel mapa | Leaflet vanilla + CartoDB Dark tiles | Sin API key, sin costo, sin dependencias frágiles |
+| Panel iconos | lucide-react | Set uniforme, tree-shakeable, stroke consistente |
 | Estación core | Python 3.10+ + PyQt5 | Acceso nativo a cámara, GPU para ML |
 | Estación UI | React (single-file bundle) | Reutilizar componentes con web |
 | Reconocimiento | OpenCV + SFace + YuNet | DNN preentrenadas, sin servicios externos |
 | Hosting panel | Vercel | Zero-config, deploy por git push |
+
+---
+
+## Sistema de diseño del panel web (v0.7+)
+
+El panel implementa un sistema de diseño formal con tokens centralizados en
+`web-panel/src/app/globals.css`. Esto permite consistencia visual sin css-in-js
+ni runtime tailwind plugins.
+
+### Tokens de marca
+
+```
+--accent       #2563eb   Azul primario (acciones, estado activo)
+--accent-hover #3b82f6
+--teal         #14b8a6   Secundario — "tiempo real / datos / heartbeat"
+--teal-hover   #2dd4bf
+
+--green        #22c55e   Estado: online / presente
+--yellow       #eab308   Estado: warn / alerta
+--red          #ef4444   Estado: error / offline
+
+--bg-black     #070708   Surface base
+--bg-card      #0f0f10   Cards
+--bg-elevated  #161618   Inputs, hover state
+```
+
+### Tipografía triple
+
+| Token | Familia | Uso |
+|---|---|---|
+| `--font-body` | Inter | Cuerpo, UI, labels, párrafos |
+| `--font-heading` | Geist Sans | h1/h2/h3, brand mark, topbar tabs, section labels |
+| `--font-data` | JetBrains Mono | Coordenadas, API keys, IPs, IDs, timestamps, contadores |
+
+Autohosteadas por `next/font` (zero CLS). Geist se importa del paquete oficial `geist`,
+Inter y JetBrains Mono del subset Latin de Google Fonts.
+
+### Componentes del shell
+
+| Componente | Responsabilidad |
+|---|---|
+| **Sidebar** (`sidebar-nav.tsx`) | Catálogo de recursos: OrgSwitcher + 3 grupos (Operación/Análisis/Sistema). 9 items totales — sin duplicar las vistas del topbar. |
+| **TopBar** (`topbar.tsx`) | Contexto de la sección actual: tabs contextuales (solo en grupo Inicio), búsqueda `Cmd+K`, bell con badge real desde `notificaciones`, avatar. |
+| **PageHeader** (`components/ui/PageHeader.tsx`) | Hero unificado con patrón `Título · count`. Soporta eyebrow, subtitle, icon chip, stats inline, actions slot. |
+| **StatusBadge** (`components/ui/StatusBadge.tsx`) | Dot + label con 6 kinds: `online`, `warn`, `offline`, `error`, `neutral`, `live`. Variante `strong` activa el halo animado (`live-pulse` 2.4s). |
+| **EstacionTile** (clase CSS `.estacion-tile`) | Card con border + glow `color-mix` por estado, accent line superior, hover con lift + glow intensificado. |
+| **LocationPicker** (`components/ui/LocationPicker.tsx`) | Mini-mapa Leaflet con click-to-place, drag, geolocation API con feedback de precisión. |
+| **MetricChip** (clase CSS `.metric-chip`) | Pill compacto con dot de color, label, value en mono. Hover con border tinted al color. |
+
+### Páginas nuevas (v0.7+)
+
+| Ruta | Propósito | Componentes clave |
+|---|---|---|
+| `/tablero` | Wall en vivo de estaciones estilo monitoring | Hero con metric chips, segmented filter, density toggle, grid de `.estacion-tile`, aside de marcaciones recientes |
+| `/mapa` | Vista geográfica de sucursales | `MapView` Leaflet vanilla, pines custom `.sl-pin` con halo animado, segmented filter por estado, overlays flotantes (counter + leyenda), aside con `SucursalRow` clicable |
+
+### Animaciones curated (no decorativas)
+
+| Animación | Cuándo | Duración |
+|---|---|---|
+| `live-pulse` | Dots de `StatusBadge strong` | 2.4s loop |
+| `tile-accent-breathe` | Línea acento superior de tiles online | 4s loop |
+| `tab-underline-in` | Subrayado del tab activo al cambiar de sección | 240ms cubic-bezier |
+| `sl-pin-halo` | Halo de pines del mapa para sucursales online/seleccionadas | 2.4s loop |
+| `bio-line-flow` | (Eliminado — el login antiguo tenía radar animado, ahora es editorial) | — |
 
 ---
 

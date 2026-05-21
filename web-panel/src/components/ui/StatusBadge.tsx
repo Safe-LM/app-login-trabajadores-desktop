@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 
-export type StatusKind = "online" | "warn" | "offline" | "error" | "neutral";
+export type StatusKind = "online" | "warn" | "offline" | "error" | "neutral" | "live";
 
 type Props = {
   kind: StatusKind;

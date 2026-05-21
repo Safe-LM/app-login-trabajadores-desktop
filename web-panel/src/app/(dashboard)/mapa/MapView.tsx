@@ -4,26 +4,30 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { SucursalMapa } from "./page";
 
-function makePinIcon(color: string, glow: boolean): L.DivIcon {
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 40" width="28" height="36">
-      <defs>
-        <filter id="g" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="2.5"/>
-        </filter>
-      </defs>
-      ${glow ? `<circle cx="16" cy="14" r="10" fill="${color}" opacity="0.35" filter="url(#g)"/>` : ""}
-      <path d="M16 1 C8.27 1 2 7.27 2 15 c0 9.5 14 23 14 23 s14-13.5 14-23 C30 7.27 23.73 1 16 1 z"
-            fill="${color}" stroke="#0f0f10" stroke-width="1.5"/>
-      <circle cx="16" cy="14" r="4.5" fill="#0f0f10"/>
-    </svg>
+/**
+ * Pin custom Safe Link:
+ *  - Anillo exterior de color del estado (online verde, warn amber, etc)
+ *  - Punto central indicando "ubicacion"
+ *  - Pulse animado (CSS) cuando el pin esta seleccionado o online
+ */
+function makePinIcon(color: string, opts: { selected?: boolean; pulse?: boolean; count?: number } = {}): L.DivIcon {
+  const { selected, pulse, count } = opts;
+  const size = selected ? 38 : 30;
+  const html = `
+    <div class="sl-pin ${pulse ? "sl-pin--pulse" : ""} ${selected ? "sl-pin--selected" : ""}"
+         style="--sl-pin-color: ${color}; width: ${size}px; height: ${size}px;">
+      ${pulse ? '<span class="sl-pin__halo" aria-hidden="true"></span>' : ""}
+      <span class="sl-pin__ring"></span>
+      <span class="sl-pin__core"></span>
+      ${count != null ? `<span class="sl-pin__count">${count}</span>` : ""}
+    </div>
   `;
   return L.divIcon({
     className: "safelink-pin",
-    html: svg,
-    iconSize:   [28, 36],
-    iconAnchor: [14, 36],
-    popupAnchor: [0, -32],
+    html,
+    iconSize:   [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size / 2 - 2],
   });
 }
 
@@ -67,6 +71,10 @@ function computeView(sucursales: SucursalMapa[]): { center: [number, number]; zo
   return { center: [cx, cy], zoom: 6 };
 }
 
+export type MapViewHandle = {
+  fitToAll: () => void;
+};
+
 /**
  * Mapa Leaflet vanilla (sin react-leaflet) para evitar el bug
  * "Map container is already initialized" en React 18 Strict Mode.
@@ -75,10 +83,12 @@ export function MapView({
   sucursales,
   selected,
   onSelect,
+  onReady,
 }: {
   sucursales: SucursalMapa[];
   selected: string | null;
   onSelect: (id: string) => void;
+  onReady?: (handle: MapViewHandle) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef       = useRef<L.Map | null>(null);
@@ -86,6 +96,10 @@ export function MapView({
   // Refs para que el efecto de mount no dependa de props/handlers cambiantes.
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
+  const onReadyRef  = useRef(onReady);
+  onReadyRef.current = onReady;
+  const sucursalesRef = useRef(sucursales);
+  sucursalesRef.current = sucursales;
 
   // Mount-once: crear mapa + tile layer
   useEffect(() => {
@@ -105,6 +119,20 @@ export function MapView({
     }).addTo(map);
 
     mapRef.current = map;
+
+    // Expone handle al padre con utilidades del mapa.
+    onReadyRef.current?.({
+      fitToAll: () => {
+        const list = sucursalesRef.current.filter(s => s.lat != null && s.lng != null);
+        if (list.length === 0) return;
+        if (list.length === 1) {
+          map.flyTo([list[0].lat!, list[0].lng!], 14, { duration: 0.6 });
+          return;
+        }
+        const bounds = L.latLngBounds(list.map(s => [s.lat!, s.lng!] as [number, number]));
+        map.flyToBounds(bounds, { padding: [60, 60], duration: 0.6, maxZoom: 14 });
+      },
+    });
 
     return () => {
       map.off();
@@ -136,7 +164,12 @@ export function MapView({
       if (s.lat == null || s.lng == null) continue;
       const color = colorFor(s);
       const isSelected = selected === s.id;
-      const icon = makePinIcon(color, isSelected);
+      const isOnline   = s.estaciones_total > 0 && s.estaciones_online === s.estaciones_total;
+      const icon = makePinIcon(color, {
+        selected: isSelected,
+        pulse:    isOnline || isSelected,
+        count:    s.estaciones_total > 1 ? s.estaciones_total : undefined,
+      });
 
       const existingMarker = existing.get(s.id);
       if (existingMarker) {
@@ -168,7 +201,8 @@ export function MapView({
   return (
     <div
       ref={containerRef}
-      style={{ width: "100%", height: "100%", background: "#0a0a0c" }}
+      className="mapa-frame__canvas"
+      style={{ background: "#0a0a0c" }}
     />
   );
 }

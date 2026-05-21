@@ -130,7 +130,7 @@ export function SidebarNav({ userEmail, empresaNombre }: { userEmail: string; em
             <Shield size={15} strokeWidth={2.5} color="#fff" />
           </div>
           <div style={{ minWidth: 0 }}>
-            <p className="sidebar-brand__title">SAFE LINK</p>
+            <p className="sidebar-brand__title">Safe Link</p>
             <p className="sidebar-brand__tagline">Monitoring</p>
           </div>
         </Link>
@@ -156,6 +156,7 @@ export function SidebarNav({ userEmail, empresaNombre }: { userEmail: string; em
         {/* Nav */}
         <nav style={{ flex: 1, padding: "12px 10px", display: "flex", flexDirection: "column", gap: 1, overflowY: "auto" }}>
           <SectionLabel>Operación</SectionLabel>
+{/* Las labels ya no son uppercase militar — sentence-case Geist. */}
           {operacion.map(item => (
             <NavItem key={item.href} item={item} active={isActive(item, pathname)} />
           ))}
@@ -218,9 +219,9 @@ export function SidebarNav({ userEmail, empresaNombre }: { userEmail: string; em
 function SectionLabel({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
   return (
     <p style={{
-      fontSize: 9, fontWeight: 700, color: "var(--text-faint)",
-      letterSpacing: "0.14em", textTransform: "uppercase",
-      padding: "6px 10px 4px", ...style,
+      fontSize: 10, fontWeight: 600, color: "var(--text-faint)",
+      letterSpacing: "0.04em",
+      padding: "6px 11px 4px", ...style,
     }}>
       {children}
     </p>

@@ -35,7 +35,7 @@
 -- ─────────────────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS public.empresa_miembros (
-  id            UUID PRIMARY KEY DEFAULT extensions.gen_random_uuid(),
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   empresa_id    UUID NOT NULL REFERENCES public.empresas(id) ON DELETE CASCADE,
   user_id       UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   rol           TEXT NOT NULL CHECK (rol IN ('owner','admin','viewer')),
@@ -59,7 +59,7 @@ CREATE INDEX IF NOT EXISTS empresa_miembros_empresa_id_idx
 
 
 CREATE TABLE IF NOT EXISTS public.empresa_invitaciones (
-  id            UUID PRIMARY KEY DEFAULT extensions.gen_random_uuid(),
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   empresa_id    UUID NOT NULL REFERENCES public.empresas(id) ON DELETE CASCADE,
   email         TEXT NOT NULL CHECK (email = lower(email)),
   rol           TEXT NOT NULL CHECK (rol IN ('admin','viewer')),
@@ -123,14 +123,16 @@ CREATE POLICY p_invitaciones_select ON public.empresa_invitaciones
 -- ─────────────────────────────────────────────────────────────────────
 
 -- Genera un token URL-safe de 256 bits. base64url sin padding (43 chars).
+-- search_path incluye 'extensions' para resolver gen_random_bytes (pgcrypto)
+-- en Supabase prod. En CI el extension vive en public, igual cubierto.
 CREATE OR REPLACE FUNCTION public._generar_token_invitacion()
 RETURNS TEXT
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public', 'pg_temp'
+SET search_path TO 'public', 'extensions', 'pg_temp'
 AS $$
 DECLARE
-  v_raw    BYTEA := extensions.gen_random_bytes(32);
+  v_raw    BYTEA := gen_random_bytes(32);
   v_b64    TEXT;
 BEGIN
   v_b64 := encode(v_raw, 'base64');
@@ -680,38 +682,58 @@ GRANT EXECUTE ON FUNCTION public.mis_empresas()                            TO au
 -- backfilleaba manualmente), el de menor created_at queda como owner,
 -- el resto como admin. Esto respeta el partial unique index
 -- "un solo owner por empresa". Idempotente via ON CONFLICT DO NOTHING.
+--
+-- Wrap en DO block con EXECUTE para que el dry-run del CI no falle:
+-- el mock minimo de auth.users en el job validator solo tiene (id, email),
+-- no tiene raw_app_meta_data ni created_at. Detectamos las columnas y
+-- skippeamos el backfill si no estan presentes (entorno de prueba).
 
-WITH ranked AS (
-  SELECT
-    u.id AS user_id,
-    COALESCE(
-      (u.raw_app_meta_data->>'empresa_id')::UUID,
-      (u.raw_user_meta_data->>'empresa_id')::UUID
-    ) AS empresa_id,
-    u.created_at,
-    ROW_NUMBER() OVER (
-      PARTITION BY COALESCE(
-        (u.raw_app_meta_data->>'empresa_id')::UUID,
-        (u.raw_user_meta_data->>'empresa_id')::UUID
+DO $do$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema = 'auth'
+       AND table_name   = 'users'
+       AND column_name  = 'raw_app_meta_data'
+  ) THEN
+    EXECUTE $sql$
+      WITH ranked AS (
+        SELECT
+          u.id AS user_id,
+          COALESCE(
+            (u.raw_app_meta_data->>'empresa_id')::UUID,
+            (u.raw_user_meta_data->>'empresa_id')::UUID
+          ) AS empresa_id,
+          u.created_at,
+          ROW_NUMBER() OVER (
+            PARTITION BY COALESCE(
+              (u.raw_app_meta_data->>'empresa_id')::UUID,
+              (u.raw_user_meta_data->>'empresa_id')::UUID
+            )
+            ORDER BY u.created_at NULLS LAST, u.id
+          ) AS rank_in_empresa
+        FROM auth.users u
+        WHERE COALESCE(
+                (u.raw_app_meta_data->>'empresa_id')::UUID,
+                (u.raw_user_meta_data->>'empresa_id')::UUID
+              ) IS NOT NULL
       )
-      ORDER BY u.created_at NULLS LAST, u.id
-    ) AS rank_in_empresa
-  FROM auth.users u
-  WHERE COALESCE(
-          (u.raw_app_meta_data->>'empresa_id')::UUID,
-          (u.raw_user_meta_data->>'empresa_id')::UUID
-        ) IS NOT NULL
-)
-INSERT INTO public.empresa_miembros (empresa_id, user_id, rol, invitado_en, aceptado_en)
-SELECT
-  r.empresa_id,
-  r.user_id,
-  CASE WHEN r.rank_in_empresa = 1 THEN 'owner' ELSE 'admin' END,
-  COALESCE(r.created_at, NOW()),
-  COALESCE(r.created_at, NOW())
-FROM ranked r
-WHERE EXISTS (SELECT 1 FROM public.empresas e WHERE e.id = r.empresa_id)
-ON CONFLICT (empresa_id, user_id) DO NOTHING;
+      INSERT INTO public.empresa_miembros (empresa_id, user_id, rol, invitado_en, aceptado_en)
+      SELECT
+        r.empresa_id,
+        r.user_id,
+        CASE WHEN r.rank_in_empresa = 1 THEN 'owner' ELSE 'admin' END,
+        COALESCE(r.created_at, NOW()),
+        COALESCE(r.created_at, NOW())
+      FROM ranked r
+      WHERE EXISTS (SELECT 1 FROM public.empresas e WHERE e.id = r.empresa_id)
+      ON CONFLICT (empresa_id, user_id) DO NOTHING
+    $sql$;
+  ELSE
+    RAISE NOTICE 'Skipping backfill: auth.users.raw_app_meta_data no existe (probable entorno CI)';
+  END IF;
+END
+$do$;
 
 
 -- ─────────────────────────────────────────────────────────────────────

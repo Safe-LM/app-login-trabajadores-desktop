@@ -38,7 +38,11 @@ CREATE OR REPLACE FUNCTION public.crear_dispositivo(
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path TO 'public', 'pg_temp'
+-- 'extensions' incluido para que gen_random_bytes (pgcrypto) sea
+-- resoluble. En Supabase prod pgcrypto vive en extensions; en el
+-- Postgres efimero del CI esta en public. Tener ambos en el path
+-- hace que la funcion sea portable.
+SET search_path TO 'public', 'extensions', 'pg_temp'
 AS $$
 DECLARE
   v_empresa_id UUID;
@@ -57,7 +61,9 @@ BEGIN
     RETURN jsonb_build_object('ok', false, 'error', 'usuario sin empresa');
   END IF;
 
-  v_api_key := 'sk_' || encode(extensions.gen_random_bytes(24), 'hex');
+  -- gen_random_bytes resuelve a public.* (CI) o extensions.* (Supabase prod)
+  -- segun search_path. Sin schema qualification para portabilidad.
+  v_api_key := 'sk_' || encode(gen_random_bytes(24), 'hex');
 
   INSERT INTO dispositivos (
     empresa_id, sucursal_id, nombre, api_key, activo, creado_por, hwid

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { InvitacionClient } from "./invitacion-client";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -16,11 +17,32 @@ type InvitacionPreview = {
   error: string;
 };
 
-export default async function InvitacionPage(
-  { params }: { params: Promise<{ token: string }> }
-) {
+export default async function InvitacionPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<{ code?: string; type?: string }>;
+}) {
   const { token } = await params;
+  const { code } = await searchParams;
   const supabase = await createClient();
+
+  // Manejo defensivo: si Supabase nos mando aqui directamente con un
+  // ?code= (caso de invitaciones generadas antes del fix que usaba
+  // /auth/confirm), intercambiamos el code aqui mismo y redirigimos
+  // a la URL limpia. Asi el flujo funciona aunque el email tenga el
+  // redirect_to "viejo".
+  if (code) {
+    const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
+    if (!exchangeErr) {
+      // Sesion creada -> reload limpio para que las cookies se aplique
+      redirect(`/invitacion/${token}`);
+    }
+    // Si falla, seguimos como si no hubiera code (el usuario vera el
+    // boton "Iniciar sesion"). El error real lo ignoramos silenciosamente
+    // para no romper la pagina publica.
+  }
 
   // Preview publica via RPC ver_invitacion (GRANT TO anon)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

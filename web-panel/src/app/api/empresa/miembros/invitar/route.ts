@@ -53,6 +53,8 @@ export async function POST(request: NextRequest) {
   //       O para mostrar en UI). Caso esperado: la persona ya tiene cuenta.
   let emailSent = false;
   let manualUrl: string | null = null;
+  let emailError: string | null = null;
+  let serviceMisconfigured = false;
 
   try {
     const admin = createAdminClient();
@@ -67,28 +69,31 @@ export async function POST(request: NextRequest) {
       emailSent = true;
     } else {
       // Posibles mensajes: "A user with this email address has already been registered"
-      // Fallback: generateLink (sin enviar email - devolvemos URL para compartir manual)
       const lower = inviteErr.message.toLowerCase();
       const userExists = lower.includes("already") || lower.includes("registered") || lower.includes("exists");
 
       if (userExists) {
         // Para usuarios existentes preferimos NO mandar magic link (les
-        // crearia sesion); en su lugar entregamos el invitationUrl al
-        // inviter para que lo comparta — la persona ya tiene login.
+        // crearia sesion); entregamos el invitationUrl al inviter para
+        // que lo comparta — la persona ya tiene login.
         manualUrl = invitationUrl;
       } else {
-        // Error genuino: devolvemos pero la invitacion ya esta creada
-        return NextResponse.json({
-          ok: true,
-          token,
-          invitation_url: invitationUrl,
-          email_sent: false,
-          email_error: inviteErr.message,
-        });
+        // Error genuino de Supabase Auth (SMTP rate limit, redirect_to
+        // no permitido, etc.). Lo propagamos al cliente.
+        emailError = inviteErr.message;
+        manualUrl = invitationUrl;
       }
     }
   } catch (e) {
-    // Servicio admin no configurado u otro error
+    // Causa tipica: SUPABASE_SERVICE_ROLE_KEY no esta seteado en el
+    // entorno (caso comun en deploys Vercel donde se olvida agregar
+    // la env var). Marcamos como misconfigured para que el cliente
+    // muestre un mensaje claro en vez de "fallback silencioso".
+    const msg = e instanceof Error ? e.message : String(e);
+    serviceMisconfigured = msg.toLowerCase().includes("service_role");
+    emailError = serviceMisconfigured
+      ? "Falta configurar SUPABASE_SERVICE_ROLE_KEY en el servidor (Vercel → Settings → Environment Variables)."
+      : msg;
     manualUrl = invitationUrl;
   }
 
@@ -98,5 +103,7 @@ export async function POST(request: NextRequest) {
     invitation_url: invitationUrl,
     email_sent: emailSent,
     manual_url: manualUrl,
+    email_error: emailError,
+    service_misconfigured: serviceMisconfigured,
   });
 }

@@ -422,8 +422,13 @@ function InviteModal({
       }
       if (data.email_sent) {
         toast.success(`Invitación enviada a ${emailTrim}`);
+      } else if (data.service_misconfigured) {
+        // Servidor mal configurado (falta SUPABASE_SERVICE_ROLE_KEY)
+        toast.error("El envío de email no está configurado en el servidor. Comparte el link manualmente.", { duration: 6000 });
+      } else if (data.email_error) {
+        toast.warning(`Email no enviado: ${data.email_error}. Comparte el link manualmente.`, { duration: 6000 });
       } else {
-        toast.message("Invitación creada — comparte el link manualmente");
+        toast.message("Invitación creada — esta persona ya tiene cuenta, comparte el link manualmente");
       }
       onDone({ url: data.invitation_url, emailSent: !!data.email_sent });
       onClose();

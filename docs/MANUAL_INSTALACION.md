@@ -164,6 +164,19 @@ de comandos y navegar rápido.
 
 ## 4. Instalación de la Estación física
 
+### Visión general del flujo
+
+A diferencia de versiones anteriores, el instalador es **deliberadamente simple**
+y la identidad de la estación se asigna **después** de instalar. Esto evita que
+el operador físico tenga que copiar API Keys largas a mano (propenso a typos) y
+mantiene las credenciales fuera de capturas o documentos del wizard.
+
+```
+1. Descargar .exe           →  2. Ejecutar wizard         →  3. Registrar estación
+   (sin pre-pasos del panel)    (pide solo nombre +           (ventana de Setup,
+                                 autostart con Windows)         ver Paso 4.5)
+```
+
 ### Paso 4.1 — Descargar el instalador
 
 Desde el equipo donde vas a instalar la estación, ve a:
@@ -174,20 +187,11 @@ https://github.com/Safe-LM/app-login-trabajadores-desktop/releases/latest
 
 Descarga el archivo `SafeLinkStation_Setup.exe` (~280 MB). Guárdalo en **Descargas**.
 
-### Paso 4.2 — Generar la API Key en el panel
+> 💡 **No necesitas crear nada en el panel antes.** El instalador no pide URL
+> Supabase, ni Anon Key, ni API Key — todo eso viene resuelto adentro del .exe
+> o se obtiene en el primer arranque.
 
-Antes de ejecutar el instalador, necesitas crear la estación en el panel web para
-obtener su API Key:
-
-1. Panel web → sidebar → **Estaciones** → botón **`+ Registrar estación`**
-2. Llena:
-   - Nombre (ej: `Recepción Norte`, `Almacén Centro`)
-   - Sucursal asignada (la creaste en el paso 3.4)
-3. Click **Registrar**
-4. **Copia la API Key** que aparece (formato `sk_xxxxxxxxxxxxxxxx`)
-   - 🚨 Solo se muestra una vez. Guárdala en un lugar seguro temporalmente.
-
-### Paso 4.3 — Ejecutar el instalador
+### Paso 4.2 — Ejecutar el instalador
 
 1. Doble click en `SafeLinkStation_Setup.exe`
 2. Si Windows muestra **"Editor desconocido"** (normal — el `.exe` aún no está
@@ -195,21 +199,9 @@ obtener su API Key:
    - Click en **"Más información"** → **"Ejecutar de todas formas"**
 3. Acepta el aviso UAC ("Control de cuentas") → **Sí**
 
-Aparece el wizard:
+Aparece el wizard de Inno Setup. Click **Siguiente**.
 
-```
-┌─────────────────────────────────────────────┐
-│   Bienvenido al Asistente de Instalación   │
-│                                             │
-│   Safe Link Station 5.7.x                   │
-│                                             │
-│            [ Siguiente > ]  [ Cancelar ]   │
-└─────────────────────────────────────────────┘
-```
-
-Click **Siguiente**.
-
-### Paso 4.4 — Carpeta de instalación
+### Paso 4.3 — Carpeta de instalación
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -228,31 +220,22 @@ Deja la ruta por defecto y click **Siguiente**.
 
 > 💡 Si tu disco C: tiene poco espacio, puedes cambiar a `D:\Safe Link Station\`.
 
-### Paso 4.5 — Configuración inicial (la importante)
+### Paso 4.4 — Configuración inicial del wizard
+
+Aquí solo hay **2 campos** — los únicos que pide el instalador:
 
 ```
 ┌──────────────────────────────────────────────────────────┐
 │  Configuración inicial                                   │
-│  Vincula esta estación con tu cuenta Safe Link.          │
+│  Asigna un nombre a esta estación.                       │
+│                                                          │
+│  Tras la instalación, Safe Link Station te pedirá las   │
+│  credenciales del administrador (o un código de         │
+│  vinculación) para registrar esta estación en tu cuenta.│
 │                                                          │
 │  Nombre de la estación:                                  │
 │  ┌────────────────────────────────────────────────────┐  │
 │  │ Estacion-1                                         │  │
-│  └────────────────────────────────────────────────────┘  │
-│                                                          │
-│  API Key (la generaste en el panel):                     │
-│  ┌────────────────────────────────────────────────────┐  │
-│  │ sk_xxxxxxxxxxxxxxxxxxxxxxxxxxx                     │  │
-│  └────────────────────────────────────────────────────┘  │
-│                                                          │
-│  URL Supabase:                                           │
-│  ┌────────────────────────────────────────────────────┐  │
-│  │ https://ctmpsokjdguygjqmxyob.supabase.co           │  │
-│  └────────────────────────────────────────────────────┘  │
-│                                                          │
-│  Supabase Anon Key (pública):                            │
-│  ┌────────────────────────────────────────────────────┐  │
-│  │ eyJxxxxxx...                                       │  │
 │  └────────────────────────────────────────────────────┘  │
 │                                                          │
 │  ☑ Iniciar automáticamente con Windows                  │
@@ -263,25 +246,133 @@ Deja la ruta por defecto y click **Siguiente**.
 
 | Campo | Valor |
 |---|---|
-| **Nombre de la estación** | El que tú quieras. Recomendado: descriptivo del lugar (ej: `Recepción`, `Almacén Norte`). |
-| **API Key** | La que copiaste en el paso 4.2 (empieza con `sk_`). |
-| **URL Supabase** | Viene precargada. Si te dieron credenciales personalizadas, pégalas aquí. |
-| **Anon Key** | Viene precargada igual que URL. |
+| **Nombre de la estación** | Es solo un placeholder local. El nombre real lo elegirás en el siguiente paso (Setup). Puedes dejar `Estacion-1` o poner algo descriptivo. |
 | **Iniciar con Windows** | ☑ Marca esta casilla si la PC se usa 24/7 (recomendado para producción). |
 
-Click **Siguiente** → **Finalizar**.
+Click **Siguiente** → **Instalar** → **Finalizar**.
+
+### Paso 4.5 — Registro de la estación (Setup post-instalación)
+
+Al terminar el wizard, la estación arranca por primera vez. Como aún no tiene
+identidad asignada, te muestra la ventana **"Configuración inicial"** para
+registrarla en el panel.
+
+#### 🟢 Modo principal: Setup con login admin (recomendado, 90% de los casos)
+
+Funciona si tienes a mano las credenciales del administrador de la empresa.
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  Configuración inicial                                   │
+│  Esta estación aún no está registrada.                   │
+│  Ingresa tus credenciales de administrador para continuar│
+│                                                          │
+│  Email del administrador:                                │
+│  ┌────────────────────────────────────────────────────┐  │
+│  │ admin@tuempresa.com                                │  │
+│  └────────────────────────────────────────────────────┘  │
+│                                                          │
+│  Contraseña:                                             │
+│  ┌────────────────────────────────────────────────────┐  │
+│  │ ••••••••••                                         │  │
+│  └────────────────────────────────────────────────────┘  │
+│                                                          │
+│                              [ Iniciar sesión ]          │
+└──────────────────────────────────────────────────────────┘
+```
+
+1. Ingresa **email** + **contraseña** del admin de la empresa
+2. La estación se autentica contra Supabase y te muestra:
+   - **Empresa** (preseleccionada si solo tienes una)
+   - **Sucursal** (dropdown con todas las sucursales de tu empresa)
+   - **Nombre de la estación** (puedes dejar el del wizard o cambiarlo, ej:
+     `Recepción Norte`, `GERENCIA_Oficina-Central`)
+3. Click **Registrar**
+4. La estación llama al RPC `crear_dispositivo()` en Supabase, recibe la **API Key**
+   y la guarda **automáticamente** en `.env` (sin que tú la veas ni la copies)
+5. Aparece la pantalla de éxito:
+
+```
+┌──────────────────────────────────────────────────────────┐
+│            ✓ ¡Estación registrada!                       │
+│                                                          │
+│   La API Key fue guardada automáticamente.               │
+│   Ya puedes iniciar Safe Link Monitoring.                │
+│                                                          │
+│   Nombre: GERENCIA_Oficina-Central                       │
+│   ID:     e2064bd4-5d4d-47f3-999...                      │
+│                                                          │
+│            [ ▶ Iniciar Safe Link Monitoring ]            │
+└──────────────────────────────────────────────────────────┘
+```
+
+6. Click **▶ Iniciar Safe Link Monitoring** → la estación abre la app en
+   modo kiosco
+
+> ✅ **Ventajas del modo principal**: una sola ventana, sin tocar el `.env`,
+> sin copiar API Keys.
+
+#### 🔵 Modo alternativo: Manual con API Key
+
+Útil cuando el técnico que instala físicamente la estación **no debe conocer
+el password del admin** (por ejemplo, instalaciones por terceros, IT externo,
+o pre-aprovisionamiento de varias máquinas).
+
+**El admin (en una computadora con acceso al panel):**
+
+1. Panel web → sidebar → **Estaciones** → botón **`+ Registrar estación`**
+2. Llena en el modal:
+   - **Nombre** (ej: `Recepción Norte`)
+   - **Sucursal** (asignada)
+   - **ID de hardware**: déjalo **vacío**
+3. Click **Registrar estación**
+4. El panel muestra la **API Key generada**, formato `sk_xxxxxxxxxxxxxxxx`
+5. Click **Copiar API Key** y entrégasela al técnico por canal seguro
+   (no email común — mejor un gestor de contraseñas, Signal, o un sobre cerrado)
+
+> 🚨 **La API Key solo se muestra una vez completa**. Si se pierde, hay que
+> eliminar la estación del panel y crearla de nuevo.
+
+**El técnico (en la PC donde está la estación):**
+
+1. Termina de instalar el .exe (sigue con `Estacion-1` o el nombre que sea
+   en el wizard — no importa)
+2. Cuando arranca la estación y muestra la ventana de Setup, cierra esa
+   ventana (botón Cancelar o ✕)
+3. Abre **Bloc de notas como administrador**:
+   - Menú Inicio → escribe `Bloc de notas`
+   - Click derecho → **Ejecutar como administrador**
+4. Archivo → Abrir → navega a:
+   ```
+   C:\Program Files\Safe Link Station\.env
+   ```
+5. Agrega al final del archivo una nueva línea:
+   ```
+   STATION_API_KEY=sk_xxxxxxxxxxxxxxxx
+   ```
+   (reemplazando `sk_xxxxxxxxxxxxxxxx` con la API Key real que recibió)
+6. Guarda el archivo (`Ctrl+S`) y cierra Bloc de notas
+7. Reinicia la estación (cierra el .exe y vuelve a abrirla desde el menú
+   Inicio o el shortcut del escritorio)
+
+La estación arranca, lee la `STATION_API_KEY` del `.env`, se identifica
+contra Supabase y entra directo al modo de operación (sin ventana de Setup).
+
+> ⚠️ Si abres el `.env` con doble click sin "como administrador", Windows
+> no te dejará guardar (la carpeta `Program Files` está protegida).
 
 ### Paso 4.6 — Primera ejecución de la estación
 
-Al finalizar, la estación se abre automáticamente en pantalla completa (modo kiosco):
+Independiente del modo que hayas usado en 4.5, al iniciar la estación verás:
 
-1. Splash con logo Safe Link mientras carga (~5 seg)
+1. **Splash** con logo Safe Link mientras carga (~5 segundos)
 2. Pide acceso a la cámara → acepta cuando Windows pregunte
-3. **Sincroniza la lista de empleados** con Supabase (~30 seg)
-4. Por cada empleado con foto, genera **10 embeddings faciales** y los sube a la nube
-5. Cuando aparece el mensaje **"Listo — buscando rostro…"**, la estación está activa
+3. **Sincroniza la lista de empleados** con Supabase (~30 segundos)
+4. Por cada empleado con foto, genera **10 embeddings faciales** y los sube
+   a la nube
+5. Cuando aparece **"Listo — buscando rostro…"**, la estación está activa
 
-> 📡 La primera sincronización puede tardar 1-2 min si hay muchos empleados.
+> 📡 La primera sincronización puede tardar 1-2 minutos si hay muchos empleados.
 > Verás "Sincronizando..." en la parte superior derecha.
 
 ---

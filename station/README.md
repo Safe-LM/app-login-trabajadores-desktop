@@ -15,7 +15,7 @@ Es la app que se instala en cada PC con cámara dentro de la sucursal del client
 | **Sincronización** | Heartbeat cada 60s + sync embeddings cada 4h + offline queue de asistencias |
 | **UI kiosco** | React + Vite embebido en `QWebEngineView`, full-screen, sin barra de tareas |
 | **Realtime** | Escucha comandos del panel web vía Supabase Realtime |
-| **Provisioning** | Zero-touch via QR o pareo manual con código de 6 dígitos |
+| **Provisioning** | Setup con login admin (principal) o copia manual de API Key (alternativo) |
 
 ---
 

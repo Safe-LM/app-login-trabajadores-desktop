@@ -130,36 +130,43 @@ Estas funciones bypasan RLS y se usan cuando el JWT del usuario aún no tiene `e
 
 ## Flujo de vida de una estación
 
+El wizard del instalador `.exe` deliberadamente pide solo 2 campos:
+**nombre de la estación + autostart con Windows**. La identidad (API Key)
+se asigna **después**, en el primer arranque, por una de estas 2 vías:
+
 ```
-1. Admin abre el panel web (web-panel/)
-   └──▶ /dispositivos → "Nueva estación" → llena nombre + sucursal
-        └──▶ API /api/dispositivos/create → llama crear_dispositivo()
-             └──▶ Supabase genera api_key UUID automáticamente
-                  └──▶ Panel muestra: STATION_API_KEY=sk_xxxxxxxx
+── PRINCIPAL: Setup con login admin (90% de los casos) ─────────────────
 
-2. Admin copia la api_key al .env de la PC donde va la estación:
-   STATION_API_KEY=sk_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+1. Operador físico instala el .exe (wizard simple)
+2. Al primer arranque, sin STATION_API_KEY en .env → aparece SetupWindow
+3. Operador ingresa email + contraseña del admin de la empresa
+4. La estación se autentica contra Supabase, lista empresas y sucursales
+5. Operador elige empresa + sucursal + nombre de la estación
+6. Llama crear_dispositivo() → recibe api_key → la guarda en .env
+   (sin que el operador la vea ni la copie)
+7. Captura HWID del hardware → muestra pantalla de éxito
+8. Click "Iniciar Safe Link Monitoring" → splash + heartbeat → online
 
-3. Admin ejecuta .\ejecutar.ps1 en esa PC
-   └──▶ main.py lee STATION_API_KEY
-        └──▶ station.validate() → True → lanza splash + login directamente
-             └──▶ heartbeat cada 60s → panel muestra estación "online"
+   Ventajas: una sola ventana, sin tocar .env manualmente.
 
-── ALTERNATIVA A: Setup con credenciales (sin api_key previa) ──────────
+── ALTERNATIVO: Manual con API Key copy ────────────────────────────────
 
-3b. Si .env no tiene STATION_API_KEY → aparece SetupWindow
-    Paso 1: Email + contraseña de admin
-    Paso 2: Selecciona empresa, sucursal, nombre de la estación
-    Paso 3: Llama crear_dispositivo() → guarda api_key en .env
-            → captura HWID del hardware → lanza la app
+   Útil cuando el técnico que instala NO debe saber el password del admin.
 
-── ALTERNATIVA B: Smart Pairing (código de 6 dígitos) ──────────────────
+1. Admin abre el panel web → Estaciones → "Registrar estación"
+   └─▶ llena nombre + sucursal, deja vacío el campo de HWID
+       └─▶ API /api/dispositivos/create llama crear_dispositivo()
+           └─▶ Panel muestra: STATION_API_KEY=sk_xxxxxxxx-xxxx-xxxx-...
 
-3c. Admin genera código desde panel web → Estaciones → "Vincular"
-    Estación muestra campo para ingresar código
-    Hace polling cada 3s esperando activación
-    Admin confirma en el panel → estación recibe api_key automáticamente
-    → Sin contraseñas, sin copiar keys. Seguro y rápido.
+2. Admin entrega la api_key al técnico por canal seguro
+
+3. Técnico instala el .exe en la PC (wizard simple)
+4. Técnico edita C:\Program Files\Safe Link Station\.env como administrador
+   y agrega: STATION_API_KEY=sk_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+5. Reinicia la estación
+   └─▶ main.py lee STATION_API_KEY del .env
+       └─▶ station.validate() → True → splash + heartbeat → online
 ```
 
 ---

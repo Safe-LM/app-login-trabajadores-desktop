@@ -505,62 +505,121 @@ def build():
     # ─── 4. ESTACION FISICA ───────────────────────────────
     add_heading(doc, "4. Instalación de la Estación física", level=1)
 
-    add_heading(doc, "Paso 4.1 — Descargar el instalador", level=2)
+    add_heading(doc, "Visión general del flujo", level=2)
     add_body(doc,
-        "Desde el equipo donde vas a instalar la estación, ve a:")
+        "El instalador del .exe es deliberadamente simple — solo pide nombre "
+        "y autostart. La identidad de la estación (API Key) se asigna después "
+        "de instalar, en el primer arranque. Esto evita que el operador físico "
+        "copie API Keys largas a mano y mantiene las credenciales fuera de "
+        "capturas o documentos del wizard.")
+
+    add_code(doc,
+        "1. Descargar .exe           →  2. Ejecutar wizard         →  3. Registrar estación\n"
+        "   (sin pre-pasos del panel)    (pide solo nombre +           (ventana de Setup,\n"
+        "                                 autostart con Windows)         ver Paso 4.5)",
+        lang_hint="FLUJO")
+
+    add_heading(doc, "Paso 4.1 — Descargar el instalador", level=2)
+    add_body(doc, "Desde el equipo donde vas a instalar la estación, ve a:")
     add_code(doc, "https://github.com/Safe-LM/app-login-trabajadores-desktop/releases/latest")
     add_body(doc, "Descarga el archivo SafeLinkStation_Setup.exe (~280 MB). Guárdalo en Descargas.")
 
-    add_heading(doc, "Paso 4.2 — Generar la API Key en el panel", level=2)
-    add_body(doc,
-        "Antes de ejecutar el instalador, necesitas crear la estación en el panel "
-        "web para obtener su API Key:")
-    add_bullet(doc, "Panel web → sidebar → Estaciones → botón + Registrar estación")
-    add_bullet(doc, "Llena: nombre (ej: Recepción Norte) + sucursal asignada")
-    add_bullet(doc, "Click Registrar")
-    add_bullet(doc, "Copia la API Key que aparece (formato sk_xxxxxxxxxxxxxxxx)")
-
     add_callout(doc,
-        "Solo se muestra una vez. Guárdala en un lugar seguro temporalmente. "
-        "Si la pierdes, puedes regenerarla desde el panel.", kind="warn")
+        "No necesitas crear nada en el panel antes. El instalador no pide URL "
+        "Supabase, ni Anon Key, ni API Key — todo eso viene resuelto adentro "
+        "del .exe o se obtiene en el primer arranque.", kind="info")
 
-    add_heading(doc, "Paso 4.3 — Ejecutar el instalador", level=2)
+    add_heading(doc, "Paso 4.2 — Ejecutar el instalador", level=2)
     add_bullet(doc, "Doble click en SafeLinkStation_Setup.exe")
     add_bullet(doc, "Si Windows muestra \"Editor desconocido\" (normal sin firma): "
                     "Más información → Ejecutar de todas formas")
     add_bullet(doc, "Acepta el aviso UAC → Sí")
     add_bullet(doc, "Click Siguiente en el wizard")
 
-    add_heading(doc, "Paso 4.4 — Carpeta de instalación", level=2)
+    add_heading(doc, "Paso 4.3 — Carpeta de instalación", level=2)
     add_body(doc,
         "Deja la ruta por defecto (C:\\Program Files\\Safe Link Station\\) y "
         "click Siguiente. Si tu disco C: tiene poco espacio, puedes cambiar a "
         "D:\\Safe Link Station\\.")
 
-    add_heading(doc, "Paso 4.5 — Configuración inicial", level=2)
-    add_body(doc,
-        "Esta es la pantalla más importante. Llena con cuidado:")
+    add_heading(doc, "Paso 4.4 — Configuración inicial del wizard", level=2)
+    add_body(doc, "Aquí solo hay 2 campos — los únicos que pide el instalador:")
 
     add_table(doc,
         headers=["Campo", "Valor"],
         rows=[
             ["Nombre de la estación",
-             "El que tú quieras. Descriptivo del lugar (ej: Recepción, Almacén Norte)."],
-            ["API Key",
-             "La que copiaste en el paso 4.2 (empieza con sk_)"],
-            ["URL Supabase",
-             "Viene precargada. Si te dieron credenciales personalizadas, pégalas."],
-            ["Anon Key",
-             "Viene precargada igual que URL."],
+             "Es solo un placeholder local. El nombre real lo elegirás en el siguiente "
+             "paso (Setup). Puedes dejar Estacion-1 o poner algo descriptivo."],
             ["Iniciar con Windows",
-             "Marca esta casilla si la PC se usa 24/7 (recomendado para producción)"],
+             "Marca esta casilla si la PC se usa 24/7 (recomendado para producción)."],
         ],
         col_widths_cm=[5, 11])
 
-    add_body(doc, "Click Siguiente → Finalizar.")
+    add_body(doc, "Click Siguiente → Instalar → Finalizar.")
+
+    add_heading(doc, "Paso 4.5 — Registro de la estación (Setup post-instalación)", level=2)
+    add_body(doc,
+        "Al terminar el wizard, la estación arranca por primera vez. Como aún no "
+        "tiene identidad asignada, te muestra la ventana \"Configuración inicial\" "
+        "para registrarla en el panel. Hay 2 modos según tu situación:")
+
+    add_heading(doc, "Modo principal: Setup con login admin (recomendado, 90% de los casos)", level=3)
+    add_body(doc, "Funciona si tienes a mano las credenciales del administrador de la empresa.")
+    add_bullet(doc, "Ingresa email + contraseña del admin de la empresa")
+    add_bullet(doc, "La estación se autentica contra Supabase y te muestra: empresa "
+                    "(preseleccionada si solo tienes una), sucursal (dropdown), y "
+                    "nombre de la estación (puedes dejar el del wizard o cambiarlo)")
+    add_bullet(doc, "Click Registrar")
+    add_bullet(doc, "La estación llama al RPC crear_dispositivo() en Supabase, recibe "
+                    "la API Key y la guarda automáticamente en .env (sin que tú la "
+                    "veas ni la copies)")
+    add_bullet(doc, "Aparece la pantalla de éxito \"¡Estación registrada!\" con el "
+                    "nombre y el ID del dispositivo")
+    add_bullet(doc, "Click ▶ Iniciar Safe Link Monitoring — abre la app en modo kiosco")
+
+    add_callout(doc,
+        "Ventajas del modo principal: una sola ventana, sin tocar el .env, "
+        "sin copiar API Keys.", kind="ok")
+
+    add_heading(doc, "Modo alternativo: Manual con API Key", level=3)
+    add_body(doc,
+        "Útil cuando el técnico que instala físicamente la estación no debe "
+        "conocer el password del admin (instalaciones por terceros, IT externo, "
+        "pre-aprovisionamiento masivo).")
+
+    add_body(doc, "El admin (en una computadora con acceso al panel):", bold=True)
+    add_bullet(doc, "Panel web → sidebar → Estaciones → botón + Registrar estación")
+    add_bullet(doc, "Llena nombre + sucursal. Deja vacío el campo \"ID de hardware\"")
+    add_bullet(doc, "Click Registrar estación")
+    add_bullet(doc, "El panel muestra la API Key generada (formato sk_xxxxxxxxxxxxxxxx)")
+    add_bullet(doc, "Click Copiar API Key y entrégasela al técnico por canal seguro "
+                    "(gestor de contraseñas, Signal, sobre cerrado — no email común)")
+
+    add_callout(doc,
+        "La API Key solo se muestra una vez completa. Si se pierde, hay que "
+        "eliminar la estación del panel y crearla de nuevo.", kind="warn")
+
+    add_body(doc, "El técnico (en la PC donde está la estación):", bold=True)
+    add_bullet(doc, "Termina de instalar el .exe (puede usar el nombre por defecto del wizard)")
+    add_bullet(doc, "Cuando arranca la estación y muestra la ventana de Setup, "
+                    "cierra esa ventana (Cancelar o ✕)")
+    add_bullet(doc, "Abre Bloc de notas como administrador (Inicio → escribir "
+                    "\"Bloc de notas\" → click derecho → Ejecutar como administrador)")
+    add_bullet(doc, "Archivo → Abrir → navegar a C:\\Program Files\\Safe Link Station\\.env")
+    add_bullet(doc, "Agrega al final del archivo: STATION_API_KEY=sk_xxxxxxxxxxxxxxxx "
+                    "(con la key real)")
+    add_bullet(doc, "Guarda (Ctrl+S) y cierra Bloc de notas")
+    add_bullet(doc, "Reinicia la estación. Arranca, lee la STATION_API_KEY y entra "
+                    "directo al modo de operación (sin la ventana de Setup)")
+
+    add_callout(doc,
+        "Si abres el .env con doble click sin \"como administrador\", Windows no "
+        "te dejará guardar (la carpeta Program Files está protegida).", kind="warn")
 
     add_heading(doc, "Paso 4.6 — Primera ejecución de la estación", level=2)
-    add_body(doc, "Al finalizar, la estación se abre automáticamente en pantalla completa:")
+    add_body(doc,
+        "Independiente del modo que hayas usado en 4.5, al iniciar la estación verás:")
     add_bullet(doc, "Splash con logo Safe Link mientras carga (~5 segundos)")
     add_bullet(doc, "Pide acceso a la cámara → acepta cuando Windows pregunte")
     add_bullet(doc, "Sincroniza la lista de empleados con Supabase (~30 segundos)")

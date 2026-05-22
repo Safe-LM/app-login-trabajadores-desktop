@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.7.3](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.7.2...station-v5.7.3) (2026-05-22)
+
+
+### 🐛 Correcciones
+
+* **station:** reloj UI muestra +1h en abril-octubre por DST viejo en Chromium 83 ([a890f07](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/a890f07cbf1ad026f9c4d37adca20619763005fe))
+
 ## [5.7.2](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.7.1...station-v5.7.2) (2026-05-21)
 
 

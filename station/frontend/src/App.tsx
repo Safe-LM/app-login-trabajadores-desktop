@@ -836,6 +836,20 @@ const CameraPlaceholder: React.FC<{ state: string }> = ({ state }) => {
   );
 };
 
+/**
+ * Zona horaria para mostrar reloj/fecha en la estacion.
+ * Usamos `Etc/GMT+6` (UTC-6 puro, sin DST) en vez de `America/Mexico_City`
+ * porque la estacion corre en QWebEngineView con Chromium 83, cuya tzdata
+ * (de 2020) todavia aplica el DST historico de Mexico — abolido en 2022.
+ * Con `America/Mexico_City` el reloj quedaba +1h adelantado en abril–octubre.
+ * Mexico Central es UTC-6 todo el año desde 2022, asi que Etc/GMT+6 es exacto.
+ *
+ * Puede sobreescribirse desde Python via window.STATION_TZ (futuro multi-pais).
+ */
+const STATION_TIMEZONE: string =
+  (typeof window !== 'undefined' && (window as { STATION_TZ?: string }).STATION_TZ) ||
+  'Etc/GMT+6';
+
 const DateTimeDisplay: React.FC = () => {
   const [time, setTime] = React.useState(new Date());
 
@@ -847,10 +861,16 @@ const DateTimeDisplay: React.FC = () => {
   return (
     <div className="text-center">
       <div className="text-6xl font-black tracking-tighter mb-1 tabular-nums">
-        {time.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false })}
+        {time.toLocaleTimeString('es-MX', {
+          hour: '2-digit', minute: '2-digit', hour12: false,
+          timeZone: STATION_TIMEZONE,
+        })}
       </div>
       <div className="text-xs font-bold text-blue-500/80 uppercase tracking-[0.3em] pl-1">
-        {time.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase()}
+        {time.toLocaleDateString('es-MX', {
+          weekday: 'long', day: 'numeric', month: 'long',
+          timeZone: STATION_TIMEZONE,
+        }).toUpperCase()}
       </div>
     </div>
   );

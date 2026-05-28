@@ -931,19 +931,20 @@ class DashboardWindow(QMainWindow):
                 )
                 for reg in pendientes:
                     trab = db.query(Trabajador).filter(Trabajador.id == reg.trabajador_id).first()
-                    if not trab or not trab.employee_id:
+                    if not trab or not trab.supabase_uuid:
                         continue
                     try:
-                        emp_data = sb.table("empleados").select("id").eq("employee_id", trab.employee_id).execute()
-                        if emp_data.data:
-                            result = sb.rpc("registrar_asistencia_station", {
-                                "p_api_key": api_key,
-                                "p_empleado_id": emp_data.data[0]["id"],
-                                "p_tipo": reg.tipo,
-                                "p_confianza": float(reg.confianza or 0),
-                            }).execute()
-                            if result.data and result.data.get("ok"):
-                                reg.sincronizado = True
+                        result = sb.rpc("registrar_asistencia_station", {
+                            "p_api_key": api_key,
+                            "p_empleado_id": trab.supabase_uuid,
+                            "p_tipo": reg.tipo,
+                            "p_confianza": float(reg.confianza or 0),
+                            "p_score_raw": float(reg.score_raw) if reg.score_raw is not None else None,
+                            "p_metodo": reg.metodo,
+                            "p_embedding_count": reg.embedding_count,
+                        }).execute()
+                        if result.data and result.data.get("ok"):
+                            reg.sincronizado = True
                     except Exception:
                         pass
                 db.commit()
@@ -1252,9 +1253,13 @@ class DashboardWindow(QMainWindow):
                         zona=info.get("zona", "N/A"),
                         puesto=info.get("puesto", "N/A"),
                         employee_id=eid_int,
+                        supabase_uuid=uuid_str,
                         activo=True,
                     )
                     db.add(trab); db.commit(); db.refresh(trab)
+                elif trab.supabase_uuid != uuid_str:
+                    trab.supabase_uuid = uuid_str
+                    db.commit()
             finally:
                 db.close()
             # Pasamos el UUID original a _register_db para usarlo en el RPC de Supabase

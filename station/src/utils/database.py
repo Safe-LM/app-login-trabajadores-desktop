@@ -119,6 +119,7 @@ def _migrate_sqlite():
         ("trabajadores", "sucursal", "VARCHAR"),
         ("trabajadores", "puesto", "VARCHAR"),
         ("trabajadores", "employee_id", "INTEGER"),
+        ("trabajadores", "supabase_uuid", "VARCHAR"),
         ("trabajadores", "foto_path", "VARCHAR"),
         ("trabajadores", "embedding_idx", "INTEGER"),
         ("registros_asistencia", "sincronizado", "BOOLEAN DEFAULT 0"),

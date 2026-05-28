@@ -33,6 +33,7 @@ class Trabajador(Base):
     sucursal: Mapped[Optional[str]] = mapped_column(String, index=True)
     puesto: Mapped[Optional[str]] = mapped_column(String)
     employee_id: Mapped[Optional[int]] = mapped_column(Integer, index=True)
+    supabase_uuid: Mapped[Optional[str]] = mapped_column(String, index=True)
     foto_path: Mapped[Optional[str]] = mapped_column(String)
     embedding_idx: Mapped[Optional[int]] = mapped_column(Integer)
 

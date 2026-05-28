@@ -1222,12 +1222,16 @@ class DashboardWindow(QMainWindow):
             from utils.models import Trabajador
             eid_raw = info.get("employee_id", "")
             # En el flujo SaaS el employee_id es un UUID (string). El modelo legacy
-            # guarda Integer en SQLite — usamos hash estable para mapear UUID -> int local.
+            # guarda Integer en SQLite — usamos SHA-256 (estable entre procesos) para
+            # mapear UUID -> int local. hash() de Python varia entre sesiones por
+            # hash randomization, lo que creaba un Trabajador nuevo en cada arranque
+            # y rompia el calculo de tipo entrada/salida.
+            import hashlib
             uuid_str = str(eid_raw)
             try:
-                eid_int = int(eid_raw) if not isinstance(eid_raw, str) or eid_raw.isdigit() else (abs(hash(uuid_str)) % (10**9))
+                eid_int = int(eid_raw) if not isinstance(eid_raw, str) or eid_raw.isdigit() else (int(hashlib.sha256(uuid_str.encode()).hexdigest(), 16) % (10**9))
             except Exception:
-                eid_int = abs(hash(uuid_str)) % (10**9)
+                eid_int = int(hashlib.sha256(uuid_str.encode()).hexdigest(), 16) % (10**9)
 
             db = get_db_session()
             try:

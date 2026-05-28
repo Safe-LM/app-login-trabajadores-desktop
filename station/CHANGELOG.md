@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.7.6](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.7.5...station-v5.7.6) (2026-05-28)
+
+
+### 🐛 Correcciones
+
+* **station:** corregir cooldown invertido y sync roto en nueva UI ([e8c11a2](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/e8c11a2450acb512098604576445bb58bc6602be))
+
 ## [5.7.5](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.7.4...station-v5.7.5) (2026-05-28)
 
 

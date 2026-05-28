@@ -20,7 +20,7 @@ export function ReportesClient({ data }: { data: ReportesData }) {
     desde: desdeDefault,
     hasta: today,
   });
-  const [granularidad, setGranularidad] = useState<Granularidad>("dia");
+  const [granularidad, setGranularidad] = useState<Granularidad>("semana");
 
   const empleadosVisibles = useMemo(() => {
     if (filtros.sucursalId === "all") return data.empleados;
@@ -87,51 +87,65 @@ export function ReportesClient({ data }: { data: ReportesData }) {
       <KpiGrid kpis={report.kpis} sinHorario={sinHorario || sinSucursalEnRegistros} />
 
       <div style={{ display: "grid", gap: 20, gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)" }} className="reportes-charts-grid">
-        <ChartCard title="Actividad" subtitle={granularityLabel(granularidad)}>
-          <ResponsiveContainer width="100%" height={280}>
-            <AreaChart data={report.serieTiempo}>
-              <defs>
-                <linearGradient id="entradasGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#22c55e" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="salidasGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-              <XAxis dataKey="label" tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
-              <Tooltip
-                contentStyle={{ background: "#0a0a0b", border: "1px solid var(--border)", borderRadius: 12, fontSize: 12 }}
-                labelStyle={{ color: "var(--text-secondary)" }}
-              />
-              <Legend wrapperStyle={{ fontSize: 11, color: "var(--text-muted)" }} />
-              <Area type="monotone" dataKey="entradas" stroke="#22c55e" strokeWidth={2} fill="url(#entradasGrad)" name="Entradas" />
-              <Area type="monotone" dataKey="salidas" stroke="#3b82f6" strokeWidth={2} fill="url(#salidasGrad)" name="Salidas" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard title="Por sucursal" subtitle={`${report.porSucursal.length} sucursal${report.porSucursal.length === 1 ? "" : "es"}`}>
-          {report.porSucursal.length === 0 ? (
-            <div style={{ height: 280, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-faint)", fontSize: 13 }}>
+        <ChartCard
+          title="Actividad"
+          subtitle={granularityLabel(granularidad)}
+          badge={`${report.registrosFiltrados.filter(r => r.tipo === "entrada").length} entradas · ${report.registrosFiltrados.filter(r => r.tipo === "salida").length} salidas`}
+        >
+          {report.serieTiempo.length === 0 ? (
+            <div style={{ height: 260, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-faint)", fontSize: 13 }}>
               Sin registros en el rango seleccionado
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={280}>
+            <ResponsiveContainer width="100%" height={260}>
+              <AreaChart data={report.serieTiempo} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="entradasGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%"  stopColor="#22c55e" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="#22c55e" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="salidasGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%"  stopColor="#3b82f6" stopOpacity={0.25} />
+                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+                <XAxis dataKey="label" tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: "rgba(255,255,255,0.3)", fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{ background: "rgba(12,12,14,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, fontSize: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.6)" }}
+                  labelStyle={{ color: "rgba(255,255,255,0.6)", marginBottom: 6, fontWeight: 600 }}
+                  cursor={{ stroke: "rgba(255,255,255,0.08)", strokeWidth: 1 }}
+                />
+                <Legend
+                  iconType="circle"
+                  wrapperStyle={{ fontSize: 11, color: "rgba(255,255,255,0.4)", paddingTop: 12 }}
+                />
+                <Area type="monotone" dataKey="entradas" stroke="#22c55e" strokeWidth={2.5} fill="url(#entradasGrad)" name="Entradas" dot={false} activeDot={{ r: 4, fill: "#22c55e", strokeWidth: 0 }} />
+                <Area type="monotone" dataKey="salidas"  stroke="#3b82f6" strokeWidth={2.5} fill="url(#salidasGrad)"  name="Salidas"  dot={false} activeDot={{ r: 4, fill: "#3b82f6", strokeWidth: 0 }} />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </ChartCard>
+
+        <ChartCard title="Por sucursal" subtitle={`${report.porSucursal.length} ubicación${report.porSucursal.length !== 1 ? "es" : ""}`}>
+          {report.porSucursal.length === 0 ? (
+            <div style={{ height: 260, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, color: "var(--text-faint)" }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" opacity={0.4}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <span style={{ fontSize: 12 }}>Sin sucursal asignada</span>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={260}>
               <PieChart>
-                <Pie data={report.porSucursal} cx="50%" cy="50%" innerRadius={60} outerRadius={95} paddingAngle={3} dataKey="value" stroke="none">
+                <Pie data={report.porSucursal} cx="50%" cy="45%" innerRadius={65} outerRadius={100} paddingAngle={3} dataKey="value" stroke="none">
                   {report.porSucursal.map((_, i) => (
                     <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={{ background: "#0a0a0b", border: "1px solid var(--border)", borderRadius: 12, fontSize: 12 }} />
-                <Legend
-                  iconType="circle"
-                  wrapperStyle={{ fontSize: 11, color: "var(--text-muted)", paddingTop: 12 }}
+                <Tooltip
+                  contentStyle={{ background: "rgba(12,12,14,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, fontSize: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.6)" }}
                 />
+                <Legend iconType="circle" wrapperStyle={{ fontSize: 11, color: "rgba(255,255,255,0.45)", paddingTop: 8 }} />
               </PieChart>
             </ResponsiveContainer>
           )}
@@ -303,12 +317,19 @@ function KpiGrid({ kpis, sinHorario }: { kpis: ComputedReport["kpis"]; sinHorari
 }
 
 /* ─────────────── CHART CARD ─────────────── */
-function ChartCard({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+function ChartCard({ title, subtitle, badge, children }: { title: string; subtitle: string; badge?: string; children: React.ReactNode }) {
   return (
     <div className="card" style={{ padding: 20 }}>
-      <div style={{ marginBottom: 12 }}>
-        <h3 className="heading-3">{title}</h3>
-        <p className="text-muted-sm" style={{ marginTop: 2 }}>{subtitle}</p>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }}>
+        <div>
+          <h3 className="heading-3" style={{ marginBottom: 2 }}>{title}</h3>
+          <p className="text-muted-sm">{subtitle}</p>
+        </div>
+        {badge && (
+          <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, padding: "3px 8px", whiteSpace: "nowrap" }}>
+            {badge}
+          </span>
+        )}
       </div>
       {children}
     </div>

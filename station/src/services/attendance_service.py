@@ -47,6 +47,19 @@ def is_in_cooldown(trabajador_id: int) -> tuple[bool, Optional[dict]]:
     return False, None
 
 
+def get_or_create_trabajador_id(result: RecognitionResult) -> int:
+    """Obtiene el ID local del trabajador sin registrar asistencia."""
+    trab = _repo.get_or_create_trabajador(
+        employee_id=result.employee_id,
+        nombre=result.nombre,
+        apellido=result.apellido,
+        sucursal=result.sucursal,
+        zona=result.zona,
+        puesto=result.puesto,
+    )
+    return trab.id
+
+
 def register_local(result: RecognitionResult) -> AttendanceRecord:
     """Save attendance to SQLite and return the record.
 
@@ -76,6 +89,8 @@ def register_local(result: RecognitionResult) -> AttendanceRecord:
 
         return AttendanceRecord(
             trabajador_id=trab.id,
+            registro_id=registro.id,
+            supabase_uuid=trab.supabase_uuid or "",
             tipo=tipo,
             confianza=result.confidence,
             timestamp=registro.timestamp,
@@ -102,25 +117,24 @@ def sync_to_supabase(record: AttendanceRecord) -> bool:
         if not api_key or not sb:
             return False
 
-        emp_data = (
-            sb.table("empleados")
-            .select("id")
-            .eq("employee_id", record.trabajador_id)
-            .execute()
-        )
-        if not emp_data.data:
+        supabase_uuid = record.supabase_uuid
+        if not supabase_uuid:
+            trab = _repo.get_trabajador_by_id(record.trabajador_id)
+            supabase_uuid = trab.supabase_uuid if trab else ""
+        if not supabase_uuid:
             return False
 
         result = sb.rpc("registrar_asistencia_station", {
             "p_api_key": api_key,
-            "p_empleado_id": emp_data.data[0]["id"],
+            "p_empleado_id": supabase_uuid,
             "p_tipo": record.tipo,
             "p_confianza": float(record.confianza),
             "p_notas": record.metodo or "",
         }).execute()
 
         if result.data and result.data.get("ok"):
-            _repo.mark_synced(record.trabajador_id)
+            if record.registro_id:
+                _repo.mark_synced(record.registro_id)
             return True
         return False
     except Exception as e:
@@ -143,19 +157,17 @@ def flush_offline_queue() -> int:
         synced = 0
         for reg in pendientes:
             try:
-                emp_data = (
-                    sb.table("empleados")
-                    .select("id")
-                    .eq("employee_id", reg.trabajador_id)
-                    .execute()
-                )
-                if not emp_data.data:
+                trab = _repo.get_trabajador_by_id(reg.trabajador_id)
+                if not trab or not trab.supabase_uuid:
                     continue
                 result = sb.rpc("registrar_asistencia_station", {
                     "p_api_key": api_key,
-                    "p_empleado_id": emp_data.data[0]["id"],
+                    "p_empleado_id": trab.supabase_uuid,
                     "p_tipo": reg.tipo,
                     "p_confianza": float(reg.confianza or 0),
+                    "p_score_raw": float(reg.score_raw) if reg.score_raw is not None else None,
+                    "p_metodo": reg.metodo,
+                    "p_embedding_count": reg.embedding_count,
                 }).execute()
                 if result.data and result.data.get("ok"):
                     _repo.mark_synced(reg.id)

@@ -701,7 +701,7 @@ class DashboardWindow(QMainWindow):
             return
         try:
             from services.attendance_service import (
-                register_local, is_in_cooldown,
+                register_local, is_in_cooldown, get_or_create_trabajador_id,
             )
             from services.dto import RecognitionResult
 
@@ -716,14 +716,16 @@ class DashboardWindow(QMainWindow):
                 method=method, avatar_b64=self._last_avatar_b64,
             )
 
-            # Cooldown check
-            record = register_local(result)
-            blocked, block_info = is_in_cooldown(record.trabajador_id)
+            # Cooldown check ANTES de registrar
+            trab_id = get_or_create_trabajador_id(result)
+            blocked, block_info = is_in_cooldown(trab_id)
             if blocked and block_info:
                 self._notification.show_already_registered(
                     block_info["tipo"], block_info["hora"],
                 )
                 return
+
+            record = register_local(result)
 
             self._active_dialog = True
             self._attendance_done = True

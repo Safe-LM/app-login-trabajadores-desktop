@@ -36,6 +36,8 @@ class AttendanceRecord:
     ubicacion: str = "N/A"
     metodo: str = ""
     cloud_synced: bool = False
+    registro_id: int = 0
+    supabase_uuid: str = ""
 
 
 @dataclass(frozen=True)

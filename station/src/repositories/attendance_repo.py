@@ -25,6 +25,11 @@ class AttendanceRepository:
             return db.scalar(stmt)
 
     @staticmethod
+    def get_trabajador_by_id(trabajador_id: int) -> Optional[Trabajador]:
+        with get_session() as db:
+            return db.scalar(select(Trabajador).where(Trabajador.id == trabajador_id))
+
+    @staticmethod
     def get_or_create_trabajador(
         employee_id: int,
         nombre: str,
@@ -33,11 +38,15 @@ class AttendanceRepository:
         zona: str = "N/A",
         puesto: str = "N/A",
     ) -> Trabajador:
+        uuid_str = str(employee_id)
+        is_uuid = isinstance(employee_id, str) and not uuid_str.isdigit() and "-" in uuid_str
         with get_session() as db:
             trab = db.scalar(
                 select(Trabajador).where(Trabajador.employee_id == employee_id)
             )
             if trab:
+                if is_uuid and not trab.supabase_uuid:
+                    trab.supabase_uuid = uuid_str
                 return trab
             parts = nombre.split()
             first_name = parts[0] if parts else "Empleado"
@@ -51,6 +60,7 @@ class AttendanceRepository:
                 zona=zona,
                 puesto=puesto,
                 employee_id=employee_id,
+                supabase_uuid=uuid_str if is_uuid else None,
                 activo=True,
             )
             db.add(trab)

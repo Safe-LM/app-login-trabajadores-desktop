@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ExportButton } from "@/components/ui/ExportButton";
@@ -55,10 +56,14 @@ export function AsistenciaClient({
 
   // Vista
   const [viewMode, setViewMode]     = useState<"timeline" | "dias">("dias");
+  const [hoy, setHoy]               = useState("");
 
   // Paginacion (cursor: timestamp del ultimo registro cargado)
   const [loading, setLoading]       = useState(false);
   const [hasMore, setHasMore]       = useState(initial.length === PAGE_SIZE);
+
+  // Fijar "hoy" solo en cliente para evitar hidratación mismatch con SSR
+  useEffect(() => { setHoy(toMXDate(new Date().toISOString())); }, []);
 
   // Realtime — nuevos registros entran arriba
   useEffect(() => {
@@ -115,23 +120,29 @@ export function AsistenciaClient({
 
   const hasActiveFilters = search || empId || sucId || tipo || dateFrom || dateTo;
   const diasGroups = useMemo(() => {
-    const groups = groupByDia(filtered);
-    if (!soloSinSalida) return groups;
-    return groups
-      .map(g => ({ ...g, empleados: g.empleados.filter(e => e.pares.some(p => p.entrada && !p.salida)) }))
-      .filter(g => g.empleados.length > 0);
+    try {
+      const groups = groupByDia(filtered);
+      if (!soloSinSalida) return groups;
+      return groups
+        .map(g => ({ ...g, empleados: g.empleados.filter(e => e.pares.some(p => p.entrada && !p.salida)) }))
+        .filter(g => g.empleados.length > 0);
+    } catch { return []; }
   }, [filtered, soloSinSalida]);
 
   const sinSalidaCount = useMemo(() => {
-    return groupByDia(filtered).reduce((acc, g) =>
-      acc + g.empleados.filter(e => e.pares.some(p => p.entrada && !p.salida)).length, 0);
+    try {
+      return groupByDia(filtered).reduce((acc, g) =>
+        acc + g.empleados.filter(e => e.pares.some(p => p.entrada && !p.salida)).length, 0);
+    } catch { return 0; }
   }, [filtered]);
 
   const enOficinaAhora = useMemo(() => {
-    const hoy = toMXDate(new Date().toISOString());
-    const hoyGroup = groupByDia(registros).find(g => g.fecha === hoy);
-    return hoyGroup?.empleados.filter(e => e.pares.some(p => p.entrada && !p.salida)) ?? [];
-  }, [registros]);
+    if (!hoy) return [];
+    try {
+      const hoyGroup = groupByDia(registros).find(g => g.fecha === hoy);
+      return hoyGroup?.empleados.filter(e => e.pares.some(p => p.entrada && !p.salida)) ?? [];
+    } catch { return []; }
+  }, [registros, hoy]);
 
   function clearFilters() {
     setSearch(""); setEmpId(""); setSucId(""); setTipo("");
@@ -436,6 +447,7 @@ export function AsistenciaClient({
                 )}
                 <DiaView
                   groups={diasGroups}
+                  hoy={hoy}
                   onEdit={(r) => setModal({ type: "edit", row: r })}
                   onDelete={(r) => setModal({ type: "delete", row: r })}
                 />
@@ -702,6 +714,7 @@ function formatHoras(ms: number): string {
 function groupByDia(rows: Registro[]): DiaGroup[] {
   const byFecha = new Map<string, Registro[]>();
   for (const r of rows) {
+    if (!r.timestamp) continue;
     const fecha = toMXDate(r.timestamp);
     const arr = byFecha.get(fecha) ?? [];
     arr.push(r);
@@ -746,12 +759,12 @@ function groupByDia(rows: Registro[]): DiaGroup[] {
     });
 }
 
-function DiaView({ groups, onEdit, onDelete }: {
+function DiaView({ groups, hoy, onEdit, onDelete }: {
   groups: DiaGroup[];
+  hoy: string;
   onEdit: (r: Registro) => void;
   onDelete: (r: Registro) => void;
 }) {
-  const hoy = toMXDate(new Date().toISOString());
   return (
     <div>
       {groups.map((grupo) => (
@@ -961,29 +974,47 @@ function ModalShell({ title, subtitle, onClose, children }: {
   onClose: () => void;
   children: React.ReactNode;
 }) {
-  return (
-    <div onClick={onClose} style={{
-      position: "fixed", inset: 0, zIndex: 9998,
-      background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)",
-      display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
-    }}>
-      <div onClick={(e) => e.stopPropagation()} className="modal-content" style={{
-        width: "min(520px, 100%)",
-        background: "var(--bg-surface)", border: "1px solid var(--border)",
-        borderRadius: 14, boxShadow: "0 32px 80px rgba(0,0,0,0.7)",
-        overflow: "hidden",
-      }}>
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) return null;
+
+  return createPortal(
+    <>
+      <style>{`
+        @keyframes modal-backdrop { from { opacity: 0 } to { opacity: 1 } }
+        @keyframes modal-slide-up {
+          from { opacity: 0; transform: translateY(24px) scale(0.96); }
+          to   { opacity: 1; transform: translateY(0)    scale(1); }
+        }
+        @keyframes modal-field {
+          from { opacity: 0; transform: translateY(8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .modal-field-anim { animation: modal-field 280ms cubic-bezier(.22,1,.36,1) both; }
+      `}</style>
+      <div onClick={onClose} style={{
+        position: "fixed", inset: 0, zIndex: 9999,
+        background: "rgba(0,0,0,0.55)",
+        backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+        display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+        animation: "modal-backdrop 200ms ease both",
+      } as React.CSSProperties}>
+        <div onClick={(e) => e.stopPropagation()} style={{
+          width: "min(480px, 100%)",
+          background: "rgba(18,18,20,0.92)",
+          border: "1px solid rgba(255,255,255,0.1)",
+          borderRadius: 18,
+          boxShadow: "0 40px 100px rgba(0,0,0,0.8), 0 0 0 0.5px rgba(255,255,255,0.06)",
+          overflow: "hidden",
+          animation: "modal-slide-up 320ms cubic-bezier(.22,1,.36,1) both",
+        }}>
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "var(--text-primary)" }}>{title}</h2>
-            {subtitle && <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--text-faint)" }}>{subtitle}</p>}
+            {title && <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>{title}</h2>}
+            {subtitle && <p style={{ margin: title ? "2px 0 0" : 0, fontSize: 12, color: "rgba(255,255,255,0.35)" }}>{subtitle}</p>}
           </div>
-          <button onClick={onClose} aria-label="Cerrar" style={{
-            background: "transparent", border: "none", cursor: "pointer",
-            color: "var(--text-faint)", padding: 4, borderRadius: 6,
-            display: "flex", alignItems: "center",
-          }}>
-            <X size={18} />
+          <button onClick={onClose} aria-label="Cerrar" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", cursor: "pointer", color: "rgba(255,255,255,0.45)", padding: 0, borderRadius: 8, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <X size={14} />
           </button>
         </div>
         <div style={{ padding: 20 }}>
@@ -991,6 +1022,8 @@ function ModalShell({ title, subtitle, onClose, children }: {
         </div>
       </div>
     </div>
+    </>,
+    document.body
   );
 }
 
@@ -1064,54 +1097,98 @@ function CreateMarcacionModal({
     }
   }
 
+  const accent = tipo === "entrada" ? "#22c55e" : "#3b82f6";
+  const empSel = empleados.find(e => e.id === empleadoId);
+
   return (
-    <ModalShell title="Nueva marcación manual" subtitle="Para corregir olvidos del empleado" onClose={onClose}>
+    <ModalShell title="Nueva marcación" subtitle="Corrección manual de asistencia" onClose={onClose}>
       <form onSubmit={submit}>
-        <ModalField label="Empleado">
-          <select value={empleadoId} onChange={(e) => setEmpleadoId(e.target.value)} style={modalInput} required>
-            <option value="">— Selecciona —</option>
-            {empleados.map((e) => (
-              <option key={e.id} value={e.id} style={{ background: "#0f0f10" }}>
-                {e.apellido} {e.nombre}
-              </option>
-            ))}
-          </select>
-        </ModalField>
-        <ModalField label="Sucursal" hint="Opcional. Útil para reportes por sucursal.">
-          <select value={sucursalId} onChange={(e) => setSucursalId(e.target.value)} style={modalInput}>
-            <option value="">— Sin sucursal —</option>
-            {sucursales.map((s) => (
-              <option key={s.id} value={s.id} style={{ background: "#0f0f10" }}>{s.nombre}</option>
-            ))}
-          </select>
-        </ModalField>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-          <ModalField label="Tipo">
-            <select value={tipo} onChange={(e) => setTipo(e.target.value as "entrada" | "salida")} style={modalInput}>
-              <option value="entrada" style={{ background: "#0f0f10" }}>Entrada</option>
-              <option value="salida"  style={{ background: "#0f0f10" }}>Salida</option>
-            </select>
-          </ModalField>
-          <ModalField label="Fecha">
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={modalInput} required />
-          </ModalField>
-          <ModalField label="Hora">
-            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={modalInput} required />
-          </ModalField>
+
+        {/* Tipo toggle */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, background: "rgba(255,255,255,0.04)", borderRadius: 12, padding: 4 }}>
+            {(["entrada", "salida"] as const).map((t) => {
+              const active = tipo === t;
+              const c = t === "entrada" ? "#22c55e" : "#3b82f6";
+              return (
+                <button key={t} type="button" onClick={() => setTipo(t)} style={{
+                  padding: "9px 0", borderRadius: 9, border: "none", cursor: "pointer",
+                  background: active ? c : "transparent",
+                  color: active ? "#fff" : "rgba(255,255,255,0.35)",
+                  fontWeight: 700, fontSize: 13, transition: "all 150ms",
+                  boxShadow: active ? `0 2px 12px ${c}55` : "none",
+                  textTransform: "capitalize",
+                }}>
+                  {t}
+                </button>
+              );
+            })}
+          </div>
         </div>
-        <ModalField label="Razón (obligatoria)" hint="Quedará registrada en el audit log de la empresa.">
-          <textarea
-            value={razon} onChange={(e) => setRazon(e.target.value)}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+          {/* Empleado */}
+          <div className="modal-field-anim" style={{ position: "relative", animationDelay: "50ms" }}>
+            {empSel && (
+              <div style={{
+                position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)",
+                width: 22, height: 22, borderRadius: 6,
+                background: `${accent}22`, border: `1px solid ${accent}44`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 10, fontWeight: 800, color: accent, zIndex: 1, pointerEvents: "none",
+              }}>
+                {empSel.nombre[0]?.toUpperCase()}
+              </div>
+            )}
+            <select value={empleadoId} onChange={(e) => setEmpleadoId(e.target.value)} required
+              style={{ ...modalInput, paddingLeft: empSel ? 40 : 12, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}>
+              <option value="">Selecciona un empleado</option>
+              {empleados.map((e) => (
+                <option key={e.id} value={e.id} style={{ background: "#111" }}>{e.apellido} {e.nombre}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Fecha + Hora */}
+          <div className="modal-field-anim" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, animationDelay: "100ms" }}>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required
+              style={{ ...modalInput, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }} />
+            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} required
+              style={{ ...modalInput, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }} />
+          </div>
+
+          {/* Sucursal solo si hay */}
+          {sucursales.length > 0 && (
+            <select className="modal-field-anim" value={sucursalId} onChange={(e) => setSucursalId(e.target.value)}
+              style={{ ...modalInput, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", animationDelay: "140ms" }}>
+              <option value="">Sin sucursal (opcional)</option>
+              {sucursales.map((s) => <option key={s.id} value={s.id} style={{ background: "#111" }}>{s.nombre}</option>)}
+            </select>
+          )}
+
+          {/* Razón */}
+          <textarea className="modal-field-anim" value={razon} onChange={(e) => setRazon(e.target.value)}
             rows={2} required minLength={4}
-            placeholder="Ej: olvido del empleado / corrección post-incidente / etc."
-            style={{ ...modalInput, resize: "vertical", minHeight: 60 }}
+            placeholder="Razón del ajuste (obligatoria)…"
+            style={{ ...modalInput, resize: "none", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", minHeight: 60, animationDelay: "160ms" }}
           />
-        </ModalField>
-        <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-          <button type="button" onClick={onClose} className="btn btn-secondary" style={{ flex: 1 }}>Cancelar</button>
-          <button type="submit" disabled={saving} className="btn btn-primary" style={{ flex: 2 }}>
-            {saving ? "Creando..." : "Crear marcación"}
-          </button>
+
+          {/* Botones */}
+          <div className="modal-field-anim" style={{ display: "flex", gap: 8, paddingTop: 2, animationDelay: "200ms" }}>
+            <button type="button" onClick={onClose} style={{
+              flex: 1, padding: "10px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)",
+              background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)", fontWeight: 600, fontSize: 13, cursor: "pointer",
+            }}>Cancelar</button>
+            <button type="submit" disabled={saving} style={{
+              flex: 2, padding: "10px", borderRadius: 10, border: "none",
+              background: saving ? "rgba(255,255,255,0.08)" : accent,
+              color: "#fff", fontWeight: 700, fontSize: 13, cursor: saving ? "not-allowed" : "pointer",
+              boxShadow: saving ? "none" : `0 4px 16px ${accent}55`, transition: "all 150ms",
+            }}>
+              {saving ? "Guardando…" : `Registrar ${tipo}`}
+            </button>
+          </div>
         </div>
       </form>
     </ModalShell>

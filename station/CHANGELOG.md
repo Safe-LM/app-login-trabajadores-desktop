@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.7.4](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.7.3...station-v5.7.4) (2026-05-28)
+
+
+### 🐛 Correcciones
+
+* **station:** reemplazar hash() con hashlib.sha256 para mapeo UUID→int estable ([42e0439](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/42e0439917cb08a7c527f2a81a5920bf0dfc659a))
+
 ## [5.7.3](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.7.2...station-v5.7.3) (2026-05-22)
 
 

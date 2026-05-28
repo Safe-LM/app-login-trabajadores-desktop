@@ -205,12 +205,24 @@ function buildEmpleadoStats(registros: ReportesRegistro[], sucursales: Map<strin
   }));
 }
 
+const TIMEZONE = "America/Mexico_City";
+
+function minutosLocalMX(tsMs: number): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(tsMs));
+  const hh = Number(parts.find(p => p.type === "hour")?.value ?? "0");
+  const mm = Number(parts.find(p => p.type === "minute")?.value ?? "0");
+  return hh * 60 + mm;
+}
+
 function computeMinutosTarde(entradaMs: number, horaApertura: string, toleranciaMin: number): number {
   const [hh, mm] = horaApertura.split(":").map(Number);
   if (!Number.isFinite(hh) || !Number.isFinite(mm)) return 0;
-  const expected = new Date(entradaMs);
-  expected.setHours(hh, mm, 0, 0);
-  const diffMin = Math.round((entradaMs - expected.getTime()) / 60_000);
+  const diffMin = minutosLocalMX(entradaMs) - (hh * 60 + mm);
   return diffMin > toleranciaMin ? diffMin : 0;
 }
 

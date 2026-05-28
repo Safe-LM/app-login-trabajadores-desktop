@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.9.0...web-panel-v0.10.0) (2026-05-28)
+
+
+### ✨ Nuevas funcionalidades
+
+* **reportes:** default semana, gráficas pro y badge de totales ([d797a19](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/d797a194b34ee19618805cb11a37c4825291fdae))
+* **web-panel:** modal con portal+animaciones y reportes pro ([912dcc0](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/912dcc02f2dd132c56166f96b45518465c10e0f1))
+
 ## [0.9.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.8.2...web-panel-v0.9.0) (2026-05-28)
 
 

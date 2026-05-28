@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.8.2...web-panel-v0.9.0) (2026-05-28)
+
+
+### ✨ Nuevas funcionalidades
+
+* **web-panel:** vista por día, en oficina ahora y horas reales en reportes ([6462b1b](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/6462b1b8019050c3aff8f10983dd909aa147d2b9))
+
 ## [0.8.2](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.8.1...web-panel-v0.8.2) (2026-05-28)
 
 

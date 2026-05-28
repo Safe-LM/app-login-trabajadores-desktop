@@ -51,10 +51,14 @@ export function AsistenciaClient({
   const [dateFrom, setDateFrom]     = useState("");
   const [dateTo, setDateTo]         = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [soloSinSalida, setSoloSinSalida] = useState(false);
+
+  // Vista
+  const [viewMode, setViewMode]     = useState<"timeline" | "dias">("dias");
 
   // Paginacion (cursor: timestamp del ultimo registro cargado)
   const [loading, setLoading]       = useState(false);
-  const [hasMore, setHasMore]       = useState(initial.length === 100);
+  const [hasMore, setHasMore]       = useState(initial.length === PAGE_SIZE);
 
   // Realtime — nuevos registros entran arriba
   useEffect(() => {
@@ -110,6 +114,24 @@ export function AsistenciaClient({
   }, [registros, search, empId, sucId, tipo, dateFrom, dateTo]);
 
   const hasActiveFilters = search || empId || sucId || tipo || dateFrom || dateTo;
+  const diasGroups = useMemo(() => {
+    const groups = groupByDia(filtered);
+    if (!soloSinSalida) return groups;
+    return groups
+      .map(g => ({ ...g, empleados: g.empleados.filter(e => e.pares.some(p => p.entrada && !p.salida)) }))
+      .filter(g => g.empleados.length > 0);
+  }, [filtered, soloSinSalida]);
+
+  const sinSalidaCount = useMemo(() => {
+    return groupByDia(filtered).reduce((acc, g) =>
+      acc + g.empleados.filter(e => e.pares.some(p => p.entrada && !p.salida)).length, 0);
+  }, [filtered]);
+
+  const enOficinaAhora = useMemo(() => {
+    const hoy = toMXDate(new Date().toISOString());
+    const hoyGroup = groupByDia(registros).find(g => g.fecha === hoy);
+    return hoyGroup?.empleados.filter(e => e.pares.some(p => p.entrada && !p.salida)) ?? [];
+  }, [registros]);
 
   function clearFilters() {
     setSearch(""); setEmpId(""); setSucId(""); setTipo("");
@@ -261,6 +283,32 @@ export function AsistenciaClient({
             <span>Limpiar</span>
           </button>
         )}
+        {viewMode === "dias" && (
+          <button
+            onClick={() => setSoloSinSalida(v => !v)}
+            title={soloSinSalida ? "Mostrando solo empleados sin salida — click para quitar filtro" : `Filtrar: ${sinSalidaCount} empleado${sinSalidaCount !== 1 ? "s" : ""} sin salida registrada`}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "7px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+              cursor: "pointer", border: "1px solid", transition: "all 150ms",
+              background: soloSinSalida ? "rgba(251,191,36,0.15)" : "var(--bg-elevated)",
+              borderColor: soloSinSalida ? "#fbbf24" : "var(--border)",
+              color: soloSinSalida ? "#fbbf24" : "var(--text-faint)",
+              boxShadow: soloSinSalida ? "0 0 0 1px rgba(251,191,36,0.3)" : "none",
+            }}
+          >
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#fbbf24", flexShrink: 0 }} />
+            {soloSinSalida ? "Sin salida (activo)" : "Sin salida"}
+            {sinSalidaCount > 0 && (
+              <span style={{
+                background: "#fbbf24", color: "#000", borderRadius: 10,
+                fontSize: 10, fontWeight: 800, padding: "0px 6px", minWidth: 18, textAlign: "center",
+              }}>
+                {sinSalidaCount}
+              </span>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Panel de filtros expandible */}
@@ -304,6 +352,35 @@ export function AsistenciaClient({
         </div>
       )}
 
+      {enOficinaAhora.length > 0 && (
+        <div style={{
+          marginBottom: 14, padding: "10px 16px",
+          background: "rgba(34,197,94,0.06)",
+          border: "1px solid rgba(34,197,94,0.22)",
+          borderRadius: 10, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
+            <span className="animate-pulse-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: "#4ade80", boxShadow: "0 0 8px #4ade80" }} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#4ade80" }}>
+              En oficina ahora · {enOficinaAhora.length}
+            </span>
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {enOficinaAhora.map((emp, i) => (
+              <span key={i} style={{
+                display: "flex", alignItems: "center", gap: 5,
+                padding: "3px 10px", borderRadius: 20,
+                background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)",
+                fontSize: 12, fontWeight: 500, color: "var(--text-primary)",
+              }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", flexShrink: 0 }} />
+                {emp.nombre}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="card animate-fade-up" style={{ overflow: "hidden", animationDelay: "60ms", animationFillMode: "backwards" }}>
         <div style={{
           padding: "16px 22px", borderBottom: "1px solid var(--border)",
@@ -311,17 +388,60 @@ export function AsistenciaClient({
           background: "linear-gradient(180deg, rgba(255,255,255,0.015) 0%, transparent 100%)",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <h2 className="heading-3" style={{ marginBottom: 0 }}>Timeline de registros</h2>
+            <h2 className="heading-3" style={{ marginBottom: 0 }}>Registros de asistencia</h2>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, fontWeight: 700, color: "#4ade80", background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.22)", borderRadius: 7, padding: "3px 8px", letterSpacing: "0.06em" }}>
               <span className="animate-pulse-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80", boxShadow: "0 0 6px #4ade80" }} />
               EN VIVO{liveCount > 0 ? ` · ${liveCount}` : ""}
             </span>
           </div>
+          <div style={{ display: "flex", gap: 2, background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: 8, padding: 3 }}>
+            {(["dias", "timeline"] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                style={{
+                  padding: "4px 12px", borderRadius: 6, fontSize: 11, fontWeight: 600,
+                  cursor: "pointer", border: "none", transition: "all 120ms",
+                  background: viewMode === mode ? "var(--bg-surface)" : "transparent",
+                  color: viewMode === mode ? "var(--text-primary)" : "var(--text-faint)",
+                  boxShadow: viewMode === mode ? "0 1px 4px rgba(0,0,0,0.3)" : "none",
+                }}
+              >
+                {mode === "dias" ? "Por día" : "Timeline"}
+              </button>
+            ))}
+          </div>
         </div>
 
         {filtered.length > 0 ? (
           <div>
-            {groupByHour(filtered).map(({ hourKey, hourLabel, items }) => (
+            {viewMode === "dias" ? (
+              <>
+                {soloSinSalida && (
+                  <div style={{
+                    margin: "12px 16px 0", padding: "8px 14px", borderRadius: 8,
+                    background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.3)",
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                  }}>
+                    <span style={{ fontSize: 12, color: "#fbbf24", fontWeight: 600 }}>
+                      ⚠ Mostrando {sinSalidaCount} empleado{sinSalidaCount !== 1 ? "s" : ""} sin salida registrada
+                    </span>
+                    <button
+                      onClick={() => setSoloSinSalida(false)}
+                      style={{ fontSize: 11, color: "#fbbf24", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
+                    >
+                      Quitar filtro
+                    </button>
+                  </div>
+                )}
+                <DiaView
+                  groups={diasGroups}
+                  onEdit={(r) => setModal({ type: "edit", row: r })}
+                  onDelete={(r) => setModal({ type: "delete", row: r })}
+                />
+              </>
+            ) : (
+              groupByHour(filtered).map(({ hourKey, hourLabel, items }) => (
               <div key={hourKey}>
                 <div style={{
                   position: "sticky", top: 0, zIndex: 2,
@@ -349,7 +469,8 @@ export function AsistenciaClient({
                   ))}
                 </div>
               </div>
-            ))}
+            ))
+            )}
 
             {/* Boton cargar mas (paginacion) */}
             {hasMore && (
@@ -550,6 +671,285 @@ const iconBtn: React.CSSProperties = {
   display: "flex", alignItems: "center", justifyContent: "center",
   transition: "all 150ms",
 };
+
+// ════════════════════════════════════════════════════════════════════
+//  Vista "Por día" — pares entrada/salida agrupados por empleado
+// ════════════════════════════════════════════════════════════════════
+
+const MX_TZ = "America/Mexico_City";
+
+type ParJornada = { entrada: Registro | null; salida: Registro | null };
+type EmpleadoDia = { empleado_id: string | null; nombre: string; inicial: string; pares: ParJornada[] };
+type DiaGroup = { fecha: string; label: string; empleados: EmpleadoDia[]; total: number };
+
+function toMXDate(ts: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: MX_TZ }).format(new Date(ts));
+}
+
+function toMXTime(ts: string): string {
+  return new Intl.DateTimeFormat("es-MX", { timeZone: MX_TZ, hour: "2-digit", minute: "2-digit", hour12: true }).format(new Date(ts));
+}
+
+function formatHoras(ms: number): string {
+  const totalMin = Math.round(ms / 60_000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h === 0) return `${m}min`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}min`;
+}
+
+function groupByDia(rows: Registro[]): DiaGroup[] {
+  const byFecha = new Map<string, Registro[]>();
+  for (const r of rows) {
+    const fecha = toMXDate(r.timestamp);
+    const arr = byFecha.get(fecha) ?? [];
+    arr.push(r);
+    byFecha.set(fecha, arr);
+  }
+
+  return Array.from(byFecha.keys())
+    .sort((a, b) => b.localeCompare(a))
+    .map((fecha) => {
+      const registrosDia = byFecha.get(fecha)!;
+      const byEmp = new Map<string, Registro[]>();
+      for (const r of registrosDia) {
+        const key = r.empleado_id ?? "__unknown__";
+        const arr = byEmp.get(key) ?? [];
+        arr.push(r);
+        byEmp.set(key, arr);
+      }
+
+      const empleados: EmpleadoDia[] = Array.from(byEmp.entries()).map(([empId, regs]) => {
+        const sorted = [...regs].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+        const nombre = regs[0]?.empleados ? `${regs[0].empleados.nombre} ${regs[0].empleados.apellido}` : "Sin empleado";
+        const inicial = regs[0]?.empleados?.nombre?.[0]?.toUpperCase() ?? "?";
+        const pares: ParJornada[] = [];
+        let currentEntrada: Registro | null = null;
+        for (const r of sorted) {
+          if (r.tipo === "entrada") {
+            if (currentEntrada) pares.push({ entrada: currentEntrada, salida: null });
+            currentEntrada = r;
+          } else {
+            pares.push({ entrada: currentEntrada, salida: r });
+            currentEntrada = null;
+          }
+        }
+        if (currentEntrada) pares.push({ entrada: currentEntrada, salida: null });
+        return { empleado_id: empId === "__unknown__" ? null : empId, nombre, inicial, pares };
+      }).sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+      const label = new Date(`${fecha}T12:00:00`).toLocaleDateString("es-MX", {
+        weekday: "long", day: "numeric", month: "long", year: "numeric",
+      });
+      return { fecha, label, empleados, total: registrosDia.length };
+    });
+}
+
+function DiaView({ groups, onEdit, onDelete }: {
+  groups: DiaGroup[];
+  onEdit: (r: Registro) => void;
+  onDelete: (r: Registro) => void;
+}) {
+  const hoy = toMXDate(new Date().toISOString());
+  return (
+    <div>
+      {groups.map((grupo) => (
+        <div key={grupo.fecha}>
+          <div style={{
+            position: "sticky", top: 0, zIndex: 2, padding: "8px 22px",
+            background: "linear-gradient(180deg, var(--bg-card) 0%, var(--bg-card) 80%, transparent 100%)",
+            borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8,
+          }}>
+            <span style={{ fontSize: 10, fontWeight: 800, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+              {grupo.label}
+            </span>
+            {grupo.fecha === hoy && (
+              <span style={{ fontSize: 9, fontWeight: 700, color: "#4ade80", background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", borderRadius: 6, padding: "1px 6px", letterSpacing: "0.08em" }}>
+                HOY
+              </span>
+            )}
+            <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, var(--border) 0%, transparent 100%)" }} />
+            <span style={{ fontSize: 10, color: "var(--text-faint)" }}>
+              {grupo.empleados.length} empl. · {grupo.total} reg.
+            </span>
+          </div>
+          <div style={{ padding: "10px 16px", display: "flex", flexDirection: "column", gap: 6 }}>
+            {grupo.empleados.map((emp, i) => (
+              <EmpleadoDiaCard key={i} emp={emp} isHoy={grupo.fecha === hoy} onEdit={onEdit} onDelete={onDelete} />
+            ))}
+            <DiaResumen empleados={grupo.empleados} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DiaResumen({ empleados }: { empleados: EmpleadoDia[] }) {
+  const totalMs = empleados.reduce((acc, emp) =>
+    acc + emp.pares.reduce((a, p) => {
+      if (!p.entrada || !p.salida) return a;
+      return a + (new Date(p.salida.timestamp).getTime() - new Date(p.entrada.timestamp).getTime());
+    }, 0), 0);
+  const sinSalida = empleados.filter(e => e.pares.some(p => p.entrada && !p.salida)).length;
+  const conSalida = empleados.filter(e => e.pares.some(p => p.entrada && p.salida)).length;
+  if (empleados.length === 0) return null;
+
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap",
+      padding: "8px 14px", borderRadius: 8, marginTop: 2,
+      background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)",
+      fontSize: 11, color: "var(--text-faint)",
+    }}>
+      <span style={{ fontWeight: 600, color: "var(--text-muted)" }}>Resumen del día</span>
+      <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e" }} />
+        {empleados.length} empleado{empleados.length !== 1 ? "s" : ""}
+      </span>
+      {totalMs > 0 && (
+        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#3b82f6" }} />
+          {formatHoras(totalMs)} trabajadas en total
+        </span>
+      )}
+      {conSalida > 0 && (
+        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80" }} />
+          {conSalida} con jornada completa
+        </span>
+      )}
+      {sinSalida > 0 && (
+        <span style={{ display: "flex", alignItems: "center", gap: 5, color: "#fbbf24" }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#fbbf24" }} />
+          {sinSalida} sin salida registrada
+        </span>
+      )}
+    </div>
+  );
+}
+
+function EmpleadoDiaCard({ emp, isHoy = false, onEdit, onDelete }: {
+  emp: EmpleadoDia;
+  isHoy?: boolean;
+  onEdit: (r: Registro) => void;
+  onDelete: (r: Registro) => void;
+}) {
+  const totalMs = emp.pares.reduce((acc, p) => {
+    if (!p.entrada || !p.salida) return acc;
+    return acc + (new Date(p.salida.timestamp).getTime() - new Date(p.entrada.timestamp).getTime());
+  }, 0);
+  const hasPendiente = emp.pares.some((p) => p.entrada && !p.salida);
+  const turnoActivo = isHoy && hasPendiente;
+
+  return (
+    <div style={{
+      background: "var(--bg-elevated)",
+      border: `1px solid ${turnoActivo ? "rgba(34,197,94,0.35)" : "var(--border)"}`,
+      borderRadius: 10, overflow: "hidden",
+      boxShadow: turnoActivo ? "0 0 0 1px rgba(34,197,94,0.1)" : "none",
+    }}>
+      <div style={{
+        padding: "8px 14px", display: "flex", alignItems: "center", gap: 10,
+        borderBottom: "1px solid rgba(255,255,255,0.04)",
+        background: turnoActivo ? "rgba(34,197,94,0.04)" : "transparent",
+      }}>
+        <div style={{ position: "relative", flexShrink: 0 }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: 8,
+            background: "linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(34,197,94,0.05) 100%)",
+            border: "1px solid rgba(34,197,94,0.2)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 11, fontWeight: 700, color: "#22c55e",
+          }}>
+            {emp.inicial}
+          </div>
+          {turnoActivo && (
+            <span className="animate-pulse-dot" style={{
+              position: "absolute", top: -2, right: -2,
+              width: 8, height: 8, borderRadius: "50%",
+              background: "#4ade80", boxShadow: "0 0 6px #4ade80",
+              border: "1.5px solid var(--bg-elevated)",
+            }} />
+          )}
+        </div>
+        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", flex: 1 }}>
+          {emp.nombre}
+          {turnoActivo && (
+            <span style={{ fontSize: 10, color: "#4ade80", fontWeight: 500, marginLeft: 8 }}>
+              · en oficina
+            </span>
+          )}
+        </span>
+        {totalMs > 0 && (
+          <span style={{ fontSize: 11, fontWeight: 600, color: "#4ade80", background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.18)", borderRadius: 6, padding: "2px 8px" }}>
+            {formatHoras(totalMs)} trabajadas
+          </span>
+        )}
+        {hasPendiente && (
+          <span style={{ fontSize: 10, fontWeight: 700, color: "#fbbf24", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.22)", borderRadius: 6, padding: "2px 8px" }}>
+            Sin salida ⚠
+          </span>
+        )}
+      </div>
+      {emp.pares.map((par, i) => (
+        <ParRow key={i} par={par} isLast={i === emp.pares.length - 1} onEdit={onEdit} onDelete={onDelete} />
+      ))}
+    </div>
+  );
+}
+
+function ParRow({ par, isLast, onEdit, onDelete }: {
+  par: ParJornada;
+  isLast: boolean;
+  onEdit: (r: Registro) => void;
+  onDelete: (r: Registro) => void;
+}) {
+  const ms = par.entrada && par.salida
+    ? new Date(par.salida.timestamp).getTime() - new Date(par.entrada.timestamp).getTime()
+    : null;
+
+  const Cell = ({ r, tipo }: { r: Registro | null; tipo: "entrada" | "salida" }) => {
+    const color = tipo === "entrada" ? "#22c55e" : "#3b82f6";
+    const label = tipo === "entrada" ? "Entrada" : "Salida";
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
+        <span style={{ width: 7, height: 7, borderRadius: "50%", background: r ? color : "#fbbf24", flexShrink: 0 }} />
+        {r ? (
+          <>
+            <span style={{ fontSize: 9, fontWeight: 700, color, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
+            <span style={{ fontSize: 12, color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>{toMXTime(r.timestamp)}</span>
+            <button onClick={() => onEdit(r)} title={`Editar ${label.toLowerCase()}`} style={{ ...iconBtn, marginLeft: 2, width: 22, height: 22 }}>
+              <Pencil size={10} />
+            </button>
+            <button onClick={() => onDelete(r)} title={`Eliminar ${label.toLowerCase()}`} style={{ ...iconBtn, width: 22, height: 22, color: "#f87171" }}>
+              <Trash2 size={10} />
+            </button>
+          </>
+        ) : (
+          <span style={{ fontSize: 11, color: "#fbbf24" }}>Pendiente</span>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 8, padding: "7px 14px",
+      borderBottom: isLast ? "none" : "1px solid rgba(255,255,255,0.025)",
+    }}>
+      <Cell r={par.entrada} tipo="entrada" />
+      <span style={{ color: "var(--text-faint)", fontSize: 11, flexShrink: 0 }}>→</span>
+      <Cell r={par.salida} tipo="salida" />
+      {ms !== null && (
+        <span style={{ fontSize: 11, color: "var(--text-muted)", flexShrink: 0, minWidth: 60, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+          {formatHoras(ms)}
+        </span>
+      )}
+    </div>
+  );
+}
 
 // ════════════════════════════════════════════════════════════════════
 //  S2.1: Modales de edicion manual de marcaciones

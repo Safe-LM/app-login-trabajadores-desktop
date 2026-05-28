@@ -140,13 +140,14 @@ function buildPorSucursal(registros: ReportesRegistro[]): { name: string; value:
 }
 
 function buildEmpleadoStats(registros: ReportesRegistro[], sucursales: Map<string, ReportesSucursal>): EmpleadoFila[] {
+  type RegistroDia = { tipo: "entrada" | "salida"; ts: number };
   type Acc = {
     nombre: string;
     registros: number;
     llegadasTarde: number;
     horasTrabajadas: number;
     ultimoTs: string | null;
-    porDia: Map<string, { entrada: number | null; salida: number | null; sucursalId: string | null }>;
+    porDia: Map<string, { items: RegistroDia[]; sucursalId: string | null }>;
   };
 
   const map = new Map<string, Acc>();
@@ -169,26 +170,36 @@ function buildEmpleadoStats(registros: ReportesRegistro[], sucursales: Map<strin
 
     const ts = new Date(r.timestamp).getTime();
     const dayKey = bucketKey(new Date(ts), "dia");
-    const dia = acc.porDia.get(dayKey) ?? { entrada: null, salida: null, sucursalId: r.sucursal_id };
-    if (r.tipo === "entrada") {
-      dia.entrada = dia.entrada == null ? ts : Math.min(dia.entrada, ts);
-    } else {
-      dia.salida = dia.salida == null ? ts : Math.max(dia.salida, ts);
-    }
+    const dia = acc.porDia.get(dayKey) ?? { items: [], sucursalId: r.sucursal_id };
+    dia.items.push({ tipo: r.tipo as "entrada" | "salida", ts });
     dia.sucursalId = dia.sucursalId ?? r.sucursal_id;
     acc.porDia.set(dayKey, dia);
   }
 
   for (const acc of map.values()) {
     for (const dia of acc.porDia.values()) {
-      if (dia.entrada != null && dia.salida != null && dia.salida > dia.entrada) {
-        const horas = (dia.salida - dia.entrada) / 3_600_000;
-        acc.horasTrabajadas += Math.min(horas, MAX_TURNO_HORAS);
+      // Pares greedy: misma lógica que la vista de asistencia.
+      // Suma solo el tiempo real trabajado, excluye breaks/comidas.
+      const sorted = [...dia.items].sort((a, b) => a.ts - b.ts);
+      let currentEntrada: number | null = null;
+      let horasDia = 0;
+      let primeraEntrada: number | null = null;
+      for (const reg of sorted) {
+        if (reg.tipo === "entrada") {
+          if (currentEntrada !== null) horasDia += (reg.ts - currentEntrada) / 3_600_000;
+          currentEntrada = reg.ts;
+          if (primeraEntrada === null) primeraEntrada = reg.ts;
+        } else if (currentEntrada !== null) {
+          horasDia += (reg.ts - currentEntrada) / 3_600_000;
+          currentEntrada = null;
+        }
       }
-      if (dia.entrada != null && dia.sucursalId) {
+      acc.horasTrabajadas += Math.min(horasDia, MAX_TURNO_HORAS);
+
+      if (primeraEntrada !== null && dia.sucursalId) {
         const suc = sucursales.get(dia.sucursalId);
         if (suc?.hora_apertura) {
-          const minutosTarde = computeMinutosTarde(dia.entrada, suc.hora_apertura, suc.tolerancia_min);
+          const minutosTarde = computeMinutosTarde(primeraEntrada, suc.hora_apertura, suc.tolerancia_min);
           if (minutosTarde > 0) acc.llegadasTarde += 1;
         }
       }

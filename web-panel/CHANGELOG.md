@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.2](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.8.1...web-panel-v0.8.2) (2026-05-28)
+
+
+### 🐛 Correcciones
+
+* **web-panel:** calcular retardos en timezone America/Mexico_City ([0d19fd6](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/0d19fd6f88b58cb59fae91c66b68f2bda6f1f8a9))
+
 ## [0.8.1](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.8.0...web-panel-v0.8.1) (2026-05-21)
 
 

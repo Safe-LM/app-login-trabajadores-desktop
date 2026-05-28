@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.7.5](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.7.4...station-v5.7.5) (2026-05-28)
+
+
+### 🐛 Correcciones
+
+* **station:** corregir cola offline que nunca sincronizaba a Supabase ([7f3b9f3](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/7f3b9f32b6b227c808bfe001a3d2ca053c332129))
+
 ## [5.7.4](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.7.3...station-v5.7.4) (2026-05-28)
 
 

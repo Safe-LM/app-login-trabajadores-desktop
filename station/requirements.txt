@@ -6,7 +6,7 @@
 
 # UI desktop
 PyQt5==5.15.10
-PyQtWebEngine==5.15.6
+PyQtWebEngine==5.15.7
 
 # Reconocimiento facial (OpenCV DNN: YuNet + SFace)
 opencv-python==4.8.1.78

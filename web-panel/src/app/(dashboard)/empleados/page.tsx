@@ -14,6 +14,7 @@ type Empleado = {
   enrollado: boolean | null;
   activo: boolean | null;
   sucursal_id: string | null;
+  foto_url: string | null;
   sucursales: { nombre: string } | null;
 };
 type Sucursal = { id: string; nombre: string };
@@ -31,7 +32,7 @@ export default async function EmpleadosPage() {
 
   const [{ data: rawEmp }, { data: rawSuc }] = await Promise.all([
     sb.from("empleados")
-      .select("id, nombre, apellido, puesto, employee_code, enrollado, activo, sucursal_id, sucursales(nombre)")
+      .select("id, nombre, apellido, puesto, employee_code, enrollado, activo, sucursal_id, foto_url, sucursales(nombre)")
       .order("apellido"),
     sb.from("sucursales").select("id, nombre").order("nombre"),
   ]);

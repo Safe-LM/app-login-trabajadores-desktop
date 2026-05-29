@@ -23,7 +23,18 @@ function fmtLabel(secs: number | null) {
   if (secs == null) return "Nunca";
   if (secs < 60)   return `hace ${secs}s`;
   if (secs < 3600) return `hace ${Math.floor(secs / 60)}m`;
-  return `hace ${Math.floor(secs / 3600)}h`;
+  if (secs < 86400) return `hace ${Math.floor(secs / 3600)}h`;
+  return `hace ${Math.floor(secs / 86400)}d`;
+}
+// Compara versiones semver ("5.7.10" > "5.7.3"). Devuelve <0, 0, >0.
+function semverCmp(a: string, b: string): number {
+  const pa = a.replace(/^v/, "").split(".").map(n => parseInt(n, 10) || 0);
+  const pb = b.replace(/^v/, "").split(".").map(n => parseInt(n, 10) || 0);
+  for (let i = 0; i < 3; i++) {
+    const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
 }
 /* ── Uptime bar visual ── */
 function HeartbeatBar({ secs }: { secs: number | null }) {
@@ -42,16 +53,19 @@ function HeartbeatBar({ secs }: { secs: number | null }) {
   );
 }
 /* ── Health Score bar ── */
-function HealthBar({ score, camara, empleados, syncAt }: {
-  score: number; camara: boolean | null; empleados: number; encodings: number; syncAt: string | null;
+function HealthBar({ score, camara, empleados, syncAt, stale }: {
+  score: number; camara: boolean | null; empleados: number; encodings: number; syncAt: string | null; stale?: boolean;
 }) {
-  const color = score >= 80 ? "#22c55e" : score >= 40 ? "#f59e0b" : "#ef4444";
+  // Si la estación está offline, la salud es el ÚLTIMO dato conocido, no el
+  // actual. La atenuamos y lo etiquetamos para no dar falsa sensación de "OK".
+  const liveColor = score >= 80 ? "#22c55e" : score >= 40 ? "#f59e0b" : "#ef4444";
+  const color = stale ? "#52525b" : liveColor;
   const fmtSync = syncAt ? new Date(syncAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" }) : "—";
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, opacity: stale ? 0.65 : 1 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span style={{ fontSize: 9, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600 }}>
-          Salud del sistema
+          Salud del sistema{stale && <span style={{ color: "#71717a", textTransform: "none", letterSpacing: 0 }}> · último dato</span>}
         </span>
         <span style={{ fontSize: 11, fontWeight: 700, color, fontVariantNumeric: "tabular-nums" }}>{score}/100</span>
       </div>
@@ -103,15 +117,22 @@ function EstadoPill({ estado }: { estado: keyof typeof ESTADO }) {
   return <StatusBadge kind={m.kind} label={m.label} strong={m.kind === "online"} />;
 }
 /* ── Card de dispositivo ── */
-function DispositivoCard({ d, onConfig, onLogs, maxEncodings }: {
+function DispositivoCard({ d, onConfig, onLogs, latestVersion }: {
   d: Dispositivo;
   onConfig: (d: Dispositivo) => void;
   onLogs: (d: Dispositivo) => void;
   index: number;
-  maxEncodings: number;
+  latestVersion: string | null;
 }) {
   const m = ESTADO[d.estado_conexion];
-  const encodingsBehind = maxEncodings > 0 && (d.encodings_version ?? 0) < maxEncodings;
+  const isOffline = d.estado_conexion === "offline" || d.estado_conexion === "nunca";
+  // App desactualizada: su version de app es menor a la mas alta vista en la flota.
+  const appOutdated = !!(latestVersion && d.version_app && semverCmp(d.version_app, latestVersion) < 0);
+  // Señal REAL de "no lista para reconocer": sin empleados cargados o sin
+  // biometría generada. (Antes se comparaba el mtime del .pkl entre estaciones,
+  // que es local a cada máquina y nunca se iguala → era ruido.)
+  const sinEmpleados = (d.empleados_count ?? 0) === 0;
+  const sinBiometria = !sinEmpleados && (d.encodings_version ?? 0) === 0;
   return (
     <div
       className="card estacion-tile"
@@ -144,9 +165,26 @@ function DispositivoCard({ d, onConfig, onLogs, maxEncodings }: {
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
             <EstadoPill estado={d.estado_conexion} />
-            {encodingsBehind && (
+            {appOutdated && (
               <span
-                title={`Esta estación tiene encodings v${d.encodings_version} pero la empresa va en v${maxEncodings}. Recomendado: sincronizar empleados.`}
+                title={`App en v${d.version_app}. Última disponible: v${latestVersion}. Actualiza el instalador en esta estación.`}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 4,
+                  fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
+                  padding: "2px 6px", borderRadius: 4,
+                  background: "rgba(239,68,68,0.10)",
+                  border: "1px solid rgba(239,68,68,0.25)",
+                  color: "#f87171", textTransform: "uppercase",
+                  cursor: "help",
+                }}
+              >
+                <AlertTriangle size={9} strokeWidth={2.5} />
+                App v{d.version_app} · update
+              </span>
+            )}
+            {sinEmpleados && (
+              <span
+                title="Esta estación no tiene empleados cargados — no puede reconocer a nadie. Forza un sync de empleados o verifica que la sucursal tenga personal asignado."
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 4,
                   fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
@@ -158,7 +196,24 @@ function DispositivoCard({ d, onConfig, onLogs, maxEncodings }: {
                 }}
               >
                 <AlertTriangle size={9} strokeWidth={2.5} />
-                Desactualizada
+                Sin empleados
+              </span>
+            )}
+            {sinBiometria && (
+              <span
+                title="La estación tiene empleados pero aún no ha generado los embeddings faciales. Se generan en el primer sync con fotos disponibles."
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 4,
+                  fontSize: 9, fontWeight: 700, letterSpacing: "0.06em",
+                  padding: "2px 6px", borderRadius: 4,
+                  background: "rgba(234,179,8,0.10)",
+                  border: "1px solid rgba(234,179,8,0.22)",
+                  color: "#facc15", textTransform: "uppercase",
+                  cursor: "help",
+                }}
+              >
+                <AlertTriangle size={9} strokeWidth={2.5} />
+                Sin biometría
               </span>
             )}
           </div>
@@ -179,6 +234,7 @@ function DispositivoCard({ d, onConfig, onLogs, maxEncodings }: {
           empleados={d.empleados_count ?? 0}
           encodings={d.encodings_version ?? 0}
           syncAt={d.ultimo_sync_at}
+          stale={isOffline}
         />
         {/* Grid de metadatos */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 12px" }}>
@@ -408,6 +464,7 @@ function ConfigModal({ d, onClose, onOptimisticDelete, onOptimisticUpdate, sucur
   }
   // ─── S1.1 + S1.2: enviar comando + tracking de ejecucion ──────
   async function sendCommand(tipo: CmdType) {
+    const estaOffline = d.estado_conexion === "offline" || d.estado_conexion === "nunca";
     setCmdState(prev => ({ ...prev, [tipo]: { ...initCmd, sending: true } }));
     try {
       const { data, error: rpcErr } = await supabase.rpc("enviar_comando_estacion", {
@@ -424,6 +481,17 @@ function ConfigModal({ d, onClose, onOptimisticDelete, onOptimisticUpdate, sucur
         ...prev,
         [tipo]: { sending: false, id: cmdId, ejecutado_en: null, error: null, status: "pending" },
       }));
+      // UX: si la estación está offline, el comando queda en cola — avisamos
+      // para que el admin no espere un cambio inmediato que no llegará hasta
+      // que la estación reconecte.
+      if (estaOffline) {
+        notify({
+          kind: "info",
+          title: "Comando en cola",
+          message: "La estación está offline. Se aplicará automáticamente cuando reconecte.",
+          duration: 5000,
+        });
+      }
     } catch (e) {
       const msg = (e as Error).message ?? "Error al enviar comando";
       setCmdState(prev => ({
@@ -701,10 +769,11 @@ export function DispositivosClient({
       {total > 0 ? (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(310px, 1fr))", gap: 12 }}>
           {(() => {
-            // S1.4: max encodings_version entre todas las stations de la empresa
-            // (para marcar cuales estan atrasadas).
-            const maxEnc = dispositivos.reduce(
-              (max, d) => Math.max(max, d.encodings_version ?? 0), 0
+            // Version de app mas alta vista en la flota -> referencia de "ultima".
+            // Las que esten por debajo se marcan como pendientes de actualizar.
+            const latestVersion = dispositivos.reduce<string | null>(
+              (mx, d) => d.version_app && (!mx || semverCmp(d.version_app, mx) > 0) ? d.version_app : mx,
+              null
             );
             return dispositivos.map((d, i) => (
               <DispositivoCard
@@ -713,7 +782,7 @@ export function DispositivosClient({
                 onConfig={setSelected}
                 onLogs={setLogsDevice}
                 index={i}
-                maxEncodings={maxEnc}
+                latestVersion={latestVersion}
               />
             ));
           })()}

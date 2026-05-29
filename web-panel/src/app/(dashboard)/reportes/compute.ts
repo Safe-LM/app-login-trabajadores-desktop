@@ -180,13 +180,13 @@ function buildEmpleadoStats(registros: ReportesRegistro[], sucursales: Map<strin
     for (const dia of acc.porDia.values()) {
       // Pares greedy: misma lógica que la vista de asistencia.
       // Suma solo el tiempo real trabajado, excluye breaks/comidas.
+      // Solo cuenta tiempo entre entrada→salida. Entrada→entrada se descarta.
       const sorted = [...dia.items].sort((a, b) => a.ts - b.ts);
       let currentEntrada: number | null = null;
       let horasDia = 0;
       let primeraEntrada: number | null = null;
       for (const reg of sorted) {
         if (reg.tipo === "entrada") {
-          if (currentEntrada !== null) horasDia += (reg.ts - currentEntrada) / 3_600_000;
           currentEntrada = reg.ts;
           if (primeraEntrada === null) primeraEntrada = reg.ts;
         } else if (currentEntrada !== null) {

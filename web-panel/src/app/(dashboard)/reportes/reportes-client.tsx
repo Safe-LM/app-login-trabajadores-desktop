@@ -152,7 +152,7 @@ export function ReportesClient({ data }: { data: ReportesData }) {
         </ChartCard>
       </div>
 
-      <EmpleadosTable rows={report.porEmpleado} />
+      <EmpleadosTable rows={report.porEmpleado} diasEnRango={report.kpis.diasEnRango} />
 
       <RegistrosTable rows={report.registrosFiltrados} />
 
@@ -337,86 +337,159 @@ function ChartCard({ title, subtitle, badge, children }: { title: string; subtit
 }
 
 /* ─────────────── TABLA EMPLEADOS ─────────────── */
-function EmpleadosTable({ rows }: { rows: EmpleadoFila[] }) {
+const AVATAR_PALETTE = [
+  { bg: "rgba(34,197,94,0.12)",  border: "rgba(34,197,94,0.28)",  color: "#22c55e"  },
+  { bg: "rgba(59,130,246,0.12)", border: "rgba(59,130,246,0.28)", color: "#60a5fa"  },
+  { bg: "rgba(168,85,247,0.12)", border: "rgba(168,85,247,0.28)", color: "#c084fc"  },
+  { bg: "rgba(249,115,22,0.12)", border: "rgba(249,115,22,0.28)", color: "#fb923c"  },
+  { bg: "rgba(236,72,153,0.12)", border: "rgba(236,72,153,0.28)", color: "#f472b6"  },
+  { bg: "rgba(20,184,166,0.12)", border: "rgba(20,184,166,0.28)", color: "#2dd4bf"  },
+];
+function avatarColor(nombre: string) {
+  let h = 0;
+  for (let i = 0; i < nombre.length; i++) h = (h * 31 + nombre.charCodeAt(i)) & 0xffff;
+  return AVATAR_PALETTE[h % AVATAR_PALETTE.length];
+}
+
+function EmpleadosTable({ rows, diasEnRango }: { rows: EmpleadoFila[]; diasEnRango: number }) {
   const [showAll, setShowAll] = useState(false);
   const visibles = showAll ? rows : rows.slice(0, 8);
   const maxHoras = Math.max(...rows.map(r => r.horas_trabajadas), 1);
+  const totalHoras = rows.reduce((a, r) => a + r.horas_trabajadas, 0);
+  const totalTardes = rows.reduce((a, r) => a + r.llegadas_tarde, 0);
+  const sinDatos = totalHoras === 0;
 
   return (
     <div className="card" style={{ overflow: "hidden" }}>
-      <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      {/* Header */}
+      <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
-          <h2 className="heading-3">Por empleado</h2>
-          <p className="text-muted-sm" style={{ marginTop: 2 }}>{rows.length} empleado{rows.length !== 1 ? "s" : ""} con actividad</p>
+          <h2 className="heading-3" style={{ marginBottom: 2 }}>Por empleado</h2>
+          <p className="text-muted-sm">{rows.length} empleado{rows.length !== 1 ? "s" : ""} con actividad en el rango</p>
         </div>
-        {rows.length > 8 && (
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowAll(v => !v)}>
-            {showAll ? "Ver menos" : `Ver todos (${rows.length})`}
-          </button>
-        )}
+        <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+          {sinDatos && (
+            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", fontStyle: "italic" }}>
+              Sin pares entrada/salida en el rango
+            </span>
+          )}
+          {!sinDatos && totalHoras > 0 && (
+            <div style={{ textAlign: "right" }}>
+              <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                Total · {diasEnRango} día{diasEnRango !== 1 ? "s" : ""}
+              </p>
+              <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#22c55e", fontVariantNumeric: "tabular-nums" }}>{totalHoras.toFixed(1)}h</p>
+            </div>
+          )}
+          {totalTardes > 0 && (
+            <div style={{ textAlign: "right" }}>
+              <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Tardanzas</p>
+              <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#fbbf24", fontVariantNumeric: "tabular-nums" }}>{totalTardes}</p>
+            </div>
+          )}
+          {rows.length > 8 && (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowAll(v => !v)}>
+              {showAll ? "Ver menos" : `+${rows.length - 8} más`}
+            </button>
+          )}
+        </div>
       </div>
+
       {visibles.length === 0 ? (
         <div className="empty-state" style={{ borderRadius: 0, border: "none", padding: "40px 20px" }}>
           <p className="heading-3">Sin actividad</p>
           <p className="text-muted-sm">Ajusta los filtros para ver registros.</p>
         </div>
       ) : (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Empleado</th>
-              <th style={{ width: 100 }}>Registros</th>
-              <th style={{ width: 130 }}>Puntualidad</th>
-              <th style={{ width: 220 }}>Horas trabajadas</th>
-              <th style={{ width: 150 }}>Última actividad</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visibles.map(r => {
-              const pct = maxHoras > 0 ? (r.horas_trabajadas / maxHoras) * 100 : 0;
-              return (
-                <tr key={r.empleado_id}>
-                  <td>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{
-                        width: 30, height: 30, borderRadius: 9,
-                        background: "rgba(37,99,235,0.1)", border: "1px solid rgba(37,99,235,0.2)",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 11, fontWeight: 700, color: "#60a5fa", flexShrink: 0,
-                      }}>
-                        {r.nombre[0]?.toUpperCase() ?? "?"}
-                      </div>
-                      <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 13 }}>{r.nombre}</span>
-                    </div>
-                  </td>
-                  <td style={{ fontVariantNumeric: "tabular-nums", color: "var(--text-muted)", fontSize: 13 }}>{r.registros}</td>
-                  <td>
-                    {r.llegadas_tarde === 0
-                      ? <span className="badge badge-success">Puntual</span>
-                      : <span className="badge badge-warn">{r.llegadas_tarde} {r.llegadas_tarde === 1 ? "tarde" : "tardes"}</span>}
-                  </td>
-                  <td>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, fontVariantNumeric: "tabular-nums", color: r.horas_trabajadas > 0 ? "var(--text-primary)" : "var(--text-faint)", minWidth: 36 }}>
-                        {r.horas_trabajadas > 0 ? `${r.horas_trabajadas.toFixed(1)}h` : "—"}
+        <div>
+          {/* Columnas */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 72px 150px 200px 150px", padding: "8px 20px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+            {["Empleado", "Scans", "Puntualidad", "Horas trabajadas", "Último scan"].map(h => (
+              <span key={h} style={{ fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,0.2)", textTransform: "uppercase", letterSpacing: "0.1em" }}>{h}</span>
+            ))}
+          </div>
+
+          {visibles.map((r, idx) => {
+            const pct = maxHoras > 0 ? (r.horas_trabajadas / maxHoras) * 100 : 0;
+            const av = avatarColor(r.nombre);
+            const isLast = idx === visibles.length - 1;
+            const tieneHoras = r.horas_trabajadas > 0;
+
+            return (
+              <div key={r.empleado_id} style={{
+                display: "grid", gridTemplateColumns: "1fr 72px 150px 200px 150px",
+                padding: "13px 20px", alignItems: "center",
+                borderBottom: isLast ? "none" : "1px solid rgba(255,255,255,0.035)",
+                transition: "background 120ms", cursor: "default",
+              }}
+                onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.018)")}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+              >
+                {/* Empleado */}
+                <div style={{ display: "flex", alignItems: "center", gap: 11, minWidth: 0 }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 11, flexShrink: 0,
+                    background: av.bg, border: `1px solid ${av.border}`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 14, fontWeight: 800, color: av.color,
+                    boxShadow: `0 0 0 3px ${av.bg}`,
+                  }}>
+                    {r.nombre[0]?.toUpperCase() ?? "?"}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.nombre}</p>
+                    <p style={{ margin: 0, fontSize: 10, color: "rgba(255,255,255,0.22)", marginTop: 1 }}>
+                      {tieneHoras ? `${r.horas_trabajadas.toFixed(1)}h en ${diasEnRango}d` : `${r.registros} scan${r.registros !== 1 ? "s" : ""} · sin salidas`}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Scans */}
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ fontSize: 15, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: av.color }}>{r.registros}</span>
+                </div>
+
+                {/* Puntualidad */}
+                <div>
+                  {r.llegadas_tarde === 0 ? (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: "#22c55e", background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)", borderRadius: 20, padding: "3px 10px" }}>
+                      <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#22c55e" }} />
+                      Puntual
+                    </span>
+                  ) : (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: "#fbbf24", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 20, padding: "3px 10px" }}>
+                      <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#fbbf24" }} />
+                      {r.llegadas_tarde} tarde{r.llegadas_tarde !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                </div>
+
+                {/* Horas */}
+                <div style={{ display: "flex", alignItems: "center", gap: 9, paddingRight: 12 }}>
+                  {tieneHoras ? (
+                    <>
+                      <span style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: "var(--text-primary)", minWidth: 38 }}>
+                        {r.horas_trabajadas.toFixed(1)}h
                       </span>
-                      {r.horas_trabajadas > 0 && (
-                        <div style={{ flex: 1, height: 5, background: "rgba(255,255,255,0.06)", borderRadius: 3, overflow: "hidden" }}>
-                          <div style={{ width: `${pct}%`, height: "100%", background: `linear-gradient(90deg, #22c55e, #4ade80)`, borderRadius: 3, transition: "width 400ms ease" }} />
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td style={{ fontVariantNumeric: "tabular-nums", fontSize: 12, color: "var(--text-muted)" }}>
-                    {r.ultima_actividad
-                      ? new Date(r.ultima_actividad).toLocaleString("es-MX", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
-                      : "—"}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                      <div style={{ flex: 1, height: 5, background: "rgba(255,255,255,0.05)", borderRadius: 3, overflow: "hidden" }}>
+                        <div style={{ width: `${pct}%`, height: "100%", background: `linear-gradient(90deg, ${av.color}88, ${av.color})`, borderRadius: 3 }} />
+                      </div>
+                    </>
+                  ) : (
+                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.18)", fontStyle: "italic" }}>Pendiente salida</span>
+                  )}
+                </div>
+
+                {/* Último scan */}
+                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontVariantNumeric: "tabular-nums" }}>
+                  {r.ultima_actividad
+                    ? new Date(r.ultima_actividad).toLocaleString("es-MX", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
+                    : "—"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

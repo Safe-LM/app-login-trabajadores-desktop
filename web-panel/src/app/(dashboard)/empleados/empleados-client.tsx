@@ -18,8 +18,39 @@ type Empleado = {
   enrollado: boolean | null;
   activo: boolean | null;
   sucursal_id: string | null;
+  foto_url: string | null;
   sucursales: { nombre: string } | null;
 };
+
+/* ── Avatar con foto del empleado (fallback a iniciales) ── */
+function EmpleadoAvatar({ emp, size = 36 }: { emp: Empleado; size?: number }) {
+  const [imgError, setImgError] = useState(false);
+  const showFoto = emp.foto_url && !imgError;
+
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: "50%", flexShrink: 0,
+      position: "relative", overflow: "hidden",
+      background: `linear-gradient(135deg, hsl(${(emp.nombre.charCodeAt(0) * 13) % 360}, 60%, 55%) 0%, hsl(${(emp.apellido.charCodeAt(0) * 17) % 360}, 60%, 45%) 100%)`,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontSize: size * 0.36, fontWeight: 700, color: "#fff",
+      boxShadow: "0 4px 10px -4px rgba(0,0,0,0.5)",
+      border: "1px solid rgba(255,255,255,0.08)",
+    }}>
+      {showFoto ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={emp.foto_url!}
+          alt={`${emp.nombre} ${emp.apellido}`}
+          onError={() => setImgError(true)}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      ) : (
+        <>{emp.nombre[0]?.toUpperCase()}{emp.apellido[0]?.toUpperCase()}</>
+      )}
+    </div>
+  );
+}
 
 /* ── helpers ── */
 const INPUT = {
@@ -67,6 +98,11 @@ function EmpModal({
   const [photo,      setPhoto]      = useState<string | null>(null);
   const [dragging,   setDragging]   = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // photo (base64) = foto NUEVA seleccionada por el usuario, se envía al API.
+  // displayFoto = lo que se muestra: foto nueva si la hay, si no la existente.
+  // No mandamos foto_url existente al guardar para no re-subirla corrupta.
+  const displayFoto = photo ?? emp?.foto_url ?? null;
 
   async function save() {
     if (!nombre.trim() || !apellido.trim()) { setError("Nombre y apellido son requeridos."); return; }
@@ -153,9 +189,19 @@ function EmpModal({
                 transition: "all 300ms ease"
               }}
             >
-              {photo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={photo} alt="Foto del empleado" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              {displayFoto ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={displayFoto} alt="Foto del empleado" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <div style={{
+                    position: "absolute", bottom: 0, left: 0, right: 0,
+                    padding: "8px 0", background: "rgba(0,0,0,0.55)",
+                    color: "#fff", fontSize: 10, fontWeight: 600, textAlign: "center",
+                    letterSpacing: "0.04em",
+                  }}>
+                    {photo ? "Nueva foto" : "Cambiar foto"}
+                  </div>
+                </>
               ) : (
                 <div style={{ textAlign: "center", padding: 20 }}>
                   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--text-faint)" strokeWidth="1.5" style={{ marginBottom: 10 }}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
@@ -174,9 +220,9 @@ function EmpModal({
               display: "flex", gap: 12, alignItems: "center"
             }}>
               <div style={{ width: 44, height: 44, borderRadius: 10, background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 800, color: "#fff", overflow: "hidden" }}>
-                {photo ? (
+                {displayFoto ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <img src={displayFoto} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                 ) : (nombre[0] || "?")}
               </div>
               <div style={{ overflow: "hidden" }}>
@@ -377,7 +423,7 @@ export function EmpleadosClient({ empleados: initial, sucursales, empresaId }: {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const { data } = await (supabase as any)
               .from("empleados")
-              .select("id, nombre, apellido, puesto, employee_code, enrollado, activo, sucursal_id, sucursales(nombre)")
+              .select("id, nombre, apellido, puesto, employee_code, enrollado, activo, sucursal_id, foto_url, sucursales(nombre)")
               .eq("id", ins.id)
               .eq("empresa_id", empresaId)
               .single();
@@ -578,16 +624,7 @@ export function EmpleadosClient({ empleados: initial, sucursales, empresaId }: {
               }}>
                 <td style={{ padding: "14px 18px" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{
-                      width: 36, height: 36, borderRadius: "50%",
-                      background: `linear-gradient(135deg, hsl(${(emp.nombre.charCodeAt(0) * 13) % 360}, 60%, 55%) 0%, hsl(${(emp.apellido.charCodeAt(0) * 17) % 360}, 60%, 45%) 100%)`,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 13, fontWeight: 700, color: "#fff", flexShrink: 0,
-                      boxShadow: "0 4px 10px -4px rgba(0,0,0,0.5)",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                    }}>
-                      {emp.nombre[0]?.toUpperCase()}{emp.apellido[0]?.toUpperCase()}
-                    </div>
+                    <EmpleadoAvatar emp={emp} />
                     <div>
                       <p style={{ fontWeight: 600, color: "var(--text-primary)" }}>{emp.nombre} {emp.apellido}</p>
                       {emp.employee_code && <p style={{ fontSize: 11, color: "var(--text-faint)", fontVariantNumeric: "tabular-nums" }}>#{emp.employee_code}</p>}

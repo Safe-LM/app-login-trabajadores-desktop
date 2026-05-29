@@ -800,44 +800,147 @@ function DiaView({ groups, hoy, onEdit, onDelete }: {
 }
 
 function DiaResumen({ empleados }: { empleados: EmpleadoDia[] }) {
-  const totalMs = empleados.reduce((acc, emp) =>
-    acc + emp.pares.reduce((a, p) => {
-      if (!p.entrada || !p.salida) return a;
-      return a + (new Date(p.salida.timestamp).getTime() - new Date(p.entrada.timestamp).getTime());
-    }, 0), 0);
-  const sinSalida = empleados.filter(e => e.pares.some(p => p.entrada && !p.salida)).length;
-  const conSalida = empleados.filter(e => e.pares.some(p => p.entrada && p.salida)).length;
   if (empleados.length === 0) return null;
+
+  let paresCompletos = 0;
+  let paresPendientes = 0;
+  let totalMs = 0;
+  let empleadosSinSalida = 0;
+  let empleadosConJornada = 0;
+  let totalRegistros = 0;
+
+  for (const emp of empleados) {
+    let tieneSinSalida = false;
+    let tienePar = false;
+    for (const p of emp.pares) {
+      if (p.entrada) totalRegistros++;
+      if (p.salida) totalRegistros++;
+      if (p.entrada && p.salida) {
+        paresCompletos++;
+        tienePar = true;
+        totalMs += new Date(p.salida.timestamp).getTime() - new Date(p.entrada.timestamp).getTime();
+      } else if (p.entrada && !p.salida) {
+        paresPendientes++;
+        tieneSinSalida = true;
+      }
+    }
+    if (tienePar) empleadosConJornada++;
+    if (tieneSinSalida) empleadosSinSalida++;
+  }
 
   return (
     <div style={{
-      display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap",
-      padding: "8px 14px", borderRadius: 8, marginTop: 2,
-      background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)",
-      fontSize: 11, color: "var(--text-faint)",
+      marginTop: 4, borderRadius: 10,
+      background: "linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.01) 100%)",
+      border: "1px solid rgba(255,255,255,0.06)",
+      overflow: "hidden",
     }}>
-      <span style={{ fontWeight: 600, color: "var(--text-muted)" }}>Resumen del día</span>
-      <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-        <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e" }} />
-        {empleados.length} empleado{empleados.length !== 1 ? "s" : ""}
-      </span>
-      {totalMs > 0 && (
-        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#3b82f6" }} />
-          {formatHoras(totalMs)} trabajadas en total
+      {/* Header */}
+      <div style={{
+        padding: "9px 14px",
+        borderBottom: "1px solid rgba(255,255,255,0.04)",
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/>
+          </svg>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.55)", letterSpacing: "0.04em" }}>
+            Resumen del día — total de la oficina
+          </span>
+        </div>
+        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>
+          {totalRegistros} scan{totalRegistros !== 1 ? "s" : ""} · {empleados.length} empleado{empleados.length !== 1 ? "s" : ""}
         </span>
-      )}
-      {conSalida > 0 && (
-        <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80" }} />
-          {conSalida} con jornada completa
-        </span>
-      )}
-      {sinSalida > 0 && (
-        <span style={{ display: "flex", alignItems: "center", gap: 5, color: "#fbbf24" }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#fbbf24" }} />
-          {sinSalida} sin salida registrada
-        </span>
+      </div>
+
+      {/* Stats principales */}
+      <div style={{
+        padding: "14px", display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+        gap: 14,
+      }}>
+        {/* Horas totales — el dato más importante */}
+        <div style={{
+          padding: "10px 12px", borderRadius: 8,
+          background: totalMs > 0 ? "rgba(74,222,128,0.06)" : "rgba(255,255,255,0.02)",
+          border: `1px solid ${totalMs > 0 ? "rgba(74,222,128,0.2)" : "rgba(255,255,255,0.05)"}`,
+        }}>
+          <p style={{ margin: 0, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+            Horas trabajadas hoy
+          </p>
+          <p style={{
+            margin: "4px 0 0", fontSize: 20, fontWeight: 700,
+            color: totalMs > 0 ? "#4ade80" : "rgba(255,255,255,0.3)",
+            fontVariantNumeric: "tabular-nums", letterSpacing: "-0.01em",
+          }}>
+            {totalMs > 0 ? formatHoras(totalMs) : "0h"}
+          </p>
+          <p style={{ margin: "2px 0 0", fontSize: 10, color: "rgba(255,255,255,0.35)" }}>
+            Suma de pares entrada→salida
+          </p>
+        </div>
+
+        {/* Jornadas completas */}
+        <div style={{
+          padding: "10px 12px", borderRadius: 8,
+          background: paresCompletos > 0 ? "rgba(96,165,250,0.06)" : "rgba(255,255,255,0.02)",
+          border: `1px solid ${paresCompletos > 0 ? "rgba(96,165,250,0.2)" : "rgba(255,255,255,0.05)"}`,
+        }}>
+          <p style={{ margin: 0, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+            Jornadas completas
+          </p>
+          <p style={{
+            margin: "4px 0 0", fontSize: 20, fontWeight: 700,
+            color: paresCompletos > 0 ? "#60a5fa" : "rgba(255,255,255,0.3)",
+            fontVariantNumeric: "tabular-nums", letterSpacing: "-0.01em",
+          }}>
+            {paresCompletos}
+          </p>
+          <p style={{ margin: "2px 0 0", fontSize: 10, color: "rgba(255,255,255,0.35)" }}>
+            de {paresCompletos + paresPendientes} jornada{paresCompletos + paresPendientes !== 1 ? "s" : ""} iniciada{paresCompletos + paresPendientes !== 1 ? "s" : ""}
+          </p>
+        </div>
+
+        {/* Empleados sin cerrar día */}
+        <div style={{
+          padding: "10px 12px", borderRadius: 8,
+          background: empleadosSinSalida > 0 ? "rgba(251,191,36,0.06)" : "rgba(255,255,255,0.02)",
+          border: `1px solid ${empleadosSinSalida > 0 ? "rgba(251,191,36,0.2)" : "rgba(255,255,255,0.05)"}`,
+        }}>
+          <p style={{ margin: 0, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+            Empleados sin salida
+          </p>
+          <p style={{
+            margin: "4px 0 0", fontSize: 20, fontWeight: 700,
+            color: empleadosSinSalida > 0 ? "#fbbf24" : "rgba(255,255,255,0.3)",
+            fontVariantNumeric: "tabular-nums", letterSpacing: "-0.01em",
+          }}>
+            {empleadosSinSalida}
+          </p>
+          <p style={{ margin: "2px 0 0", fontSize: 10, color: "rgba(255,255,255,0.35)" }}>
+            de {empleados.length} con actividad hoy
+          </p>
+        </div>
+      </div>
+
+      {/* Advertencia explicativa */}
+      {paresPendientes > 0 && (
+        <div style={{
+          padding: "8px 14px",
+          background: "rgba(251,191,36,0.05)",
+          borderTop: "1px solid rgba(251,191,36,0.12)",
+          fontSize: 11, color: "#fbbf24",
+          display: "flex", alignItems: "flex-start", gap: 6,
+        }}>
+          <span style={{ fontSize: 12, lineHeight: 1.2 }}>⚠</span>
+          <span style={{ lineHeight: 1.4 }}>
+            <strong>Hay {paresPendientes} entrada{paresPendientes !== 1 ? "s" : ""} sin salida registrada.</strong>
+            <span style={{ color: "rgba(251,191,36,0.65)", marginLeft: 4 }}>
+              Esas horas no se suman al total hasta que el empleado registre su salida o un admin edite el registro.
+            </span>
+          </span>
+        </div>
       )}
     </div>
   );

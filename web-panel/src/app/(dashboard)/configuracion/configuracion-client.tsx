@@ -23,6 +23,15 @@ type SucursalHorario = {
   activa: boolean;
 };
 
+type TabId = "general" | "horarios" | "equipo" | "integraciones" | "seguridad";
+
+interface TabItem {
+  id: TabId;
+  label: string;
+  desc: string;
+  icon: React.ReactNode;
+}
+
 const TIMEZONES: { value: string; label: string }[] = [
   { value: "America/Mexico_City",       label: "México · CDMX (GMT-6)" },
   { value: "America/Tijuana",           label: "México · Tijuana (GMT-8)" },
@@ -37,21 +46,167 @@ const TIMEZONES: { value: string; label: string }[] = [
 const LOGO_BUCKET = "logos-empresa";
 const LOGO_MAX_BYTES = 2 * 1024 * 1024;
 
+const tabsList: TabItem[] = [
+  {
+    id: "general",
+    label: "General",
+    desc: "Información y marca de la empresa",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+        <line x1="9" y1="3" x2="9" y2="21"/>
+      </svg>
+    )
+  },
+  {
+    id: "horarios",
+    label: "Horarios",
+    desc: "Apertura, cierre y tolerancias",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <polyline points="12 6 12 12 16 14"/>
+      </svg>
+    )
+  },
+  {
+    id: "equipo",
+    label: "Equipo y Miembros",
+    desc: "Miembros y permisos de acceso",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+      </svg>
+    )
+  },
+  {
+    id: "integraciones",
+    label: "Integraciones",
+    desc: "Webhooks externos y conexiones",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+      </svg>
+    )
+  },
+  {
+    id: "seguridad",
+    label: "Seguridad y Peligro",
+    desc: "Acciones críticas de organización",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/>
+        <line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+    )
+  }
+];
+
 export function ConfiguracionClient({ empresa, sucursales }: { empresa: Empresa; sucursales: SucursalHorario[] }) {
+  const [activeTab, setActiveTab] = useState<TabId>("general");
+
   return (
-    <div style={{ maxWidth: 980, margin: "0 auto", width: "100%" }}>
+    <div style={{ maxWidth: 1040, margin: "0 auto", width: "100%" }}>
       <PageHeader
         title="Configuración"
-        subtitle="Información de tu empresa, horarios y administración"
-        icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>}
+        subtitle="Ajustes globales y administración de tu organización"
+        icon={
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+          </svg>
+        }
         iconColor="#94a3b8"
       />
-      <div className="stagger-fade-up" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-        <EmpresaSection empresa={empresa} />
-        <SucursalesSection initial={sucursales} />
-        <EquipoCard />
-        <DangerZone />
+
+      <div style={{ display: "flex", gap: 28, marginTop: 12 }} className="settings-container">
+        
+        {/* Barra Lateral de Pestañas (Sidebar) */}
+        <div style={{ width: 240, display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }} className="settings-sidebar">
+          {tabsList.map((t) => {
+            const isActive = activeTab === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setActiveTab(t.id)}
+                style={{
+                  display: "flex", alignItems: "flex-start", gap: 12,
+                  padding: "12px 14px", borderRadius: 8, border: "none",
+                  background: isActive ? "var(--bg-elevated)" : "transparent",
+                  color: isActive ? "var(--text-primary)" : "var(--text-muted)",
+                  textAlign: "left", cursor: "pointer",
+                  transition: "all 0.15s ease",
+                  borderLeft: isActive ? "3px solid var(--accent)" : "3px solid transparent",
+                  paddingLeft: isActive ? 11 : 14
+                }}
+                className={`settings-tab-btn ${isActive ? "active" : ""}`}
+              >
+                <div style={{
+                  marginTop: 2, display: "flex", alignItems: "center", justifyContent: "center",
+                  color: isActive ? "var(--accent)" : "var(--text-faint)",
+                  flexShrink: 0
+                }}>
+                  {t.icon}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>{t.label}</span>
+                  <span style={{ fontSize: 10, color: "var(--text-faint)", lineHeight: 1.2 }} className="settings-tab-desc">
+                    {t.desc}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Panel de Contenido Activo */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {activeTab === "general" && <EmpresaSection empresa={empresa} />}
+          {activeTab === "horarios" && <SucursalesSection initial={sucursales} />}
+          {activeTab === "equipo" && <EquipoTabContent />}
+          {activeTab === "integraciones" && <IntegracionesTabContent />}
+          {activeTab === "seguridad" && <DangerZone />}
+        </div>
+
       </div>
+
+      {/* Inyección de estilos de adaptación responsive */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media (max-width: 820px) {
+          .settings-container {
+            flex-direction: column !important;
+            gap: 20px !important;
+          }
+          .settings-sidebar {
+            width: 100% !important;
+            flex-direction: row !important;
+            overflow-x: auto !important;
+            padding-bottom: 8px !important;
+            border-bottom: 1px solid var(--border) !important;
+            gap: 8px !important;
+          }
+          .settings-tab-btn {
+            border-left: none !important;
+            border-bottom: 3px solid transparent !important;
+            padding: 10px 14px !important;
+            padding-bottom: 12px !important;
+            flex-shrink: 0 !important;
+            align-items: center !important;
+          }
+          .settings-tab-btn.active {
+            border-bottom-color: var(--accent) !important;
+            background: var(--bg-elevated) !important;
+          }
+          .settings-tab-desc {
+            display: none !important;
+          }
+        }
+      `}} />
     </div>
   );
 }
@@ -129,10 +284,10 @@ function EmpresaSection({ empresa }: { empresa: Empresa }) {
   }
 
   return (
-    <section className="card" style={{ padding: 24 }}>
+    <section className="card animate-fade-up" style={{ padding: 24 }}>
       <Header
         title="Información general"
-        subtitle="Datos visibles para tu equipo y reportes"
+        subtitle="Datos visibles para tu equipo y reportes oficiales"
         icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>}
         iconColor="#3b82f6"
       />
@@ -177,10 +332,10 @@ function EmpresaSection({ empresa }: { empresa: Empresa }) {
           />
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <p className="heading-2">{nombre || "Sin nombre"}</p>
-          <p className="text-muted-sm">Slug: {empresa.slug} · ID: <code style={{ fontSize: 11 }}>{empresa.id.slice(0, 8)}</code></p>
+          <p className="heading-2" style={{ margin: 0 }}>{nombre || "Sin nombre"}</p>
+          <p className="text-muted-sm" style={{ margin: 0 }}>Slug: {empresa.slug} · ID: <code style={{ fontSize: 11 }}>{empresa.id.slice(0, 8)}</code></p>
           {logoUrl && (
-            <button type="button" className="btn btn-ghost btn-sm" onClick={removeLogo} style={{ alignSelf: "flex-start", marginTop: 6 }}>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={removeLogo} style={{ alignSelf: "flex-start", marginTop: 6, padding: "4px 8px" }}>
               Quitar logo
             </button>
           )}
@@ -243,11 +398,11 @@ function SucursalesSection({ initial }: { initial: SucursalHorario[] }) {
   }
 
   return (
-    <section className="card" style={{ padding: 24 }}>
+    <section className="card animate-fade-up" style={{ padding: 24 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
         <Header
           title="Horarios por sucursal"
-          subtitle="La hora de apertura define cuándo se considera 'llegada tarde'"
+          subtitle="La hora de apertura define cuándo se considera 'llegada tarde' de un colaborador"
           icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
           iconColor="#22c55e"
         />
@@ -349,57 +504,112 @@ function SucursalesSection({ initial }: { initial: SucursalHorario[] }) {
   );
 }
 
-function trimSeconds(t: string | null): string {
-  if (!t) return "";
-  return t.length >= 5 ? t.slice(0, 5) : t;
-}
-
-function clampInt(n: number, lo: number, hi: number): number {
-  if (!Number.isFinite(n)) return lo;
-  return Math.min(hi, Math.max(lo, Math.round(n)));
-}
-
-/* ─────────────── EQUIPO ─────────────── */
-function EquipoCard() {
+/* ─────────────── EQUIPO TAB CONTENT ─────────────── */
+function EquipoTabContent() {
   return (
-    <Link
-      href="/configuracion/equipo"
-      style={{
-        display: "flex", alignItems: "center", gap: 16,
-        padding: "20px 22px", borderRadius: 14,
-        background: "var(--bg-card)", border: "1px solid var(--border)",
-        textDecoration: "none", color: "inherit",
-        transition: "all .15s",
-      }}
-      onMouseOver={(e) => { e.currentTarget.style.borderColor = "rgba(59,130,246,.4)"; }}
-      onMouseOut={(e)  => { e.currentTarget.style.borderColor = "var(--border)"; }}
-    >
+    <div className="card animate-fade-up" style={{ padding: 24, display: "flex", flexDirection: "column", gap: 18 }}>
+      <Header
+        title="Administración de Miembros"
+        subtitle="Gestiona quién tiene acceso a la consola de administración de tu empresa"
+        icon={
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        }
+        iconColor="#3b82f6"
+      />
+
+      <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0, lineHeight: 1.5 }}>
+        Invita a colaboradores para ayudarte a monitorear la asistencia de tus sucursales. Puedes configurar niveles de acceso como administradores o visualizadores (viewers).
+      </p>
+
       <div style={{
-        width: 44, height: 44, borderRadius: 12,
-        background: "linear-gradient(135deg, rgba(59,130,246,.18), rgba(59,130,246,.06))",
-        border: "1px solid rgba(59,130,246,.3)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        color: "#3b82f6", flexShrink: 0,
+        background: "var(--bg-elevated)", border: "1px solid var(--border)",
+        borderRadius: 10, padding: 16, display: "flex", alignItems: "center", gap: 12
       }}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-          <circle cx="9" cy="7" r="4"/>
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-        </svg>
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", marginBottom: 2 }}>
-          Equipo
+        <div style={{
+          width: 38, height: 38, borderRadius: 8, background: "rgba(59,130,246,0.1)",
+          color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
+        }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
         </div>
-        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-          Gestiona quién tiene acceso a tu empresa. Invita admins y viewers por email.
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-primary)", marginBottom: 2 }}>Roles Disponibles</div>
+          <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.3 }}>
+            Admin (edición total de estaciones y empleados) · Viewer (solo lectura e informes)
+          </div>
         </div>
       </div>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-faint)", flexShrink: 0 }}>
-        <polyline points="9 18 15 12 9 6"/>
-      </svg>
-    </Link>
+
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+        <Link href="/configuracion/equipo" className="btn btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span>Gestionar accesos y miembros</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+            <polyline points="12 5 19 12 12 19"/>
+          </svg>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────── INTEGRACIONES TAB CONTENT ─────────────── */
+function IntegracionesTabContent() {
+  return (
+    <div className="card animate-fade-up" style={{ padding: 24, display: "flex", flexDirection: "column", gap: 18 }}>
+      <Header
+        title="Webhooks externos"
+        subtitle="Conecta la actividad de SafeLink con otras herramientas de tu ecosistema"
+        icon={
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+          </svg>
+        }
+        iconColor="#10b981"
+      />
+
+      <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0, lineHeight: 1.5 }}>
+        Registra endpoints HTTP de terceros para recibir eventos en tiempo real en formato JSON sobre nuevas marcaciones de asistencia, errores de estaciones y sincronizaciones fallidas.
+      </p>
+
+      <div style={{
+        background: "var(--bg-elevated)", border: "1px solid var(--border)",
+        borderRadius: 10, padding: 16, display: "flex", alignItems: "center", gap: 12
+      }}>
+        <div style={{
+          width: 38, height: 38, borderRadius: 8, background: "rgba(16,185,129,0.1)",
+          color: "#10b981", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
+        }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+        </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-primary)", marginBottom: 2 }}>Eventos soportados</div>
+          <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.3 }}>
+            asistencia.entrada · asistencia.salida · alerta.estacion_offline · error.reconocimiento
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+        <Link href="/configuracion/webhooks" className="btn btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span>Configurar integraciones HTTP</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+            <polyline points="12 5 19 12 12 19"/>
+          </svg>
+        </Link>
+      </div>
+    </div>
   );
 }
 
@@ -408,13 +618,14 @@ function DangerZone() {
   const { notify } = useNotifications();
   return (
     <section
+      className="animate-fade-up"
       style={{
         border: "1px solid rgba(239,68,68,0.18)",
         background: "rgba(239,68,68,0.03)",
         borderRadius: 12,
-        padding: 20,
+        padding: 24,
         display: "flex", justifyContent: "space-between", alignItems: "center",
-        gap: 12, flexWrap: "wrap",
+        gap: 16, flexWrap: "wrap",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -429,9 +640,9 @@ function DangerZone() {
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         </div>
         <div>
-          <h3 style={{ fontSize: 14, fontWeight: 700, color: "#f87171" }}>Zona de peligro</h3>
-          <p className="text-muted-sm" style={{ marginTop: 2, fontSize: 12 }}>
-            La eliminación de la organización es irreversible y debe gestionarse con soporte.
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: "#f87171", margin: "0 0 2px 0" }}>Zona de peligro</h3>
+          <p className="text-muted-sm" style={{ margin: 0, fontSize: 12 }}>
+            La eliminación de la organización es irreversible y debe gestionarse con soporte técnico.
           </p>
         </div>
       </div>
@@ -473,7 +684,7 @@ function Header({ title, subtitle, icon, iconColor = "var(--accent)" }: {
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <h2 className="heading-2" style={{ marginBottom: 0 }}>{title}</h2>
-        <p className="text-muted-sm" style={{ fontSize: 12 }}>{subtitle}</p>
+        <p className="text-muted-sm" style={{ fontSize: 12, margin: 0 }}>{subtitle}</p>
       </div>
     </div>
   );
@@ -495,4 +706,14 @@ function CameraIcon() {
       <circle cx="12" cy="13" r="4" />
     </svg>
   );
+}
+
+function trimSeconds(t: string | null): string {
+  if (!t) return "";
+  return t.length >= 5 ? t.slice(0, 5) : t;
+}
+
+function clampInt(n: number, lo: number, hi: number): number {
+  if (!Number.isFinite(n)) return lo;
+  return Math.min(hi, Math.max(lo, Math.round(n)));
 }

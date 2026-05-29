@@ -1,31 +1,32 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   X, LayoutGrid, Users, ClipboardList, Building2, Monitor,
   Bell, BarChart3, Settings, Search, HelpCircle, Command as CmdIcon,
+  Trophy, Activity, Map,
   type LucideIcon,
 } from "lucide-react";
 
-/**
- * Atajos globales tipo Linear/Notion/Vercel.
- *
- * - "G" + letra -> navegacion rapida (1.5s de ventana entre ambas).
- * - "?" -> overlay con la lista completa.
- * - "/" -> focus en busqueda.
- * - "Esc" -> cerrar overlays.
- *
- * Inactivo cuando el usuario esta escribiendo (input/textarea/cE).
- */
 export function KeyboardShortcuts() {
   const router = useRouter();
   const [showHelp, setShowHelp] = useState(false);
   const [goMode, setGoMode] = useState(false);
+  const showHelpRef = useRef(false);
+  const goModeRef = useRef(false);
+  const goTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const toggleHelp = useCallback(() => {
+    setShowHelp((v) => { showHelpRef.current = !v; return !v; });
+  }, []);
+
+  const closeHelp = useCallback(() => {
+    setShowHelp(false);
+    showHelpRef.current = false;
+  }, []);
 
   useEffect(() => {
-    let goTimer: ReturnType<typeof setTimeout> | null = null;
-
     const isTyping = () => {
       const a = document.activeElement;
       if (!a) return false;
@@ -39,25 +40,25 @@ export function KeyboardShortcuts() {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (isTyping()) return;
 
-      const k = e.key.toLowerCase();
+      const k = e.key;
+      const kl = k.toLowerCase();
 
-      // ? (Shift+/) -> overlay
-      if (k === "?" || (k === "/" && e.shiftKey)) {
+      if (kl === "?" || (k === "/" && e.shiftKey)) {
         e.preventDefault();
-        setShowHelp((v) => !v);
+        setShowHelp((v) => { showHelpRef.current = !v; return !v; });
         return;
       }
 
-      // ESC -> cerrar overlay si abierto
-      if (k === "escape" && showHelp) {
+      if (kl === "escape" && showHelpRef.current) {
+        e.preventDefault();
         setShowHelp(false);
+        showHelpRef.current = false;
         return;
       }
 
-      // / -> focus en busqueda
       if (k === "/" && !e.shiftKey) {
         const input = document.querySelector<HTMLInputElement>(
-          'input[type="search"], input[placeholder*="uscar"], input[placeholder*="earch"]'
+          'input[type="search"], input[placeholder*="uscar"], input[placeholder*="earch"], input[placeholder*="Buscar"]'
         );
         if (input) {
           e.preventDefault();
@@ -66,23 +67,24 @@ export function KeyboardShortcuts() {
         return;
       }
 
-      // G + letra
-      if (goMode) {
-        const route = goToMap[k];
+      if (goModeRef.current) {
+        const route = goToMap[kl];
         if (route) {
           e.preventDefault();
           router.push(route);
         }
         setGoMode(false);
-        if (goTimer) clearTimeout(goTimer);
+        goModeRef.current = false;
+        if (goTimerRef.current) { clearTimeout(goTimerRef.current); goTimerRef.current = null; }
         return;
       }
 
-      if (k === "g") {
+      if (kl === "g") {
         e.preventDefault();
         setGoMode(true);
-        if (goTimer) clearTimeout(goTimer);
-        goTimer = setTimeout(() => setGoMode(false), 1500);
+        goModeRef.current = true;
+        if (goTimerRef.current) clearTimeout(goTimerRef.current);
+        goTimerRef.current = setTimeout(() => { setGoMode(false); goModeRef.current = false; }, 1500);
         return;
       }
     };
@@ -90,14 +92,14 @@ export function KeyboardShortcuts() {
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
-      if (goTimer) clearTimeout(goTimer);
+      if (goTimerRef.current) { clearTimeout(goTimerRef.current); goTimerRef.current = null; }
     };
-  }, [router, goMode, showHelp]);
+  }, [router]);
 
   return (
     <>
       {goMode && <GoModeIndicator />}
-      {showHelp && <ShortcutsHelp onClose={() => setShowHelp(false)} />}
+      {showHelp && <ShortcutsHelp onClose={closeHelp} />}
     </>
   );
 }
@@ -111,20 +113,26 @@ const goToMap: Record<string, string> = {
   n: "/notificaciones",
   r: "/reportes",
   c: "/configuracion",
+  t: "/tablero",
+  x: "/ejecutivo",
+  v: "/actividad",
 };
 
 // ─── Indicador "Pulsa la siguiente tecla..." ──────────────────────────────
 
 function GoModeIndicator() {
   const hints: Array<[string, string, LucideIcon, string]> = [
-    ["D", "Dashboard",      LayoutGrid,    "#3b82f6"],
+    ["T", "Tablero",        Map,           "#3b82f6"],
+    ["D", "Dashboard",      LayoutGrid,    "#60a5fa"],
     ["E", "Empleados",      Users,         "#10b981"],
     ["A", "Asistencia",     ClipboardList, "#f59e0b"],
     ["S", "Estaciones",     Monitor,       "#06b6d4"],
     ["U", "Sucursales",     Building2,     "#8b5cf6"],
-    ["N", "Notificaciones", Bell,          "#ef4444"],
     ["R", "Reportes",       BarChart3,     "#ec4899"],
-    ["C", "Configuración",  Settings,      "#6b7280"],
+    ["X", "Ejecutivo",      Trophy,        "#f97316"],
+    ["V", "Actividad",      Activity,      "#14b8a6"],
+    ["N", "Notificaciones", Bell,          "#ef4444"],
+    ["C", "Configuracion",  Settings,      "#6b7280"],
   ];
 
   return (
@@ -135,17 +143,18 @@ function GoModeIndicator() {
           background: "var(--accent, #3b82f6)",
           display: "flex", alignItems: "center", justifyContent: "center",
           color: "#fff", fontWeight: 700, fontSize: 13,
+          fontFamily: "var(--font-data, monospace)",
         }}>G</div>
         <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary, #f5f5f7)" }}>
-          Pulsa la siguiente tecla para navegar…
+          Pulsa la siguiente tecla para navegar...
         </span>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 5 }}>
         {hints.map(([key, label, Icon, color]) => (
           <div key={key} style={goHintStyle}>
             <kbd style={{ ...kbdStyle, minWidth: 22 }}>{key}</kbd>
-            <Icon size={12} style={{ color: color as string }} />
-            <span style={{ fontSize: 11, color: "var(--text-secondary, #d4d4d8)" }}>{label}</span>
+            <Icon size={11} style={{ color: color as string }} />
+            <span style={{ fontSize: 10, color: "var(--text-secondary, #d4d4d8)" }}>{label}</span>
           </div>
         ))}
       </div>
@@ -157,14 +166,17 @@ function GoModeIndicator() {
 
 function ShortcutsHelp({ onClose }: { onClose: () => void }) {
   const navigation: Array<[string, string, LucideIcon, string]> = [
-    ["G D", "Dashboard",      LayoutGrid,    "#3b82f6"],
+    ["G T", "Tablero",        Map,           "#3b82f6"],
+    ["G D", "Dashboard",      LayoutGrid,    "#60a5fa"],
     ["G E", "Empleados",      Users,         "#10b981"],
     ["G A", "Asistencia",     ClipboardList, "#f59e0b"],
     ["G S", "Estaciones",     Monitor,       "#06b6d4"],
     ["G U", "Sucursales",     Building2,     "#8b5cf6"],
-    ["G N", "Notificaciones", Bell,          "#ef4444"],
     ["G R", "Reportes",       BarChart3,     "#ec4899"],
-    ["G C", "Configuración",  Settings,      "#6b7280"],
+    ["G X", "Ejecutivo",      Trophy,        "#f97316"],
+    ["G V", "Actividad",      Activity,      "#14b8a6"],
+    ["G N", "Notificaciones", Bell,          "#ef4444"],
+    ["G C", "Configuracion",  Settings,      "#6b7280"],
   ];
 
   const commands: Array<[string, string, string]> = [
@@ -199,7 +211,7 @@ function ShortcutsHelp({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <div style={{ padding: "8px 20px 20px" }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "8px 20px 20px" }}>
           {/* Tip card */}
           <div style={tipCardStyle}>
             <CmdIcon size={16} style={{ color: "#3b82f6", flexShrink: 0 }} />
@@ -295,11 +307,12 @@ const overlayStyle: React.CSSProperties = {
 };
 
 const modalStyle: React.CSSProperties = {
-  width: "min(560px, 100%)", maxHeight: "85vh", overflow: "auto",
+  width: "min(540px, 100%)", maxHeight: "85vh", overflow: "hidden",
   background: "var(--bg-surface, #0f0f10)",
   border: "1px solid var(--border, #2a2a2d)",
   borderRadius: 14,
   boxShadow: "0 32px 80px rgba(0, 0, 0, 0.7)",
+  display: "flex", flexDirection: "column",
 };
 
 const headerStyle: React.CSSProperties = {

@@ -25,7 +25,7 @@ export default async function ReportesPage() {
   desde.setDate(desde.getDate() - RANGE_DAYS);
   desde.setHours(0, 0, 0, 0);
 
-  const [registrosRes, empleadosRes, sucursalesRes] = await Promise.all([
+  const [registrosRes, empleadosRes, sucursalesRes, empresaRes] = await Promise.all([
     supabase
       .from("registros_asistencia")
       .select("id, tipo, timestamp, confianza, empleado_id, sucursal_id, empleados(nombre, apellido), sucursales(nombre)")
@@ -41,6 +41,11 @@ export default async function ReportesPage() {
       .from("sucursales")
       .select("id, nombre, hora_apertura, hora_cierre, tolerancia_min")
       .eq("empresa_id", empresaId),
+    supabase
+      .from("empresas")
+      .select("nombre")
+      .eq("id", empresaId)
+      .maybeSingle(),
   ]);
 
   type RegistroJoined = {
@@ -55,6 +60,7 @@ export default async function ReportesPage() {
   };
 
   const registrosRaw = (registrosRes.data ?? []) as unknown as RegistroJoined[];
+  const empresaNombre = empresaRes.data?.nombre ?? "Safe Link";
 
   const data: ReportesData = {
     desde: desde.toISOString(),
@@ -84,15 +90,5 @@ export default async function ReportesPage() {
     })),
   };
 
-  return (
-    <div className="page animate-fade-up">
-      <div className="page-header">
-        <div>
-          <h1 className="heading-1" style={{ marginBottom: 2 }}>Reportes</h1>
-          <p className="text-muted-sm">Análisis de asistencia, puntualidad y horas trabajadas</p>
-        </div>
-      </div>
-      <ReportesClient data={data} />
-    </div>
-  );
+  return <ReportesClient data={data} empresaNombre={empresaNombre} />;
 }

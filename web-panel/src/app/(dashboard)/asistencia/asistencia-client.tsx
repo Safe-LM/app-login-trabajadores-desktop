@@ -4,7 +4,19 @@ import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ExportButton } from "@/components/ui/ExportButton";
-import { Search, Filter, X, ChevronDown, Plus, Edit3, Trash2, Pencil } from "lucide-react";
+import {
+  Search,
+  Filter,
+  X,
+  ChevronDown,
+  Plus,
+  Pencil,
+  Trash2,
+  MoreHorizontal,
+  Clock,
+  AlertTriangle,
+  Smile,
+} from "lucide-react";
 import { toast } from "sonner";
 
 type Registro = {
@@ -53,6 +65,8 @@ export function AsistenciaClient({
   const [dateTo, setDateTo]         = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [soloSinSalida, setSoloSinSalida] = useState(false);
+  const [soloBajaConfianza, setSoloBajaConfianza] = useState(false);
+  const [showActivePopover, setShowActivePopover] = useState(false);
 
   // Vista
   const [viewMode, setViewMode]     = useState<"timeline" | "dias">("dias");
@@ -94,8 +108,8 @@ export function AsistenciaClient({
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  // Filtro client-side (sobre los registros ya cargados).
-  const filtered = useMemo(() => {
+  // Filtro client-side base (sobre los registros ya cargados)
+  const baseFiltered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return registros.filter((r) => {
       if (empId && r.empleado_id !== empId) return false;
@@ -118,7 +132,19 @@ export function AsistenciaClient({
     });
   }, [registros, search, empId, sucId, tipo, dateFrom, dateTo]);
 
+  // Filtro final aplicando alertas
+  const filtered = useMemo(() => {
+    return baseFiltered.filter((r) => {
+      if (soloBajaConfianza) {
+        if (r.confianza === null || r.confianza >= 0.80) return false;
+      }
+      return true;
+    });
+  }, [baseFiltered, soloBajaConfianza]);
+
   const hasActiveFilters = search || empId || sucId || tipo || dateFrom || dateTo;
+  const hasActiveFiltersOrToggles = hasActiveFilters || soloSinSalida || soloBajaConfianza;
+
   const diasGroups = useMemo(() => {
     try {
       const groups = groupByDia(filtered);
@@ -131,22 +157,69 @@ export function AsistenciaClient({
 
   const sinSalidaCount = useMemo(() => {
     try {
-      return groupByDia(filtered).reduce((acc, g) =>
+      return groupByDia(baseFiltered).reduce((acc, g) =>
         acc + g.empleados.filter(e => e.pares.some(p => p.entrada && !p.salida)).length, 0);
     } catch { return 0; }
-  }, [filtered]);
+  }, [baseFiltered]);
+
+  const bajaConfianzaCount = useMemo(() => {
+    return baseFiltered.filter(r => r.confianza !== null && r.confianza < 0.80).length;
+  }, [baseFiltered]);
 
   const enOficinaAhora = useMemo(() => {
     if (!hoy) return [];
     try {
       const hoyGroup = groupByDia(registros).find(g => g.fecha === hoy);
-      return hoyGroup?.empleados.filter(e => e.pares.some(p => p.entrada && !p.salida)) ?? [];
+      return hoyGroup?.empleados.filter(e => {
+        const ultimoPar = e.pares[e.pares.length - 1];
+        return ultimoPar ? (ultimoPar.entrada && !ultimoPar.salida) : false;
+      }) ?? [];
     } catch { return []; }
   }, [registros, hoy]);
+
+  // Métricas para el panel superior (Dashboard)
+  const metrics = useMemo(() => {
+    let totalMs = 0;
+    let completos = 0;
+    let pendientes = 0;
+    let confSum = 0;
+    let confCount = 0;
+
+    const groups = groupByDia(baseFiltered);
+    for (const g of groups) {
+      for (const emp of g.empleados) {
+        for (const p of emp.pares) {
+          if (p.entrada && p.salida) {
+            completos++;
+            totalMs += new Date(p.salida.timestamp).getTime() - new Date(p.entrada.timestamp).getTime();
+          } else if (p.entrada && !p.salida) {
+            pendientes++;
+          }
+        }
+      }
+    }
+
+    for (const r of baseFiltered) {
+      if (r.confianza != null) {
+        confSum += r.confianza;
+        confCount++;
+      }
+    }
+
+    const avgConf = confCount > 0 ? confSum / confCount : null;
+
+    return {
+      totalMs,
+      completos,
+      pendientes,
+      avgConf,
+    };
+  }, [baseFiltered]);
 
   function clearFilters() {
     setSearch(""); setEmpId(""); setSucId(""); setTipo("");
     setDateFrom(""); setDateTo("");
+    setSoloSinSalida(false); setSoloBajaConfianza(false);
   }
 
   // Cargar mas registros (paginacion cursor por timestamp)
@@ -186,7 +259,7 @@ export function AsistenciaClient({
   }
 
   return (
-    <div style={{ padding: "28px 32px", maxWidth: 1200, margin: "0 auto" }} className="animate-fade-up">
+    <div className="animate-fade-up page">
       <PageHeader
         title="Asistencia"
         subtitle="Historial de registros y auditoría"
@@ -256,141 +329,302 @@ export function AsistenciaClient({
         />
       )}
 
-      {/* Barra de filtros */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-        <div style={{ position: "relative", flex: "1 1 240px", minWidth: 200 }}>
-          <Search size={13} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "var(--text-faint)" }} />
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar empleado o sucursal..."
-            style={{
-              width: "100%", padding: "9px 12px 9px 32px",
-              background: "var(--bg-elevated)", border: "1px solid var(--border)",
-              borderRadius: 8, fontSize: 13, color: "var(--text-primary)", outline: "none",
-            }}
-          />
-        </div>
-        <button
-          onClick={() => setShowFilters(v => !v)}
-          className="btn btn-secondary btn-sm"
-          style={{ position: "relative" }}
+      {/* Dashboard de Métricas Superior */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 20 }}>
+        {/* Card 1: En oficina ahora */}
+        <div
+          className="stat-card"
+          onMouseEnter={() => setShowActivePopover(true)}
+          onMouseLeave={() => setShowActivePopover(false)}
+          style={{ position: "relative", cursor: enOficinaAhora.length > 0 ? "pointer" : "default" }}
         >
-          <Filter size={13} />
-          <span>Filtros</span>
-          <ChevronDown size={12} style={{ transform: showFilters ? "rotate(180deg)" : "none", transition: "transform 150ms" }} />
-          {hasActiveFilters && (
-            <span style={{
-              position: "absolute", top: -4, right: -4,
-              width: 8, height: 8, borderRadius: "50%",
-              background: "var(--accent)",
-            }} />
-          )}
-        </button>
-        {hasActiveFilters && (
-          <button onClick={clearFilters} className="btn btn-secondary btn-sm">
-            <X size={13} />
-            <span>Limpiar</span>
-          </button>
-        )}
-        {viewMode === "dias" && (
-          <button
-            onClick={() => setSoloSinSalida(v => !v)}
-            title={soloSinSalida ? "Mostrando solo empleados sin salida — click para quitar filtro" : `Filtrar: ${sinSalidaCount} empleado${sinSalidaCount !== 1 ? "s" : ""} sin salida registrada`}
-            style={{
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "7px 12px", borderRadius: 8, fontSize: 12, fontWeight: 600,
-              cursor: "pointer", border: "1px solid", transition: "all 150ms",
-              background: soloSinSalida ? "rgba(251,191,36,0.15)" : "var(--bg-elevated)",
-              borderColor: soloSinSalida ? "#fbbf24" : "var(--border)",
-              color: soloSinSalida ? "#fbbf24" : "var(--text-faint)",
-              boxShadow: soloSinSalida ? "0 0 0 1px rgba(251,191,36,0.3)" : "none",
-            }}
-          >
-            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#fbbf24", flexShrink: 0 }} />
-            {soloSinSalida ? "Sin salida (activo)" : "Sin salida"}
-            {sinSalidaCount > 0 && (
-              <span style={{
-                background: "#fbbf24", color: "#000", borderRadius: 10,
-                fontSize: 10, fontWeight: 800, padding: "0px 6px", minWidth: 18, textAlign: "center",
-              }}>
-                {sinSalidaCount}
-              </span>
+          <div className="stat-card__label">
+            <span className="stat-card__icon" style={{ background: "rgba(34,197,94,0.1)", borderColor: "rgba(34,197,94,0.2)", color: "#22c55e" }}>
+              <span className="animate-pulse-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 6px #22c55e" }} />
+            </span>
+            <span>En Oficina Ahora</span>
+          </div>
+          <div className="stat-card__value" style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+            {enOficinaAhora.length}
+            <span style={{ fontSize: 11, fontWeight: 500, color: "var(--text-muted)" }}>colaboradores</span>
+          </div>
+          <div className="stat-card__delta" style={{ marginTop: 4 }}>
+            {enOficinaAhora.length > 0 ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  {enOficinaAhora.slice(0, 4).map((emp, i) => {
+                    let hash = 0;
+                    for (let k = 0; k < emp.nombre.length; k++) {
+                      hash = emp.nombre.charCodeAt(k) + ((hash << 5) - hash);
+                    }
+                    const h = Math.abs(hash % 360);
+                    const bg = `hsl(${h}, 50%, 15%)`;
+                    const color = `hsl(${h}, 70%, 75%)`;
+                    return (
+                      <div
+                        key={i}
+                        title={emp.nombre}
+                        style={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: "50%",
+                          background: bg,
+                          border: "1.5px solid var(--bg-card)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 8,
+                          fontWeight: 700,
+                          color: color,
+                          marginLeft: i > 0 ? -6 : 0,
+                          zIndex: 10 - i,
+                        }}
+                      >
+                        {emp.inicial}
+                      </div>
+                    );
+                  })}
+                  {enOficinaAhora.length > 4 && (
+                    <div
+                      style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: "50%",
+                        background: "var(--bg-elevated)",
+                        border: "1.5px solid var(--bg-card)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 8,
+                        fontWeight: 700,
+                        color: "var(--text-muted)",
+                        marginLeft: -6,
+                        zIndex: 5,
+                      }}
+                    >
+                      +{enOficinaAhora.length - 4}
+                    </div>
+                  )}
+                </div>
+                <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                  {enOficinaAhora.length === 1 ? "Turno activo" : "Turnos activos"}
+                </span>
+              </div>
+            ) : (
+              "Ningún turno activo"
             )}
-          </button>
-        )}
+          </div>
+
+          {/* Popover flotante con el detalle de las personas en la oficina */}
+          {showActivePopover && enOficinaAhora.length > 0 && (
+            <div
+              className="card animate-fade-in"
+              style={{
+                position: "absolute",
+                top: "100%",
+                left: 0,
+                marginTop: 8,
+                width: 260,
+                zIndex: 50,
+                background: "var(--bg-elevated)",
+                border: "1px solid var(--border-strong)",
+                boxShadow: "0 10px 25px -5px rgba(0,0,0,0.5)",
+                padding: 12,
+              }}
+            >
+              <h4 style={{ margin: "0 0 8px 0", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                En Oficina Ahora ({enOficinaAhora.length})
+              </h4>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 200, overflowY: "auto" }}>
+                {enOficinaAhora.map((emp, i) => {
+                  const ultimoPar = emp.pares[emp.pares.length - 1];
+                  const horaEntrada = ultimoPar?.entrada ? toMXTime(ultimoPar.entrada.timestamp) : "";
+                  const sucursal = ultimoPar?.entrada?.sucursales?.nombre || "Estación";
+                  return (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 0" }}>
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", flexShrink: 0 }} />
+                      <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {emp.nombre}
+                        </span>
+                        <span style={{ fontSize: 10, color: "var(--text-muted)" }}>
+                          Entró {horaEntrada} en {sucursal}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Card 2: Horas del Periodo */}
+        <div className="stat-card">
+          <div className="stat-card__label">
+            <span className="stat-card__icon" style={{ background: "rgba(37,99,235,0.1)", borderColor: "rgba(37,99,235,0.2)", color: "#2563eb" }}>
+              <Clock size={12} />
+            </span>
+            <span>Horas del Periodo</span>
+          </div>
+          <div className="stat-card__value">
+            {formatHoras(metrics.totalMs)}
+          </div>
+          <div className="stat-card__delta">
+            En {metrics.completos} jornada{metrics.completos !== 1 ? "s" : ""} completa{metrics.completos !== 1 ? "s" : ""}
+          </div>
+        </div>
+
+        {/* Card 3: Sin Salida */}
+        <div className="stat-card" onClick={() => { if (metrics.pendientes > 0) setSoloSinSalida(v => !v); }} style={{ cursor: metrics.pendientes > 0 ? "pointer" : "default" }}>
+          <div className="stat-card__label">
+            <span className="stat-card__icon" style={{ background: "rgba(234,179,8,0.1)", borderColor: "rgba(234,179,8,0.2)", color: "#eab308" }}>
+              <AlertTriangle size={12} />
+            </span>
+            <span>Sin Salida (Alertas)</span>
+          </div>
+          <div className="stat-card__value" style={{ color: metrics.pendientes > 0 ? "#facc15" : "var(--text-primary)" }}>
+            {metrics.pendientes}
+          </div>
+          <div className="stat-card__delta" style={{ color: metrics.pendientes > 0 ? "#facc15" : "var(--text-muted)" }}>
+            {metrics.pendientes > 0 ? "⚠️ Marcaciones incompletas" : "Todo al día"}
+          </div>
+        </div>
+
+        {/* Card 4: Coincidencia Facial */}
+        <div className="stat-card">
+          <div className="stat-card__label">
+            <span className="stat-card__icon" style={{ background: "rgba(20,184,166,0.1)", borderColor: "rgba(20,184,166,0.2)", color: "#14b8a6" }}>
+              <Smile size={12} />
+            </span>
+            <span>Coincidencia Facial</span>
+          </div>
+          <div className="stat-card__value" style={{ color: metrics.avgConf && metrics.avgConf < 0.8 ? "#f87171" : "var(--text-primary)" }}>
+            {metrics.avgConf ? `${Math.round(metrics.avgConf * 100)}%` : "—"}
+          </div>
+          <div className="stat-card__delta">
+            Promedio de validación de rostro
+          </div>
+        </div>
       </div>
 
-      {/* Panel de filtros expandible */}
-      {showFilters && (
-        <div className="card" style={{ padding: 16, marginBottom: 16, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-          <FilterField label="Empleado">
-            <select value={empId} onChange={(e) => setEmpId(e.target.value)} style={selectStyle}>
-              <option value="">Todos</option>
-              {empleados.map((e) => (
-                <option key={e.id} value={e.id} style={{ background: "#0f0f10" }}>
-                  {e.apellido} {e.nombre}
-                </option>
-              ))}
-            </select>
-          </FilterField>
-          <FilterField label="Sucursal">
-            <select value={sucId} onChange={(e) => setSucId(e.target.value)} style={selectStyle}>
-              <option value="">Todas</option>
-              {sucursales.map((s) => (
-                <option key={s.id} value={s.id} style={{ background: "#0f0f10" }}>{s.nombre}</option>
-              ))}
-            </select>
-          </FilterField>
-          <FilterField label="Tipo">
-            <select
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value as "" | "entrada" | "salida")}
-              style={selectStyle}
-            >
-              <option value="">Todos</option>
-              <option value="entrada" style={{ background: "#0f0f10" }}>Entrada</option>
-              <option value="salida"  style={{ background: "#0f0f10" }}>Salida</option>
-            </select>
-          </FilterField>
-          <FilterField label="Desde">
-            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} style={selectStyle} />
-          </FilterField>
-          <FilterField label="Hasta">
-            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} style={selectStyle} />
-          </FilterField>
-        </div>
-      )}
+      {/* Barra de filtros */}
+      <div className="card" style={{ padding: 12, marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ position: "relative", flex: "1 1 280px", minWidth: 200 }}>
+            <Search size={14} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por colaborador o sucursal..."
+              className="input"
+              style={{ paddingLeft: 32 }}
+            />
+          </div>
 
-      {enOficinaAhora.length > 0 && (
-        <div style={{
-          marginBottom: 14, padding: "10px 16px",
-          background: "rgba(34,197,94,0.06)",
-          border: "1px solid rgba(34,197,94,0.22)",
-          borderRadius: 10, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
-            <span className="animate-pulse-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: "#4ade80", boxShadow: "0 0 8px #4ade80" }} />
-            <span style={{ fontSize: 12, fontWeight: 700, color: "#4ade80" }}>
-              En oficina ahora · {enOficinaAhora.length}
-            </span>
-          </div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {enOficinaAhora.map((emp, i) => (
-              <span key={i} style={{
-                display: "flex", alignItems: "center", gap: 5,
-                padding: "3px 10px", borderRadius: 20,
-                background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)",
-                fontSize: 12, fontWeight: 500, color: "var(--text-primary)",
-              }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", flexShrink: 0 }} />
-                {emp.nombre}
-              </span>
-            ))}
-          </div>
+          <button
+            onClick={() => setShowFilters(v => !v)}
+            className="btn btn-secondary btn-sm"
+            style={{ position: "relative" }}
+          >
+            <Filter size={13} />
+            <span>Filtros avanzados</span>
+            <ChevronDown size={12} style={{ transform: showFilters ? "rotate(180deg)" : "none", transition: "transform 150ms" }} />
+            {hasActiveFilters && (
+              <span style={{
+                position: "absolute", top: -2, right: -2,
+                width: 6, height: 6, borderRadius: "50%",
+                background: "var(--accent)",
+              }} />
+            )}
+          </button>
+
+          {viewMode === "dias" && (
+            <button
+              onClick={() => setSoloSinSalida(v => !v)}
+              className="btn btn-secondary btn-sm"
+              style={{
+                background: soloSinSalida ? "rgba(251,191,36,0.12)" : "var(--bg-elevated)",
+                borderColor: soloSinSalida ? "#fbbf24" : "var(--border)",
+                color: soloSinSalida ? "#fbbf24" : "var(--text-secondary)",
+              }}
+            >
+              <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#fbbf24", marginRight: 6 }} />
+              Sin salida ({sinSalidaCount})
+            </button>
+          )}
+
+          <button
+            onClick={() => setSoloBajaConfianza(v => !v)}
+            className="btn btn-secondary btn-sm"
+            style={{
+              background: soloBajaConfianza ? "rgba(239,68,68,0.12)" : "var(--bg-elevated)",
+              borderColor: soloBajaConfianza ? "#ef4444" : "var(--border)",
+              color: soloBajaConfianza ? "#f87171" : "var(--text-secondary)",
+            }}
+          >
+            <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "#ef4444", marginRight: 6 }} />
+            Baja confianza ({bajaConfianzaCount})
+          </button>
+
+          {hasActiveFiltersOrToggles && (
+            <button onClick={clearFilters} className="btn btn-ghost btn-sm" style={{ marginLeft: "auto" }}>
+              <X size={13} />
+              <span>Limpiar filtros</span>
+            </button>
+          )}
         </div>
-      )}
+
+        {/* Panel de filtros avanzado expandible */}
+        {showFilters && (
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            gap: 12,
+            marginTop: 12,
+            paddingTop: 12,
+            borderTop: "1px solid var(--border)",
+          }}>
+            <FilterField label="Empleado">
+              <select value={empId} onChange={(e) => setEmpId(e.target.value)} className="input" style={{ height: 36, padding: "0 10px" }}>
+                <option value="">Todos</option>
+                {empleados.map((e) => (
+                  <option key={e.id} value={e.id} style={{ background: "var(--bg-elevated)" }}>
+                    {e.apellido} {e.nombre}
+                  </option>
+                ))}
+              </select>
+            </FilterField>
+            <FilterField label="Sucursal">
+              <select value={sucId} onChange={(e) => setSucId(e.target.value)} className="input" style={{ height: 36, padding: "0 10px" }}>
+                <option value="">Todas</option>
+                {sucursales.map((s) => (
+                  <option key={s.id} value={s.id} style={{ background: "var(--bg-elevated)" }}>{s.nombre}</option>
+                ))}
+              </select>
+            </FilterField>
+            <FilterField label="Tipo">
+              <select
+                value={tipo}
+                onChange={(e) => setTipo(e.target.value as "" | "entrada" | "salida")}
+                className="input"
+                style={{ height: 36, padding: "0 10px" }}
+              >
+                <option value="">Todos</option>
+                <option value="entrada" style={{ background: "var(--bg-elevated)" }}>Entrada</option>
+                <option value="salida"  style={{ background: "var(--bg-elevated)" }}>Salida</option>
+              </select>
+            </FilterField>
+            <FilterField label="Desde">
+              <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="input" style={{ height: 36 }} />
+            </FilterField>
+            <FilterField label="Hasta">
+              <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="input" style={{ height: 36 }} />
+            </FilterField>
+          </div>
+        )}
+      </div>
 
       <div className="card animate-fade-up" style={{ overflow: "hidden", animationDelay: "60ms", animationFillMode: "backwards" }}>
         <div style={{
@@ -427,61 +661,42 @@ export function AsistenciaClient({
         {filtered.length > 0 ? (
           <div>
             {viewMode === "dias" ? (
-              <>
-                {soloSinSalida && (
-                  <div style={{
-                    margin: "12px 16px 0", padding: "8px 14px", borderRadius: 8,
-                    background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.3)",
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                  }}>
-                    <span style={{ fontSize: 12, color: "#fbbf24", fontWeight: 600 }}>
-                      ⚠ Mostrando {sinSalidaCount} empleado{sinSalidaCount !== 1 ? "s" : ""} sin salida registrada
-                    </span>
-                    <button
-                      onClick={() => setSoloSinSalida(false)}
-                      style={{ fontSize: 11, color: "#fbbf24", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
-                    >
-                      Quitar filtro
-                    </button>
-                  </div>
-                )}
-                <DiaView
-                  groups={diasGroups}
-                  hoy={hoy}
-                  onEdit={(r) => setModal({ type: "edit", row: r })}
-                  onDelete={(r) => setModal({ type: "delete", row: r })}
-                />
-              </>
+              <DiaView
+                groups={diasGroups}
+                hoy={hoy}
+                onEdit={(r) => setModal({ type: "edit", row: r })}
+                onDelete={(r) => setModal({ type: "delete", row: r })}
+              />
             ) : (
               groupByHour(filtered).map(({ hourKey, hourLabel, items }) => (
-              <div key={hourKey}>
-                <div style={{
-                  position: "sticky", top: 0, zIndex: 2,
-                  padding: "8px 22px",
-                  background: "linear-gradient(180deg, var(--bg-card) 0%, var(--bg-card) 80%, transparent 100%)",
-                  borderBottom: "1px solid var(--border)",
-                  display: "flex", alignItems: "center", gap: 8,
-                }}>
-                  <span style={{ fontSize: 10, fontWeight: 800, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.1em", fontVariantNumeric: "tabular-nums" }}>
-                    {hourLabel}
-                  </span>
-                  <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, var(--border) 0%, transparent 100%)" }} />
-                  <span style={{ fontSize: 10, color: "var(--text-faint)", fontVariantNumeric: "tabular-nums" }}>
-                    {items.length}
-                  </span>
+                <div key={hourKey}>
+                  <div style={{
+                    position: "sticky", top: 0, zIndex: 2,
+                    padding: "8px 22px",
+                    background: "linear-gradient(180deg, var(--bg-card) 0%, var(--bg-card) 80%, transparent 100%)",
+                    borderBottom: "1px solid var(--border)",
+                    display: "flex", alignItems: "center", gap: 8,
+                  }}>
+                    <span style={{ fontSize: 10, fontWeight: 800, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.1em", fontVariantNumeric: "tabular-nums" }}>
+                      {hourLabel}
+                    </span>
+                    <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, var(--border) 0%, transparent 100%)" }} />
+                    <span style={{ fontSize: 10, color: "var(--text-faint)", fontVariantNumeric: "tabular-nums" }}>
+                      {items.length}
+                    </span>
+                  </div>
+                  <div className="stagger-fade-up">
+                    {items.map((r) => (
+                      <TimelineRow
+                        key={r.id}
+                        r={r}
+                        onEdit={() => setModal({ type: "edit", row: r })}
+                        onDelete={() => setModal({ type: "delete", row: r })}
+                      />
+                    ))}
+                  </div>
                 </div>
-                <div className="stagger-fade-up">
-                  {items.map((r) => (
-                    <TimelineRow
-                      key={r.id}
-                      r={r}
-                      onEdit={() => setModal({ type: "edit", row: r })}
-                      onDelete={() => setModal({ type: "delete", row: r })}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))
+              ))
             )}
 
             {/* Boton cargar mas (paginacion) */}
@@ -515,10 +730,10 @@ export function AsistenciaClient({
               </svg>
             </div>
             <p style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)", marginBottom: 5 }}>
-              {hasActiveFilters ? "Sin resultados con esos filtros" : "Aún no hay registros"}
+              {hasActiveFiltersOrToggles ? "Sin resultados con esos filtros" : "Aún no hay registros"}
             </p>
             <p style={{ fontSize: 12, color: "var(--text-faint)", maxWidth: 320, margin: "0 auto" }}>
-              {hasActiveFilters
+              {hasActiveFiltersOrToggles
                 ? "Prueba con otros filtros o limpiarlos para ver toda la actividad."
                 : "Cuando los empleados se identifiquen en una estación, sus registros aparecerán aquí en tiempo real."}
             </p>
@@ -539,13 +754,6 @@ function FilterField({ label, children }: { label: string; children: React.React
     </div>
   );
 }
-
-const selectStyle: React.CSSProperties = {
-  width: "100%", padding: "8px 10px",
-  background: "var(--bg-elevated)", border: "1px solid var(--border)",
-  borderRadius: 8, fontSize: 13, color: "var(--text-primary)",
-  outline: "none", colorScheme: "dark", cursor: "pointer",
-};
 
 /* ─── Agrupar por hora (HH:00) ─── */
 function groupByHour(rows: Registro[]): Array<{ hourKey: string; hourLabel: string; items: Registro[] }> {
@@ -577,9 +785,8 @@ function TimelineRow({ r, onEdit, onDelete }: {
   onDelete: () => void;
 }) {
   const isEntrada = r.tipo === "entrada";
-  const color = isEntrada ? "#22c55e" : "#3b82f6";
-  const colorSoft = isEntrada ? "rgba(34,197,94,0.12)" : "rgba(59,130,246,0.12)";
-  const colorBorder = isEntrada ? "rgba(34,197,94,0.28)" : "rgba(59,130,246,0.28)";
+  const color = isEntrada ? "var(--green)" : "var(--accent)";
+  const badgeClass = isEntrada ? "badge-success" : "badge-info";
   const nombre = r.empleados ? `${r.empleados.nombre} ${r.empleados.apellido}` : "Sin empleado";
   const inicial = r.empleados?.nombre?.[0]?.toUpperCase() ?? "?";
   const wasEdited = !!r.editado_por || !!r.original_timestamp;
@@ -593,20 +800,20 @@ function TimelineRow({ r, onEdit, onDelete }: {
         gap: 14,
         padding: "12px 22px",
         alignItems: "center",
-        borderBottom: "1px solid rgba(255,255,255,0.03)",
+        borderBottom: "1px solid var(--border)",
         transition: "background 150ms",
       }}
     >
       <div style={{
-        width: 10, height: 10, borderRadius: "50%",
+        width: 8, height: 8, borderRadius: "50%",
         background: color, justifySelf: "center",
-        boxShadow: `0 0 8px ${colorSoft}, 0 0 0 3px ${colorSoft}`,
+        boxShadow: `0 0 8px ${color}`,
       }} />
       <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
         <div style={{
-          width: 32, height: 32, borderRadius: 9,
-          background: `linear-gradient(135deg, ${colorSoft} 0%, ${colorBorder} 100%)`,
-          border: `1px solid ${colorBorder}`,
+          width: 32, height: 32, borderRadius: 8,
+          background: isEntrada ? "var(--green-soft)" : "var(--accent-soft)",
+          border: `1px solid ${isEntrada ? "rgba(34,197,94,0.2)" : "rgba(37,99,235,0.2)"}`,
           display: "flex", alignItems: "center", justifyContent: "center",
           fontSize: 12, fontWeight: 700, color, flexShrink: 0,
         }}>
@@ -618,39 +825,28 @@ function TimelineRow({ r, onEdit, onDelete }: {
               {nombre}
             </span>
             {r.creado_manual && (
-              <span title={`Marcación creada manualmente${r.razon_edicion ? `: ${r.razon_edicion}` : ""}`} style={{
-                fontSize: 8, fontWeight: 700, letterSpacing: "0.05em",
-                padding: "1px 5px", borderRadius: 4,
-                background: "rgba(139,92,246,0.15)", color: "#a78bfa",
-                textTransform: "uppercase", cursor: "help",
-              }}>Manual</span>
+              <span className="badge" style={{ fontSize: 8, padding: "1px 5px", background: "rgba(139,92,246,0.12)", color: "#c084fc", borderColor: "rgba(139,92,246,0.2)" }}>
+                Manual
+              </span>
             )}
             {wasEdited && !r.creado_manual && (
-              <span title={`Marcación editada${r.razon_edicion ? `: ${r.razon_edicion}` : ""}`} style={{
-                fontSize: 8, fontWeight: 700, letterSpacing: "0.05em",
-                padding: "1px 5px", borderRadius: 4,
-                background: "rgba(245,158,11,0.15)", color: "#fbbf24",
-                textTransform: "uppercase", cursor: "help",
-              }}>Editada</span>
+              <span className="badge" style={{ fontSize: 8, padding: "1px 5px", background: "rgba(245,158,11,0.12)", color: "#fbd38d", borderColor: "rgba(245,158,11,0.2)" }}>
+                Editada
+              </span>
             )}
           </div>
           {r.sucursales?.nombre && (
-            <span style={{ fontSize: 11, color: "var(--text-faint)" }}>
+            <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
               {r.sucursales.nombre}
             </span>
           )}
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <span style={{
-          fontSize: 10, fontWeight: 700, letterSpacing: "0.08em",
-          padding: "3px 9px", borderRadius: 6,
-          background: colorSoft, border: `1px solid ${colorBorder}`,
-          color, textTransform: "uppercase",
-        }}>
+        <span className={`badge ${badgeClass}`} style={{ fontSize: 10, textTransform: "uppercase" }}>
           {isEntrada ? "Entrada" : "Salida"}
         </span>
-        <span style={{ fontSize: 12, color: "var(--text-muted)", fontVariantNumeric: "tabular-nums", minWidth: 56 }}>
+        <span style={{ fontSize: 12, color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums", minWidth: 56 }}>
           {new Date(r.timestamp).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
         </span>
         {r.confianza != null && (
@@ -665,29 +861,18 @@ function TimelineRow({ r, onEdit, onDelete }: {
         )}
       </div>
       <div className="row-actions" style={{ display: "flex", gap: 4 }}>
-        <button onClick={onEdit} title="Editar marcación" aria-label="Editar" style={iconBtn}>
-          <Pencil size={13} />
+        <button onClick={onEdit} title="Editar marcación" className="btn btn-ghost btn-sm btn-icon" style={{ width: 26, height: 26 }}>
+          <Pencil size={12} />
         </button>
-        <button onClick={onDelete} title="Eliminar marcación" aria-label="Eliminar" style={{ ...iconBtn, color: "#f87171" }}>
-          <Trash2 size={13} />
+        <button onClick={onDelete} title="Eliminar marcación" className="btn btn-ghost btn-sm btn-icon" style={{ width: 26, height: 26, color: "#f87171" }}>
+          <Trash2 size={12} />
         </button>
       </div>
     </div>
   );
 }
 
-const iconBtn: React.CSSProperties = {
-  width: 28, height: 28, padding: 0, borderRadius: 6,
-  background: "transparent", border: "1px solid transparent",
-  color: "var(--text-faint)", cursor: "pointer",
-  display: "flex", alignItems: "center", justifyContent: "center",
-  transition: "all 150ms",
-};
-
-// ════════════════════════════════════════════════════════════════════
-//  Vista "Por día" — pares entrada/salida agrupados por empleado
-// ════════════════════════════════════════════════════════════════════
-
+/* ─── Vista "Por día" — pares entrada/salida agrupados por empleado ─── */
 const MX_TZ = "America/Mexico_City";
 
 type ParJornada = { entrada: Registro | null; salida: Registro | null };
@@ -706,17 +891,12 @@ function formatHoras(ms: number): string {
   const totalMin = Math.round(ms / 60_000);
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
-  if (h === 0) return `${m}min`;
+  if (h === 0) return `${m}m`;
   if (m === 0) return `${h}h`;
-  return `${h}h ${m}min`;
+  return `${h}h ${m}m`;
 }
 
 // Debounce de scans duplicados: dos marcas del MISMO tipo en menos de 5 min
-// son la misma persona pasando dos veces frente a la cámara (o un re-scan de
-// prueba) → se conserva la primera (hora real) y se descartan las repetidas.
-// Marcas separadas por más tiempo (ej. olvido de salida con horas de diferencia)
-// NO se tocan: siguen como par incompleto "Sin salida". Es el "minimum punch
-// interval" estándar de los sistemas de asistencia.
 const DEBOUNCE_MS = 5 * 60 * 1000;
 
 function dedupeScans(sortedAsc: Registro[]): Registro[] {
@@ -725,7 +905,7 @@ function dedupeScans(sortedAsc: Registro[]): Registro[] {
     const last = out[out.length - 1];
     if (last && last.tipo === r.tipo) {
       const diff = new Date(r.timestamp).getTime() - new Date(last.timestamp).getTime();
-      if (diff < DEBOUNCE_MS) continue; // duplicado del mismo tipo → ignorar
+      if (diff < DEBOUNCE_MS) continue;
     }
     out.push(r);
   }
@@ -780,196 +960,236 @@ function groupByDia(rows: Registro[]): DiaGroup[] {
     });
 }
 
-function DiaView({ groups, hoy, onEdit, onDelete }: {
-  groups: DiaGroup[];
-  hoy: string;
+function DropdownAcciones({
+  entrada,
+  salida,
+  onEdit,
+  onDelete,
+}: {
+  entrada: Registro | null;
+  salida: Registro | null;
   onEdit: (r: Registro) => void;
   onDelete: (r: Registro) => void;
 }) {
-  return (
-    <div>
-      {groups.map((grupo) => (
-        <div key={grupo.fecha}>
-          <div style={{
-            position: "sticky", top: 0, zIndex: 2, padding: "8px 22px",
-            background: "linear-gradient(180deg, var(--bg-card) 0%, var(--bg-card) 80%, transparent 100%)",
-            borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8,
-          }}>
-            <span style={{ fontSize: 10, fontWeight: 800, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-              {grupo.label}
-            </span>
-            {grupo.fecha === hoy && (
-              <span style={{ fontSize: 9, fontWeight: 700, color: "#4ade80", background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)", borderRadius: 6, padding: "1px 6px", letterSpacing: "0.08em" }}>
-                HOY
-              </span>
-            )}
-            <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, var(--border) 0%, transparent 100%)" }} />
-            <span style={{ fontSize: 10, color: "var(--text-faint)" }}>
-              {grupo.empleados.length} empl. · {grupo.total} reg.
-            </span>
-          </div>
-          <div style={{ padding: "10px 16px", display: "flex", flexDirection: "column", gap: 6 }}>
-            {grupo.empleados.map((emp, i) => (
-              <EmpleadoDiaCard key={i} emp={emp} isHoy={grupo.fecha === hoy} onEdit={onEdit} onDelete={onDelete} />
-            ))}
-            <DiaResumen empleados={grupo.empleados} />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
+  const [isOpen, setIsOpen] = useState(false);
 
-function DiaResumen({ empleados }: { empleados: EmpleadoDia[] }) {
-  if (empleados.length === 0) return null;
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClose = () => setIsOpen(false);
+    window.addEventListener("click", handleClose);
+    return () => window.removeEventListener("click", handleClose);
+  }, [isOpen]);
 
-  let paresCompletos = 0;
-  let paresPendientes = 0;
-  let totalMs = 0;
-  let empleadosSinSalida = 0;
-  let empleadosConJornada = 0;
-  let totalRegistros = 0;
-
-  for (const emp of empleados) {
-    let tieneSinSalida = false;
-    let tienePar = false;
-    for (const p of emp.pares) {
-      if (p.entrada) totalRegistros++;
-      if (p.salida) totalRegistros++;
-      if (p.entrada && p.salida) {
-        paresCompletos++;
-        tienePar = true;
-        totalMs += new Date(p.salida.timestamp).getTime() - new Date(p.entrada.timestamp).getTime();
-      } else if (p.entrada && !p.salida) {
-        paresPendientes++;
-        tieneSinSalida = true;
-      }
-    }
-    if (tienePar) empleadosConJornada++;
-    if (tieneSinSalida) empleadosSinSalida++;
-  }
+  const toggleDropdown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsOpen(!isOpen);
+  };
 
   return (
-    <div style={{
-      marginTop: 4, borderRadius: 10,
-      background: "linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0.01) 100%)",
-      border: "1px solid rgba(255,255,255,0.06)",
-      overflow: "hidden",
-    }}>
-      {/* Header */}
-      <div style={{
-        padding: "9px 14px",
-        borderBottom: "1px solid rgba(255,255,255,0.04)",
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-5"/>
-          </svg>
-          <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.55)", letterSpacing: "0.04em" }}>
-            Resumen del día — total de la oficina
-          </span>
-        </div>
-        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>
-          {totalRegistros} scan{totalRegistros !== 1 ? "s" : ""} · {empleados.length} empleado{empleados.length !== 1 ? "s" : ""}
-        </span>
-      </div>
+    <div style={{ position: "relative", display: "inline-block" }}>
+      <button
+        onClick={toggleDropdown}
+        className="btn btn-ghost btn-sm btn-icon"
+        style={{ width: 28, height: 28, borderRadius: 6 }}
+        title="Acciones"
+      >
+        <MoreHorizontal size={14} />
+      </button>
 
-      {/* Stats principales */}
-      <div style={{
-        padding: "14px", display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-        gap: 14,
-      }}>
-        {/* Horas totales — el dato más importante */}
-        <div style={{
-          padding: "10px 12px", borderRadius: 8,
-          background: totalMs > 0 ? "rgba(74,222,128,0.06)" : "rgba(255,255,255,0.02)",
-          border: `1px solid ${totalMs > 0 ? "rgba(74,222,128,0.2)" : "rgba(255,255,255,0.05)"}`,
-        }}>
-          <p style={{ margin: 0, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-            Horas trabajadas hoy
-          </p>
-          <p style={{
-            margin: "4px 0 0", fontSize: 20, fontWeight: 700,
-            color: totalMs > 0 ? "#4ade80" : "rgba(255,255,255,0.3)",
-            fontVariantNumeric: "tabular-nums", letterSpacing: "-0.01em",
-          }}>
-            {totalMs > 0 ? formatHoras(totalMs) : "0h"}
-          </p>
-          <p style={{ margin: "2px 0 0", fontSize: 10, color: "rgba(255,255,255,0.35)" }}>
-            Suma de pares entrada→salida
-          </p>
-        </div>
+      {isOpen && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="card"
+          style={{
+            position: "absolute",
+            right: 0,
+            top: "100%",
+            marginTop: 4,
+            width: 160,
+            zIndex: 100,
+            background: "var(--bg-elevated)",
+            border: "1px solid var(--border-strong)",
+            boxShadow: "0 10px 25px -5px rgba(0,0,0,0.5)",
+            padding: 4,
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            textAlign: "left",
+          }}
+        >
+          {entrada && (
+            <>
+              <button
+                onClick={() => {
+                  onEdit(entrada);
+                  setIsOpen(false);
+                }}
+                className="btn btn-ghost btn-sm"
+                style={{ justifyContent: "flex-start", padding: "6px 8px", width: "100%" }}
+              >
+                <Pencil size={11} style={{ marginRight: 6 }} />
+                <span style={{ fontSize: 12 }}>Editar entrada</span>
+              </button>
+              <button
+                onClick={() => {
+                  onDelete(entrada);
+                  setIsOpen(false);
+                }}
+                className="btn btn-ghost btn-sm"
+                style={{ justifyContent: "flex-start", padding: "6px 8px", width: "100%", color: "#f87171" }}
+              >
+                <Trash2 size={11} style={{ marginRight: 6 }} />
+                <span style={{ fontSize: 12 }}>Eliminar entrada</span>
+              </button>
+            </>
+          )}
 
-        {/* Jornadas completas */}
-        <div style={{
-          padding: "10px 12px", borderRadius: 8,
-          background: paresCompletos > 0 ? "rgba(96,165,250,0.06)" : "rgba(255,255,255,0.02)",
-          border: `1px solid ${paresCompletos > 0 ? "rgba(96,165,250,0.2)" : "rgba(255,255,255,0.05)"}`,
-        }}>
-          <p style={{ margin: 0, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-            Jornadas completas
-          </p>
-          <p style={{
-            margin: "4px 0 0", fontSize: 20, fontWeight: 700,
-            color: paresCompletos > 0 ? "#60a5fa" : "rgba(255,255,255,0.3)",
-            fontVariantNumeric: "tabular-nums", letterSpacing: "-0.01em",
-          }}>
-            {paresCompletos}
-          </p>
-          <p style={{ margin: "2px 0 0", fontSize: 10, color: "rgba(255,255,255,0.35)" }}>
-            de {paresCompletos + paresPendientes} jornada{paresCompletos + paresPendientes !== 1 ? "s" : ""} iniciada{paresCompletos + paresPendientes !== 1 ? "s" : ""}
-          </p>
-        </div>
+          {entrada && salida && (
+            <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
+          )}
 
-        {/* Empleados sin cerrar día */}
-        <div style={{
-          padding: "10px 12px", borderRadius: 8,
-          background: empleadosSinSalida > 0 ? "rgba(251,191,36,0.06)" : "rgba(255,255,255,0.02)",
-          border: `1px solid ${empleadosSinSalida > 0 ? "rgba(251,191,36,0.2)" : "rgba(255,255,255,0.05)"}`,
-        }}>
-          <p style={{ margin: 0, fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,0.4)", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-            Empleados sin salida
-          </p>
-          <p style={{
-            margin: "4px 0 0", fontSize: 20, fontWeight: 700,
-            color: empleadosSinSalida > 0 ? "#fbbf24" : "rgba(255,255,255,0.3)",
-            fontVariantNumeric: "tabular-nums", letterSpacing: "-0.01em",
-          }}>
-            {empleadosSinSalida}
-          </p>
-          <p style={{ margin: "2px 0 0", fontSize: 10, color: "rgba(255,255,255,0.35)" }}>
-            de {empleados.length} con actividad hoy
-          </p>
-        </div>
-      </div>
-
-      {/* Advertencia explicativa */}
-      {paresPendientes > 0 && (
-        <div style={{
-          padding: "8px 14px",
-          background: "rgba(251,191,36,0.05)",
-          borderTop: "1px solid rgba(251,191,36,0.12)",
-          fontSize: 11, color: "#fbbf24",
-          display: "flex", alignItems: "flex-start", gap: 6,
-        }}>
-          <span style={{ fontSize: 12, lineHeight: 1.2 }}>⚠</span>
-          <span style={{ lineHeight: 1.4 }}>
-            <strong>Hay {paresPendientes} entrada{paresPendientes !== 1 ? "s" : ""} sin salida registrada.</strong>
-            <span style={{ color: "rgba(251,191,36,0.65)", marginLeft: 4 }}>
-              Esas horas no se suman al total hasta que el empleado registre su salida o un admin edite el registro.
-            </span>
-          </span>
+          {salida && (
+            <>
+              <button
+                onClick={() => {
+                  onEdit(salida);
+                  setIsOpen(false);
+                }}
+                className="btn btn-ghost btn-sm"
+                style={{ justifyContent: "flex-start", padding: "6px 8px", width: "100%" }}
+              >
+                <Pencil size={11} style={{ marginRight: 6 }} />
+                <span style={{ fontSize: 12 }}>Editar salida</span>
+              </button>
+              <button
+                onClick={() => {
+                  onDelete(salida);
+                  setIsOpen(false);
+                }}
+                className="btn btn-ghost btn-sm"
+                style={{ justifyContent: "flex-start", padding: "6px 8px", width: "100%", color: "#f87171" }}
+              >
+                <Trash2 size={11} style={{ marginRight: 6 }} />
+                <span style={{ fontSize: 12 }}>Eliminar salida</span>
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function EmpleadoDiaCard({ emp, isHoy = false, onEdit, onDelete }: {
+function CellRegistro({ r, tipo }: { r: Registro | null; tipo: "entrada" | "salida" }) {
+  if (!r) {
+    if (tipo === "salida") {
+      return (
+        <span style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4,
+          fontSize: 11,
+          fontWeight: 600,
+          color: "#fbbf24",
+          background: "rgba(251,191,36,0.06)",
+          border: "1px solid rgba(251,191,36,0.18)",
+          padding: "2px 6px",
+          borderRadius: 6
+        }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#fbbf24" }} />
+          Pendiente
+        </span>
+      );
+    }
+    return <span style={{ color: "var(--text-muted)" }}>—</span>;
+  }
+
+  const isEntrada = tipo === "entrada";
+  const dotColor = isEntrada ? "#22c55e" : "#3b82f6";
+  const wasEdited = !!r.editado_por || !!r.original_timestamp;
+
+  let confColor = "var(--text-muted)";
+  if (r.confianza != null) {
+    if (r.confianza >= 0.90) confColor = "#4ade80";
+    else if (r.confianza >= 0.75) confColor = "#facc15";
+    else confColor = "#f87171";
+  }
+
+  const formattedTime = toMXTime(r.timestamp);
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+      <span style={{ width: 6, height: 6, borderRadius: "50%", background: dotColor }} />
+      <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>
+        {formattedTime}
+      </span>
+
+      {r.confianza != null && (
+        <span
+          title={`Confianza del reconocimiento facial: ${Math.round(r.confianza * 100)}%`}
+          style={{
+            fontSize: 10,
+            color: confColor,
+            fontWeight: 600,
+            background: "rgba(255,255,255,0.02)",
+            padding: "1px 4px",
+            borderRadius: 4,
+            border: "1px solid rgba(255,255,255,0.04)"
+          }}
+        >
+          {Math.round(r.confianza * 100)}%
+        </span>
+      )}
+
+      {r.creado_manual && (
+        <span
+          title={`Marcación creada manualmente por administrador${r.razon_edicion ? `: ${r.razon_edicion}` : ""}`}
+          style={{
+            fontSize: 8,
+            fontWeight: 700,
+            padding: "1px 5px",
+            borderRadius: 4,
+            background: "rgba(139,92,246,0.12)",
+            color: "#c084fc",
+            border: "1px solid rgba(139,92,246,0.2)",
+            cursor: "help",
+            textTransform: "uppercase"
+          }}
+        >
+          Manual
+        </span>
+      )}
+
+      {wasEdited && !r.creado_manual && (
+        <span
+          title={`Marcación editada por administrador${r.razon_edicion ? `: ${r.razon_edicion}` : ""}`}
+          style={{
+            fontSize: 8,
+            fontWeight: 700,
+            padding: "1px 5px",
+            borderRadius: 4,
+            background: "rgba(245,158,11,0.12)",
+            color: "#fbd38d",
+            border: "1px solid rgba(245,158,11,0.2)",
+            cursor: "help",
+            textTransform: "uppercase"
+          }}
+        >
+          Editado
+        </span>
+      )}
+    </div>
+  );
+}
+
+function EmpleadoDiaRow({
+  emp,
+  isHoy,
+  onEdit,
+  onDelete,
+}: {
   emp: EmpleadoDia;
-  isHoy?: boolean;
+  isHoy: boolean;
   onEdit: (r: Registro) => void;
   onDelete: (r: Registro) => void;
 }) {
@@ -977,113 +1197,244 @@ function EmpleadoDiaCard({ emp, isHoy = false, onEdit, onDelete }: {
     if (!p.entrada || !p.salida) return acc;
     return acc + (new Date(p.salida.timestamp).getTime() - new Date(p.entrada.timestamp).getTime());
   }, 0);
+
   const hasPendiente = emp.pares.some((p) => p.entrada && !p.salida);
-  const turnoActivo = isHoy && hasPendiente;
+  const ultimoPar = emp.pares[emp.pares.length - 1];
+  const estaEnOficina = ultimoPar ? (ultimoPar.entrada && !ultimoPar.salida) : false;
+  const turnoActivo = isHoy && estaEnOficina;
+
+  const avatarBg = useMemo(() => {
+    let hash = 0;
+    const name = emp.nombre;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const h = Math.abs(hash % 360);
+    return `hsl(${h}, 50%, 15%)`;
+  }, [emp.nombre]);
+
+  const avatarColor = useMemo(() => {
+    let hash = 0;
+    const name = emp.nombre;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const h = Math.abs(hash % 360);
+    return `hsl(${h}, 70%, 75%)`;
+  }, [emp.nombre]);
 
   return (
-    <div style={{
-      background: "var(--bg-elevated)",
-      border: `1px solid ${turnoActivo ? "rgba(34,197,94,0.35)" : "var(--border)"}`,
-      borderRadius: 10, overflow: "hidden",
-      boxShadow: turnoActivo ? "0 0 0 1px rgba(34,197,94,0.1)" : "none",
-    }}>
-      <div style={{
-        padding: "8px 14px", display: "flex", alignItems: "center", gap: 10,
-        borderBottom: "1px solid rgba(255,255,255,0.04)",
-        background: turnoActivo ? "rgba(34,197,94,0.04)" : "transparent",
-      }}>
-        <div style={{ position: "relative", flexShrink: 0 }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: 8,
-            background: "linear-gradient(135deg, rgba(34,197,94,0.15) 0%, rgba(34,197,94,0.05) 100%)",
-            border: "1px solid rgba(34,197,94,0.2)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 11, fontWeight: 700, color: "#22c55e",
-          }}>
-            {emp.inicial}
-          </div>
-          {turnoActivo && (
-            <span className="animate-pulse-dot" style={{
-              position: "absolute", top: -2, right: -2,
-              width: 8, height: 8, borderRadius: "50%",
-              background: "#4ade80", boxShadow: "0 0 6px #4ade80",
-              border: "1.5px solid var(--bg-elevated)",
-            }} />
-          )}
-        </div>
-        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", flex: 1 }}>
-          {emp.nombre}
-          {turnoActivo && (
-            <span style={{ fontSize: 10, color: "#4ade80", fontWeight: 500, marginLeft: 8 }}>
-              · en oficina
-            </span>
-          )}
-        </span>
-        {totalMs > 0 && (
-          <span style={{ fontSize: 11, fontWeight: 600, color: "#4ade80", background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.18)", borderRadius: 6, padding: "2px 8px" }}>
-            {formatHoras(totalMs)} trabajadas
-          </span>
-        )}
-        {hasPendiente && (
-          <span style={{ fontSize: 10, fontWeight: 700, color: "#fbbf24", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.22)", borderRadius: 6, padding: "2px 8px" }}>
-            Sin salida ⚠
-          </span>
-        )}
-      </div>
-      {emp.pares.map((par, i) => (
-        <ParRow key={i} par={par} isLast={i === emp.pares.length - 1} onEdit={onEdit} onDelete={onDelete} />
-      ))}
-    </div>
+    <>
+      {emp.pares.map((par, index) => {
+        const isFirst = index === 0;
+        const ms = par.entrada && par.salida
+          ? new Date(par.salida.timestamp).getTime() - new Date(par.entrada.timestamp).getTime()
+          : null;
+
+        const sucursalNombre = par.entrada?.sucursales?.nombre || par.salida?.sucursales?.nombre || "—";
+
+        return (
+          <tr
+            key={index}
+            className="asistencia-row"
+            style={{
+              background: turnoActivo ? "rgba(34,197,94,0.015)" : "transparent",
+            }}
+          >
+            {/* Colaborador */}
+            <td>
+              {isFirst ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ position: "relative", flexShrink: 0 }}>
+                    <div style={{
+                      width: 28, height: 28, borderRadius: 8,
+                      background: avatarBg,
+                      border: `1px solid ${avatarColor}33`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 11, fontWeight: 700, color: avatarColor,
+                    }}>
+                      {emp.inicial}
+                    </div>
+                    {turnoActivo && (
+                      <span className="animate-pulse-dot" style={{
+                        position: "absolute", top: -2, right: -2,
+                        width: 7, height: 7, borderRadius: "50%",
+                        background: "#22c55e", boxShadow: "0 0 6px #22c55e",
+                        border: "1.5px solid var(--bg-card)",
+                      }} />
+                    )}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
+                      {emp.nombre}
+                    </span>
+                    {turnoActivo && (
+                      <span style={{ fontSize: 10, color: "#22c55e", fontWeight: 500 }}>
+                        En oficina ahora
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div style={{ paddingLeft: 38, fontSize: 11, color: "var(--text-muted)", fontStyle: "italic" }}>
+                  Turno secundario
+                </div>
+              )}
+            </td>
+
+            {/* Sucursal */}
+            <td>
+              <span className="badge badge-neutral" style={{ fontSize: 11 }}>
+                {sucursalNombre}
+              </span>
+            </td>
+
+            {/* Entrada */}
+            <td>
+              <CellRegistro r={par.entrada} tipo="entrada" />
+            </td>
+
+            {/* Salida */}
+            <td>
+              <CellRegistro r={par.salida} tipo="salida" />
+            </td>
+
+            {/* Duración */}
+            <td>
+              {isFirst && totalMs > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <span className={`badge ${hasPendiente ? "badge-warn" : "badge-success"}`} style={{ fontSize: 11, width: "fit-content" }}>
+                    {formatHoras(totalMs)}
+                  </span>
+                  {emp.pares.length > 1 && (
+                    <span style={{ fontSize: 9, color: "var(--text-muted)" }}>
+                      Suma de {emp.pares.length} turnos
+                    </span>
+                  )}
+                </div>
+              ) : ms !== null && !isFirst ? (
+                <span className="badge badge-neutral" style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                  {formatHoras(ms)}
+                </span>
+              ) : hasPendiente && isFirst ? (
+                <span className="badge badge-warn" style={{ fontSize: 11 }}>
+                  Incompleto
+                </span>
+              ) : (
+                "—"
+              )}
+            </td>
+
+            {/* Acciones */}
+            <td style={{ textAlign: "right" }}>
+              <DropdownAcciones
+                entrada={par.entrada}
+                salida={par.salida}
+                onEdit={onEdit}
+                onDelete={onDelete}
+              />
+            </td>
+          </tr>
+        );
+      })}
+    </>
   );
 }
 
-function ParRow({ par, isLast, onEdit, onDelete }: {
-  par: ParJornada;
-  isLast: boolean;
+function DiaView({
+  groups,
+  hoy,
+  onEdit,
+  onDelete,
+}: {
+  groups: DiaGroup[];
+  hoy: string;
   onEdit: (r: Registro) => void;
   onDelete: (r: Registro) => void;
 }) {
-  const ms = par.entrada && par.salida
-    ? new Date(par.salida.timestamp).getTime() - new Date(par.entrada.timestamp).getTime()
-    : null;
+  const [collapsedDays, setCollapsedDays] = useState<Record<string, boolean>>({});
 
-  const Cell = ({ r, tipo }: { r: Registro | null; tipo: "entrada" | "salida" }) => {
-    const color = tipo === "entrada" ? "#22c55e" : "#3b82f6";
-    const label = tipo === "entrada" ? "Entrada" : "Salida";
-    return (
-      <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
-        <span style={{ width: 7, height: 7, borderRadius: "50%", background: r ? color : "#fbbf24", flexShrink: 0 }} />
-        {r ? (
-          <>
-            <span style={{ fontSize: 9, fontWeight: 700, color, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
-            <span style={{ fontSize: 12, color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" }}>{toMXTime(r.timestamp)}</span>
-            <button onClick={() => onEdit(r)} title={`Editar ${label.toLowerCase()}`} style={{ ...iconBtn, marginLeft: 2, width: 22, height: 22 }}>
-              <Pencil size={10} />
-            </button>
-            <button onClick={() => onDelete(r)} title={`Eliminar ${label.toLowerCase()}`} style={{ ...iconBtn, width: 22, height: 22, color: "#f87171" }}>
-              <Trash2 size={10} />
-            </button>
-          </>
-        ) : (
-          <span style={{ fontSize: 11, color: "#fbbf24" }}>Pendiente</span>
-        )}
-      </div>
-    );
+  const toggleDay = (fecha: string) => {
+    setCollapsedDays((prev) => ({
+      ...prev,
+      [fecha]: !prev[fecha],
+    }));
   };
 
   return (
-    <div style={{
-      display: "flex", alignItems: "center", gap: 8, padding: "7px 14px",
-      borderBottom: isLast ? "none" : "1px solid rgba(255,255,255,0.025)",
-    }}>
-      <Cell r={par.entrada} tipo="entrada" />
-      <span style={{ color: "var(--text-faint)", fontSize: 11, flexShrink: 0 }}>→</span>
-      <Cell r={par.salida} tipo="salida" />
-      {ms !== null && (
-        <span style={{ fontSize: 11, color: "var(--text-muted)", flexShrink: 0, minWidth: 60, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-          {formatHoras(ms)}
-        </span>
-      )}
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "16px 20px" }}>
+      {groups.map((grupo) => {
+        const isCollapsed = !!collapsedDays[grupo.fecha];
+        return (
+          <div key={grupo.fecha} className="card" style={{ overflow: "hidden" }}>
+            <div
+              onClick={() => toggleDay(grupo.fecha)}
+              style={{
+                padding: "12px 18px",
+                background: "var(--bg-elevated)",
+                borderBottom: isCollapsed ? "none" : "1px solid var(--border)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                cursor: "pointer",
+                userSelect: "none",
+                transition: "background 150ms",
+              }}
+              className="hover:bg-hover"
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <ChevronDown
+                  size={14}
+                  style={{
+                    transform: isCollapsed ? "rotate(-90deg)" : "none",
+                    transition: "transform 200ms",
+                    color: "var(--text-muted)",
+                  }}
+                />
+                <span style={{ fontSize: 11, fontWeight: 800, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  {grupo.label}
+                </span>
+                {grupo.fecha === hoy && (
+                  <span className="badge badge-success" style={{ fontSize: 9, padding: "1px 6px" }}>
+                    HOY
+                  </span>
+                )}
+              </div>
+              <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 500 }}>
+                {grupo.empleados.length} colaborador{grupo.empleados.length !== 1 ? "es" : ""} · {grupo.total} marcación{grupo.total !== 1 ? "es" : ""}
+              </span>
+            </div>
+
+            {!isCollapsed && (
+              <div style={{ overflowX: "auto" }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: "240px" }}>Colaborador</th>
+                      <th style={{ width: "160px" }}>Sucursal</th>
+                      <th style={{ width: "180px" }}>Entrada</th>
+                      <th style={{ width: "180px" }}>Salida</th>
+                      <th style={{ width: "120px" }}>Jornada</th>
+                      <th style={{ width: "80px", textAlign: "right" }}>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {grupo.empleados.map((emp, i) => (
+                      <EmpleadoDiaRow
+                        key={i}
+                        emp={emp}
+                        isHoy={grupo.fecha === hoy}
+                        onEdit={onEdit}
+                        onDelete={onDelete}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

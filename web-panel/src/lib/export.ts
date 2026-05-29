@@ -65,6 +65,23 @@ export async function exportXLSX(
   if (rows.length === 0) return;
   const XLSX = await import("xlsx");
   const ws = XLSX.utils.json_to_sheet(rows);
+
+  // Auto-calcular el ancho óptimo de las columnas según el contenido y los encabezados
+  const headers = Object.keys(rows[0] || {});
+  const colWidths = headers.map((header) => {
+    let maxLen = header.length;
+    for (const r of rows) {
+      const val = r[header];
+      if (val !== undefined && val !== null) {
+        const len = String(val).length;
+        if (len > maxLen) maxLen = len;
+      }
+    }
+    // Asignar ancho con un margen cómodo de 3 caracteres, limitado a máximo 50
+    return { wch: Math.min(maxLen + 3, 50) };
+  });
+  ws["!cols"] = colWidths;
+
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
   const date = new Date().toISOString().slice(0, 10);

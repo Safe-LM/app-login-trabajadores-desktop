@@ -17,7 +17,7 @@ export type PageHeaderProps = {
   /** Slot de acciones a la derecha (botones, badges, info) */
   actions?: React.ReactNode;
   /** Stats inline a la derecha (chips con label + value) */
-  stats?: Array<{ label: string; value: React.ReactNode }>;
+  stats?: Array<{ label: string; value: React.ReactNode; color?: string }>;
 };
 
 export function PageHeader({ eyebrow, title, count, subtitle, icon, iconColor, actions, stats }: PageHeaderProps) {
@@ -85,7 +85,7 @@ export function PageHeader({ eyebrow, title, count, subtitle, icon, iconColor, a
                     {s.label}
                   </span>
                   <span style={{
-                    fontSize: 18, fontWeight: 700, color: "var(--text-primary)",
+                    fontSize: 18, fontWeight: 700, color: s.color ?? "var(--text-primary)",
                     letterSpacing: "-0.02em", fontVariantNumeric: "tabular-nums", lineHeight: 1.2,
                   }}>
                     {s.value}

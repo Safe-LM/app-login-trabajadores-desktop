@@ -20,9 +20,12 @@ from PyQt5.QtCore import (
     QEasingCurve, QObject, QPropertyAnimation, QThread, QTimer, QUrl,
     Qt, pyqtSignal, pyqtSlot,
 )
+from PyQt5.QtGui import QIcon
 from PyQt5.QtWebChannel import QWebChannel
 from PyQt5.QtWebEngineWidgets import QWebEngineSettings, QWebEngineView
-from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import (
+    QMainWindow, QVBoxLayout, QWidget, QSystemTrayIcon, QMenu, QAction,
+)
 
 from utils.supabase_client import get_supabase_client
 from windows.fallback_ui import _FALLBACK_HTML
@@ -523,8 +526,18 @@ class DashboardWindow(QMainWindow):
         self._last_avatar_b64 = ""
         self._last_info       = None
 
+        # ── Modo bandeja (Opción A) ──────────────────────────────────────
+        # La app vive en la bandeja del sistema. En segundo plano: cámara
+        # APAGADA (nadie se ficha por accidente) pero heartbeat vivo → la
+        # estación se mantiene VERDE en el mapa. Al abrir la ventana la
+        # cámara prende y ya se puede fichar.
+        self._tray            = None
+        self._quitting        = False   # True solo cuando el usuario elige "Salir"
+        self._en_bandeja      = True    # arranca en segundo plano (cámara apagada)
+
         self._ui_initialized = False  # guard para evitar doble init
         self._init_ui()
+        self._setup_tray()
 
     def _init_ui(self):
         self.setWindowTitle("Safe Link Monitoring — Estación de Acceso")
@@ -1018,6 +1031,10 @@ class DashboardWindow(QMainWindow):
         threading.Thread(target=_bg, daemon=True).start()
 
     def _start_camera(self):
+        # En segundo plano (bandeja) la cámara permanece apagada para no
+        # fichar a quien esté usando la PC. Solo prende al abrir la ventana.
+        if self._en_bandeja:
+            return
         if self._cam_thread:
             return
         self._js("setCamState('connecting');")
@@ -1451,17 +1468,17 @@ class DashboardWindow(QMainWindow):
             # 5. Intentar flush de cola offline en background
             QTimer.singleShot(2000, self._flush_offline_queue)
 
-            # 6. Despues de 4s, cerrar la estacion automaticamente.
+            # 6. Despues de 4s, volver a segundo plano automaticamente.
             #
-            # Default: STATION_AUTO_CLOSE=true. Tras un fichaje exitoso
-            # la estacion se cierra completamente. Evita que un empleado
-            # fiche dos veces accidentalmente (entrada -> salida) por
-            # quedarse parado frente a la camara. El sistema operativo
-            # / supervisor reabre la app cuando sea necesario.
+            # Default: STATION_AUTO_CLOSE=true. Tras un fichaje exitoso la
+            # estacion se esconde en la bandeja (cámara apagada, heartbeat
+            # vivo → sigue verde). Evita doble fichaje accidental por quedarse
+            # frente a la cámara y devuelve la pantalla a la persona.
+            # (Sin bandeja disponible cae a cierre clásico — ver
+            # _close_station_after_attendance.)
             #
-            # Para el modo "kiosko continuo" (atender fila de empleados
-            # sin reabrir la app entre cada uno), set STATION_AUTO_CLOSE=false
-            # en el .env.
+            # Para "kiosko continuo" (atender fila sin reabrir entre cada uno),
+            # set STATION_AUTO_CLOSE=false en el .env: la ventana queda abierta.
             import os
             auto_close = os.environ.get("STATION_AUTO_CLOSE", "true").lower() in ("true", "1", "yes")
             if auto_close:
@@ -1484,7 +1501,16 @@ class DashboardWindow(QMainWindow):
         self._js("setStatus('Buscando rostro...', 'warn');")
 
     def _close_station_after_attendance(self):
-        """Cierra completamente la estación tras confirmar la asistencia."""
+        """Tras confirmar la asistencia, vuelve a segundo plano.
+
+        Con bandeja activa: se esconde (cámara apagada, heartbeat vivo → la
+        estación sigue VERDE en el mapa, y la persona recupera su pantalla
+        sin riesgo de fichajes accidentales). Sin bandeja (kiosco dedicado):
+        cierra como antes."""
+        if self._tray is not None:
+            logger.info("Asistencia confirmada — volviendo a segundo plano")
+            self._hide_to_tray()
+            return
         from PyQt5.QtWidgets import QApplication
         logger.info("Asistencia confirmada — cerrando estación")
         try:
@@ -1642,7 +1668,115 @@ class DashboardWindow(QMainWindow):
         self._fade.setEasingCurve(QEasingCurve.OutCubic)
         self._fade.start()
 
+    # ── Bandeja del sistema (Opción A) ──────────────────────────────────
+    def _setup_tray(self):
+        """Crea el ícono de bandeja. La app nunca se cierra al pulsar la X:
+        se esconde aquí y sigue corriendo en segundo plano (heartbeat vivo →
+        verde en el mapa). Doble clic en el ícono la trae de vuelta."""
+        if not QSystemTrayIcon.isSystemTrayAvailable():
+            logger.warning("System tray no disponible — modo bandeja desactivado")
+            return
+        # icon.ico vive en src/assets/. En bundle PyInstaller _MEIPASS lo
+        # extrae ahí también; si no se encuentra, QIcon queda vacío (la
+        # bandeja igual funciona, solo sin ícono custom).
+        from pathlib import Path
+        icon_path = Path(__file__).resolve().parent.parent / "assets" / "icon.ico"
+        icon = QIcon(str(icon_path))
+        self._tray = QSystemTrayIcon(icon, self)
+        self.setWindowIcon(icon)
+        self._tray.setToolTip("Safe Link Monitoring — Estación")
+
+        menu = QMenu()
+        act_abrir = QAction("Abrir estación (fichar)", self)
+        act_abrir.triggered.connect(self._restore_from_tray)
+        menu.addAction(act_abrir)
+        menu.addSeparator()
+        act_salir = QAction("Salir por completo", self)
+        act_salir.triggered.connect(self._quit_app)
+        menu.addAction(act_salir)
+        self._tray.setContextMenu(menu)
+
+        # Doble clic (o clic en algunos OS) restaura la ventana.
+        self._tray.activated.connect(self._on_tray_activated)
+        self._tray.show()
+
+    def start_in_background(self):
+        """Arranca oculta en la bandeja: cámara apagada, heartbeat vivo.
+        La estación queda VERDE en el mapa sin fichar a nadie hasta que el
+        operador abra la ventana para registrar asistencia."""
+        self._en_bandeja = True
+        self.hide()
+        try:
+            self._tray.showMessage(
+                "Safe Link Monitoring activa",
+                "Estación en línea y monitoreando. Doble clic en este ícono para fichar.",
+                QSystemTrayIcon.Information, 5000,
+            )
+        except Exception:
+            pass
+
+    def _on_tray_activated(self, reason):
+        # Trigger = clic simple, DoubleClick = doble clic. Ambos abren.
+        if reason in (QSystemTrayIcon.Trigger, QSystemTrayIcon.DoubleClick):
+            self._restore_from_tray()
+
+    def _hide_to_tray(self):
+        """Esconde la ventana a la bandeja y APAGA la cámara. El heartbeat
+        sigue corriendo (es un worker aparte) → la estación queda verde."""
+        if self._tray is None:
+            return  # sin bandeja, no escondemos (comportamiento normal)
+        self._en_bandeja = True
+        self._stop_camera()
+        if self._rec_thread and self._rec_thread.isRunning():
+            self._rec_thread.stop()
+        self.hide()
+        try:
+            self._tray.showMessage(
+                "Safe Link en segundo plano",
+                "La estación sigue activa y en línea. Doble clic aquí para fichar.",
+                QSystemTrayIcon.Information, 4000,
+            )
+        except Exception:
+            pass
+
+    def _restore_from_tray(self):
+        """Trae la ventana al frente y PRENDE la cámara para fichar."""
+        self._en_bandeja = False
+        self.showMaximized()
+        self.raise_()
+        self.activateWindow()
+        # Resetear estado de fichaje y arrancar cámara (pequeño delay para
+        # que la ventana ya esté visible antes de pedir frames).
+        self._attendance_done = False
+        self._active_dialog   = False
+        if not self._cam_thread:
+            QTimer.singleShot(300, self._start_camera)
+
+    def _quit_app(self):
+        """Salida real (desde el menú de bandeja). Detiene todo y cierra."""
+        self._quitting = True
+        if self._tray:
+            self._tray.hide()
+        self.close()
+        from PyQt5.QtWidgets import QApplication
+        QApplication.quit()
+
+    def changeEvent(self, ev):
+        # Al minimizar manualmente, mandar a la bandeja en vez de dejar la
+        # ventana en la barra de tareas con la cámara prendida.
+        from PyQt5.QtCore import QEvent
+        if (ev.type() == QEvent.WindowStateChange and self.isMinimized()
+                and self._tray and not self._quitting):
+            QTimer.singleShot(0, self._hide_to_tray)
+        super().changeEvent(ev)
+
     def closeEvent(self, ev):
+        # Pulsar la X NO cierra la app: la manda a la bandeja (queda verde).
+        # Solo se cierra de verdad desde "Salir por completo" del menú.
+        if not self._quitting and self._tray is not None:
+            ev.ignore()
+            self._hide_to_tray()
+            return
         self._stop_camera()
         if self._rec_thread and self._rec_thread.isRunning():
             self._rec_thread.stop()

@@ -290,7 +290,23 @@ def _launch_dashboard(app: QApplication):
         sys.exit(1)
         return
 
-    app._kiosk.showMaximized()
+    # Modo bandeja (Opción A): arrancamos en SEGUNDO PLANO. La app vive en
+    # la bandeja del sistema con la cámara apagada (nadie se ficha por estar
+    # usando la PC), pero el heartbeat corre → la estación queda VERDE en el
+    # mapa. El operador abre la ventana (doble clic al ícono) para fichar.
+    #
+    # CRÍTICO: sin setQuitOnLastWindowClosed(False), Qt cerraría toda la app
+    # al esconder la única ventana → matando el heartbeat. Lo desactivamos.
+    if getattr(app._kiosk, "_tray", None) is not None:
+        # Con bandeja: NO cerrar la app al esconder la ventana (si no, Qt
+        # mataría el proceso y el heartbeat al ir a segundo plano).
+        app.setQuitOnLastWindowClosed(False)
+        app._kiosk.start_in_background()
+    else:
+        # Sin bandeja disponible (raro): kiosco clásico maximizado. Aquí SÍ
+        # dejamos el comportamiento normal (cerrar ventana = salir) para no
+        # dejar un proceso zombie sin UI.
+        app._kiosk.showMaximized()
 
     def _kick_services():
         try:
@@ -325,7 +341,17 @@ def _on_station_status(app: QApplication, state: str, _msg: str):
         except Exception:
             pass
     if hasattr(app, "_kiosk") and app._kiosk:
+        # Forzar cierre real (no esconder a bandeja) y quitar el ícono de
+        # bandeja, ya que la estación dejó de estar autorizada.
+        app._kiosk._quitting = True
+        if getattr(app._kiosk, "_tray", None) is not None:
+            try:
+                app._kiosk._tray.hide()
+            except Exception:
+                pass
         app._kiosk.close()
+    # El setup necesita una ventana visible; reactivar el cierre-por-ventana.
+    app.setQuitOnLastWindowClosed(True)
     _launch_setup(app)
 
 
@@ -359,6 +385,64 @@ def main():
     app.setOrganizationName("Safe Link Monitoring")
     app.setApplicationVersion("5.0.0")
     app.setStyle("Fusion")
+
+    # Instancia única + activación: si la estación ya corre (típicamente en
+    # la bandeja), un segundo doble-clic al .exe NO abre otra copia — en su
+    # lugar le avisa a la instancia viva que se muestre, y este proceso sale.
+    # Usamos QLocalServer/QLocalSocket (named pipe en Windows) como canal.
+    from PyQt5.QtNetwork import QLocalServer, QLocalSocket
+    _SINGLE_KEY = "SafeLinkStation_SingleInstance"
+
+    _probe = QLocalSocket()
+    _probe.connectToServer(_SINGLE_KEY)
+    if _probe.waitForConnected(300):
+        # Ya hay una instancia: pedirle que se muestre y salir.
+        logger.info("Instancia ya activa — solicitando que se muestre y saliendo")
+        _probe.write(b"show")
+        _probe.flush()
+        _probe.waitForBytesWritten(300)
+        _probe.disconnectFromServer()
+        sys.exit(0)
+
+    # Somos la primera instancia: levantar el servidor que escucha activaciones.
+    # removeServer limpia un socket huérfano de un crash previo (en Unix queda
+    # el archivo; en Windows el named pipe lo limpia el kernel al morir el dueño).
+    QLocalServer.removeServer(_SINGLE_KEY)
+    _single_server = QLocalServer()
+    if not _single_server.listen(_SINGLE_KEY):
+        # Si no pudimos escuchar, PREFERIMOS arrancar igual (estación always-on)
+        # antes que bloquear el inicio. Solo perdemos la garantía de instancia
+        # única, que es mucho menos grave que no arrancar.
+        logger.warning(
+            "QLocalServer.listen falló (%s) — arranco sin lock de instancia única",
+            _single_server.errorString(),
+        )
+    app._single_server = _single_server  # mantener viva la referencia
+
+    def _on_activation_request():
+        sock = _single_server.nextPendingConnection()
+        if sock is not None:
+            try:
+                sock.readAll()  # drenar el mensaje
+            except Exception:
+                pass
+            finally:
+                sock.deleteLater()  # liberar el socket (evita fuga de handles)
+        # Traer al frente lo que esté activo: el dashboard (kiosko) o el setup.
+        k = getattr(app, "_kiosk", None)
+        if k is not None:
+            try:
+                k._restore_from_tray()
+                return
+            except Exception:
+                pass
+        s = getattr(app, "_setup", None)
+        if s is not None:
+            try:
+                s.showNormal(); s.raise_(); s.activateWindow()
+            except Exception:
+                pass
+    _single_server.newConnection.connect(_on_activation_request)
 
     icon_path = SRC_DIR / "assets" / "icon.ico"
     if icon_path.exists():

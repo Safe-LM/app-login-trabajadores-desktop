@@ -44,6 +44,8 @@ hiddenimports = [
     "PyQt5.QtWebChannel",
     "PyQt5.QtMultimedia",
     "PyQt5.QtMultimediaWidgets",
+    # QtNetwork: instancia única vía QLocalServer/QLocalSocket (named pipe).
+    "PyQt5.QtNetwork",
 
     # OpenCV
     "cv2",

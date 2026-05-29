@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.8.1](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.8.0...station-v5.8.1) (2026-05-29)
+
+
+### 🐛 Correcciones
+
+* **station:** la app no abría tras instalar — arrancar visible y blindar arranque ([d2e4711](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/d2e47113586dbb781ee89c0a317f0b4b2595e0f5))
+
 ## [5.8.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.7.6...station-v5.8.0) (2026-05-29)
 
 

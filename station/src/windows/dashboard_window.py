@@ -533,11 +533,22 @@ class DashboardWindow(QMainWindow):
         # cámara prende y ya se puede fichar.
         self._tray            = None
         self._quitting        = False   # True solo cuando el usuario elige "Salir"
-        self._en_bandeja      = True    # arranca en segundo plano (cámara apagada)
+        # Arranca VISIBLE (cámara on, lista para fichar). Tras el primer
+        # fichaje o al minimizar se va a la bandeja (cámara off, sigue verde).
+        # En Windows 11 arrancar oculta confundía: el ícono de bandeja queda
+        # en el overflow y parecía que la app no abría.
+        self._en_bandeja      = False
 
         self._ui_initialized = False  # guard para evitar doble init
         self._init_ui()
-        self._setup_tray()
+        # La bandeja es opcional: si falla (entorno sin tray, ícono ausente,
+        # etc.) NO debe impedir que el dashboard abra. _tray queda None y la
+        # app funciona como kiosco normal.
+        try:
+            self._setup_tray()
+        except Exception as e:
+            logger.warning(f"No se pudo inicializar la bandeja: {e}")
+            self._tray = None
 
     def _init_ui(self):
         self.setWindowTitle("Safe Link Monitoring — Estación de Acceso")

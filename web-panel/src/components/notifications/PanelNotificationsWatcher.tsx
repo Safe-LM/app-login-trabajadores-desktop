@@ -264,8 +264,10 @@ export function PanelNotificationsWatcher({ empresaId }: { empresaId: string }) 
         const mensaje = `${sucNombre} · ${tarde} min después del horario (${horario.hora_apertura.slice(0, 5)})`;
         const dedupeKey = `late:${r.empleado_id}:${r.timestamp.slice(0, 10)}`;
 
+        // Una tardanza NO es un error de sistema: máximo "warning". Reservamos
+        // "error" para fallas reales (estación caída, cámara muerta, etc.).
         notify({
-          kind: tarde >= 30 ? "error" : "warning",
+          kind: tarde >= 30 ? "warning" : "info",
           title: titulo, message: mensaje,
           dedupeKey, duration: 7000,
           action: { label: "Ver asistencia", href: "/asistencia" },
@@ -275,7 +277,7 @@ export function PanelNotificationsWatcher({ empresaId }: { empresaId: string }) 
           await supabase.rpc("crear_notificacion", {
             p_empresa_id: empresaId,
             p_tipo: "employee_late_arrival",
-            p_severidad: tarde >= 30 ? "error" : "warn",
+            p_severidad: tarde >= 30 ? "warn" : "info",
             p_titulo: titulo,
             p_mensaje: mensaje,
             p_metadata: { empleado_id: r.empleado_id, sucursal_id: r.sucursal_id, minutos_tarde: tarde },
@@ -292,16 +294,28 @@ export function PanelNotificationsWatcher({ empresaId }: { empresaId: string }) 
   return null;
 }
 
+// >4h después de la apertura ya no es una "llegada tarde matutina" sino otro
+// turno, un scan nocturno o una prueba. Sin este tope, una entrada a las 10 PM
+// vs apertura 9 AM generaba alertas absurdas de "795 min tarde".
+const MAX_LATE_MIN = 240;
+const MX_TZ = "America/Mexico_City";
+
 function computeMinutosTarde(timestampIso: string, horaApertura: string, toleranciaMin: number): number | null {
   const ts = new Date(timestampIso);
   if (Number.isNaN(ts.getTime())) return null;
   const [hh, mm] = horaApertura.split(":").map(Number);
   if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
 
-  const expected = new Date(ts);
-  expected.setHours(hh, mm, 0, 0);
+  // Hora-del-día de la entrada en zona de México (consistente sin importar el
+  // timezone del navegador del admin; antes setHours usaba la local).
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: MX_TZ, hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(ts);
+  const eh = Number(parts.find(p => p.type === "hour")?.value ?? "0") % 24;
+  const em = Number(parts.find(p => p.type === "minute")?.value ?? "0");
 
-  const diffMin = Math.round((ts.getTime() - expected.getTime()) / 60_000);
-  if (diffMin <= toleranciaMin) return null;
+  const diffMin = (eh * 60 + em) - (hh * 60 + mm);
+  if (diffMin <= toleranciaMin) return null;   // a tiempo o dentro de tolerancia
+  if (diffMin > MAX_LATE_MIN) return null;      // demasiado tarde → no es llegada matutina
   return diffMin;
 }

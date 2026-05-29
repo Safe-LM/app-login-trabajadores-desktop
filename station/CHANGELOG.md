@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.8.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.7.6...station-v5.8.0) (2026-05-29)
+
+
+### ✨ Nuevas funcionalidades
+
+* **station:** modo bandeja del sistema — monitoreo en segundo plano (Opción A) ([705f7e0](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/705f7e0039ee1a9f3dcd6699c563a2924f1d5a6d))
+
 ## [5.7.6](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.7.5...station-v5.7.6) (2026-05-28)
 
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.12.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.11.0...web-panel-v0.12.0) (2026-05-29)
+
+
+### ✨ Nuevas funcionalidades
+
+* **web-panel:** estaciones - mapa interactivo, geolocalización de sucursales e ingreso manual ([5820e81](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/5820e81e1d9b83cbfd68d09a972b12a4326862fc))
+
+
+### 🐛 Correcciones
+
+* **web-panel:** notificación de llegada tarde — tope superior, severidad y timezone ([ccd0804](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/ccd08047aaddb4fd6d827b769de8cbfe3bbf642a))
+
 ## [0.11.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.10.0...web-panel-v0.11.0) (2026-05-29)
 
 

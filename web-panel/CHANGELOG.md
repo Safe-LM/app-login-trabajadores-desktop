@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.10.0...web-panel-v0.11.0) (2026-05-29)
+
+
+### ✨ Nuevas funcionalidades
+
+* **web-panel:** identidad visual, dashboard/asistencia/reportes/empleados/estaciones pro + fixes de datos en vivo ([3e4df70](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/3e4df70caf3886e52c84cc0c3aeca1196bacd0a1))
+
 ## [0.10.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.9.0...web-panel-v0.10.0) (2026-05-28)
 
 

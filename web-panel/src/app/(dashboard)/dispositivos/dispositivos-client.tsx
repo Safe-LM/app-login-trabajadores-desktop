@@ -696,6 +696,23 @@ export function DispositivosClient({
   const [logsDevice,     setLogsDevice]     = useState<Dispositivo | null>(null);
   const [realtimeOk,     setRealtimeOk]     = useState(false);
   const [sucursales]                       = useState<Sucursal[]>(initialSucursales);
+  
+  const [searchTerm, setSearchTerm] = useState("");
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const s = params.get("search");
+      if (s) setSearchTerm(s);
+    }
+  }, []);
+
+  const filteredDispositivos = searchTerm
+    ? dispositivos.filter(d => 
+        (d.nombre || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
+        (d.sucursal_nombre || "").toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : dispositivos;
+
   useEffect(() => { setDispositivos(initial); }, [initial]);
   const refresh = useCallback(() => router.refresh(), [router]);
   useEffect(() => {
@@ -743,6 +760,25 @@ export function DispositivosClient({
             </span>
           </h1>
           <p className="text-muted-sm">Gestión y monitoreo de las estaciones de registro</p>
+          {searchTerm && (
+            <p style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)" }}>
+              <span>Filtrado por sucursal: <strong>"{searchTerm}"</strong></span>
+              <button 
+                onClick={() => {
+                  setSearchTerm("");
+                  if (typeof window !== "undefined") {
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete("search");
+                    window.history.replaceState({}, "", url.toString());
+                  }
+                }}
+                className="btn btn-ghost btn-sm"
+                style={{ height: 20, padding: "0 6px", fontSize: 10, borderRadius: 4, display: "inline-flex", alignItems: "center" }}
+              >
+                Limpiar filtro
+              </button>
+            </p>
+          )}
         </div>
         <div className="tablero-hero__metrics">
           <MetricChip color="#22c55e" label="En línea"  value={online}  />
@@ -775,7 +811,7 @@ export function DispositivosClient({
               (mx, d) => d.version_app && (!mx || semverCmp(d.version_app, mx) > 0) ? d.version_app : mx,
               null
             );
-            return dispositivos.map((d, i) => (
+            return filteredDispositivos.map((d, i) => (
               <DispositivoCard
                 key={d.id}
                 d={d}

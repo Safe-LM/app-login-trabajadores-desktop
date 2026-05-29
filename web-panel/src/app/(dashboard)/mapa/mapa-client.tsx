@@ -1,9 +1,9 @@
 "use client";
-import React, { useMemo, useState, useRef } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import {
-  Map as MapIcon, MapPin, Building2, AlertCircle, Maximize2, Filter, Activity,
+  Map as MapIcon, MapPin, Building2, AlertCircle, Maximize2, Minimize2, Filter, Activity, X, Camera, CameraOff,
 } from "lucide-react";
 import type { SucursalMapa } from "./page";
 import type { MapViewHandle } from "./MapView";
@@ -34,6 +34,39 @@ export function MapaClient({ sucursales }: { sucursales: SucursalMapa[] }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [filter, setFilter]     = useState<FilterValue>("all");
   const mapHandleRef = useRef<MapViewHandle | null>(null);
+
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const frameRef = useRef<HTMLDivElement>(null);
+
+  const toggleFullscreen = () => {
+    const el = frameRef.current;
+    if (!el) return;
+    if (!document.fullscreenElement) {
+      el.requestFullscreen()
+        .then(() => setIsFullscreen(true))
+        .catch(err => {
+          console.error("Fullscreen request failed", err);
+          setIsFullscreen(true);
+        });
+    } else {
+      document.exitFullscreen()
+        .then(() => setIsFullscreen(false))
+        .catch(() => setIsFullscreen(false));
+    }
+  };
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(document.fullscreenElement === frameRef.current);
+    };
+    document.addEventListener("fullscreenchange", handleFsChange);
+    return () => document.removeEventListener("fullscreenchange", handleFsChange);
+  }, []);
+
+  const selectedSucursal = useMemo(() => {
+    if (!selected) return null;
+    return sucursales.find(s => s.id === selected) || null;
+  }, [selected, sucursales]);
 
   const conUbicacion = useMemo(() => sucursales.filter(s => s.lat != null && s.lng != null), [sucursales]);
   const sinUbicacion = useMemo(() => sucursales.filter(s => s.lat == null || s.lng == null), [sucursales]);
@@ -109,7 +142,10 @@ export function MapaClient({ sucursales }: { sucursales: SucursalMapa[] }) {
       ) : (
         <div className="mapa-body">
           {/* Mapa con overlays */}
-          <div className="mapa-frame">
+          <div 
+            ref={frameRef} 
+            className={`mapa-frame ${isFullscreen ? "mapa-frame--fullscreen" : ""}`}
+          >
             {conUbicacion.length > 0 ? (
               <>
                 <MapView
@@ -118,6 +154,17 @@ export function MapaClient({ sucursales }: { sucursales: SucursalMapa[] }) {
                   onSelect={setSelected}
                   onReady={h => { mapHandleRef.current = h; }}
                 />
+
+                {/* Botón flotante de Pantalla Completa */}
+                <button
+                  type="button"
+                  onClick={toggleFullscreen}
+                  className="btn btn-secondary btn-sm mapa-fullscreen-btn"
+                  title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+                >
+                  {isFullscreen ? <Minimize2 size={13} strokeWidth={2} /> : <Maximize2 size={13} strokeWidth={2} />}
+                  {isFullscreen ? "Salir" : "Pantalla completa"}
+                </button>
 
                 {/* Overlay top-right: counter */}
                 <div className="mapa-overlay mapa-overlay--top-right">
@@ -152,6 +199,124 @@ export function MapaClient({ sucursales }: { sucursales: SucursalMapa[] }) {
 
           {/* Aside */}
           <aside style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {/* Detalle de Sucursal Seleccionada */}
+            {selectedSucursal && (
+              <div className="card animate-fade-up" style={{ padding: 0, borderColor: "var(--accent)" }}>
+                <div style={{
+                  padding: "12px 14px", borderBottom: "1px solid var(--border)",
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                    <div style={{
+                      width: 24, height: 24, borderRadius: "var(--radius-sm)",
+                      background: "rgba(37,99,235,0.08)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      color: "var(--accent-hover)", flexShrink: 0
+                    }}>
+                      <Building2 size={13} />
+                    </div>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {selectedSucursal.nombre}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelected(null)}
+                    className="btn btn-icon btn-ghost btn-sm"
+                    style={{ width: 22, height: 22, borderRadius: 4 }}
+                    title="Cerrar detalles"
+                  >
+                    <X size={12} strokeWidth={2} />
+                  </button>
+                </div>
+                
+                <div style={{ padding: 14 }}>
+                  <p style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 12, lineHeight: 1.4 }}>
+                    {selectedSucursal.direccion || "Sin dirección registrada"}
+                  </p>
+                  
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <p style={{ fontSize: 10, fontWeight: 700, color: "var(--text-faint)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                      Estaciones ({selectedSucursal.estaciones.length})
+                    </p>
+                    
+                    {selectedSucursal.estaciones.length === 0 ? (
+                      <p style={{ fontSize: 11, color: "var(--text-faint)", padding: "4px 0" }}>
+                        No hay estaciones configuradas en esta sucursal.
+                      </p>
+                    ) : (
+                      selectedSucursal.estaciones.map(e => {
+                        const isOnline = e.estado_conexion === "online";
+                        const isWarn = e.estado_conexion === "alerta";
+                        const dotColor = isOnline ? "#22c55e" : isWarn ? "#eab308" : "#ef4444";
+                        
+                        return (
+                          <div
+                            key={e.id}
+                            style={{
+                              display: "flex", alignItems: "center", justifyItems: "center",
+                              background: "rgba(0,0,0,0.15)",
+                              border: "1px solid var(--border)",
+                              borderRadius: 8, padding: "8px 10px",
+                              gap: 8,
+                            }}
+                          >
+                            <span 
+                              style={{
+                                width: 7, height: 7, borderRadius: "50%",
+                                background: dotColor,
+                                flexShrink: 0,
+                                boxShadow: `0 0 6px ${dotColor}`
+                              }} 
+                              title={`Estado: ${e.estado_conexion}`}
+                            />
+                            
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {e.nombre}
+                              </p>
+                              <p style={{ fontSize: 10, color: "var(--text-faint)", marginTop: 1, fontVariantNumeric: "tabular-nums" }}>
+                                {e.ip_local ?? "Sin IP"} · v{e.version_app ?? "—"}
+                              </p>
+                            </div>
+                            
+                            <div 
+                              style={{ display: "flex", alignItems: "center", justifyContent: "center" }}
+                              title={e.camara_ok === true ? "Cámara activa y funcional" : e.camara_ok === false ? "Falla en la cámara de la estación" : "Estado de cámara desconocido"}
+                            >
+                              {e.camara_ok === true ? (
+                                <Camera size={13} style={{ color: "#22c55e" }} />
+                              ) : e.camara_ok === false ? (
+                                <CameraOff size={13} style={{ color: "#ef4444" }} />
+                              ) : (
+                                <Camera size={13} style={{ color: "var(--text-faint)", opacity: 0.5 }} />
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                  
+                  <div style={{ marginTop: 14, display: "flex", gap: 6 }}>
+                    <a
+                      href={`/sucursales`}
+                      className="btn btn-secondary btn-sm btn-block"
+                      style={{ justifyContent: "center", textDecoration: "none", fontSize: 11 }}
+                    >
+                      Editar Sucursal
+                    </a>
+                    <a
+                      href={`/dispositivos?search=${encodeURIComponent(selectedSucursal.nombre)}`}
+                      className="btn btn-primary btn-sm btn-block"
+                      style={{ justifyContent: "center", textDecoration: "none", fontSize: 11 }}
+                    >
+                      Ver Estaciones
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
             {/* Lista de sucursales con ubicacion */}
             <div className="card" style={{ padding: 0 }}>
               <div style={{

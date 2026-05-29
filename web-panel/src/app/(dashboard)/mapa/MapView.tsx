@@ -41,15 +41,26 @@ function colorFor(s: SucursalMapa): string {
 
 function popupHtml(s: SucursalMapa): string {
   const dir = s.direccion
-    ? `<p style="font-size:11px;color:#52525b;margin-bottom:6px;">${escapeHtml(s.direccion)}</p>`
+    ? `<p style="font-size:11px;color:var(--text-muted);margin-bottom:6px;line-height:1.45;">${escapeHtml(s.direccion)}</p>`
     : "";
+  const btns = `
+    <div style="margin-top:10px;display:flex;gap:6px;">
+      <a href="/dispositivos?search=${encodeURIComponent(s.nombre)}" class="popup-btn popup-btn--primary">
+        Ver estaciones
+      </a>
+      <a href="https://www.google.com/maps/search/?api=1&query=${s.lat},${s.lng}" target="_blank" rel="noopener noreferrer" class="popup-btn">
+        Maps ↗
+      </a>
+    </div>
+  `;
   return `
-    <div style="min-width:180px;font-family:Inter,sans-serif;">
-      <p style="font-size:13px;font-weight:700;margin-bottom:2px;color:#0f0f10;">${escapeHtml(s.nombre)}</p>
+    <div style="min-width:190px;font-family:Inter,sans-serif;padding:2px 0;">
+      <p style="font-size:13px;font-weight:700;margin-bottom:4px;color:var(--text-primary);">${escapeHtml(s.nombre)}</p>
       ${dir}
-      <p style="font-size:11px;color:#0f0f10;">
-        <strong>${s.estaciones_online}</strong> / ${s.estaciones_total} estaciones online
+      <p style="font-size:11.5px;color:var(--text-secondary);margin-top:4px;">
+        <strong style="color:var(--text-primary);">${s.estaciones_online}</strong> / ${s.estaciones_total} en línea
       </p>
+      ${btns}
     </div>
   `;
 }

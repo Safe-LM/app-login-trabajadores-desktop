@@ -817,11 +817,18 @@ main {
   border-color: var(--border-hover) !important;
 }
 .leaflet-popup-content-wrapper {
-  background: #f4f4f5 !important;
+  background: var(--bg-card) !important;
   border-radius: var(--radius-md) !important;
   padding: 8px 4px !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: 0 12px 24px -10px rgba(0,0,0,0.7) !important;
 }
-.leaflet-popup-tip { background: #f4f4f5 !important; }
+.leaflet-popup-tip {
+  background: var(--bg-card) !important;
+  border-left: 1px solid var(--border) !important;
+  border-bottom: 1px solid var(--border) !important;
+  box-shadow: 0 12px 24px -10px rgba(0,0,0,0.7) !important;
+}
 .leaflet-popup-content { margin: 8px 12px !important; }
 .safelink-pin { background: transparent !important; border: none !important; }
 
@@ -2325,3 +2332,64 @@ main {
   .sidebar { max-width: 50vw; }
   .page { padding-top: 52px; }
 }
+
+/* ─── Mapa Dashboard Enhancements ───────────────────────────── */
+.mapa-frame--fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-height: none !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+
+.mapa-fullscreen-btn {
+  position: absolute;
+  bottom: 18px;
+  right: 12px;
+  z-index: 500;
+  box-shadow: 0 6px 18px -8px rgba(0,0,0,0.6);
+  background: rgba(15, 15, 16, 0.85) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-primary) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.mapa-fullscreen-btn:hover {
+  background: var(--bg-hover) !important;
+  border-color: var(--border-hover) !important;
+  transform: translateY(-1px);
+}
+
+/* Leaflet Popup Custom Action Buttons */
+.leaflet-popup-content .popup-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  text-decoration: none !important;
+  transition: all 120ms ease;
+  border: 1px solid var(--border);
+  color: var(--text-primary) !important;
+  background: var(--bg-elevated);
+  cursor: pointer;
+}
+.leaflet-popup-content .popup-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
+}
+.leaflet-popup-content .popup-btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff !important;
+}
+.leaflet-popup-content .popup-btn--primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+

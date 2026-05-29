@@ -8,6 +8,7 @@ export type EmpleadoFila = {
   registros: number;
   llegadas_tarde: number;
   horas_trabajadas: number;
+  dias_trabajados: number;
   ultima_actividad: string | null;
 };
 
@@ -35,6 +36,9 @@ export type ComputedReport = {
 
 const ONE_DAY_MS = 86_400_000;
 const MAX_TURNO_HORAS = 14; // Cap para evitar contar pares colgados como 24h+.
+// Debounce: dos marcas del mismo tipo en <5 min = duplicado (mismo "punch").
+// Misma regla que la vista de asistencia, para que horas y pares coincidan.
+const DEBOUNCE_MS = 5 * 60 * 1000;
 
 export function computeReport(data: ReportesData, filtros: Filtros, granularidad: Granularidad): ComputedReport {
   const desdeMs = parseLocalDateStart(filtros.desde);
@@ -146,6 +150,7 @@ function buildEmpleadoStats(registros: ReportesRegistro[], sucursales: Map<strin
     registros: number;
     llegadasTarde: number;
     horasTrabajadas: number;
+    diasTrabajados: number;
     ultimoTs: string | null;
     porDia: Map<string, { items: RegistroDia[]; sucursalId: string | null }>;
   };
@@ -160,6 +165,7 @@ function buildEmpleadoStats(registros: ReportesRegistro[], sucursales: Map<strin
         registros: 0,
         llegadasTarde: 0,
         horasTrabajadas: 0,
+        diasTrabajados: 0,
         ultimoTs: null,
         porDia: new Map(),
       };
@@ -177,11 +183,20 @@ function buildEmpleadoStats(registros: ReportesRegistro[], sucursales: Map<strin
   }
 
   for (const acc of map.values()) {
+    let diasTrabajados = 0;
     for (const dia of acc.porDia.values()) {
+      // Debounce: colapsa marcas del mismo tipo en <5 min (mismo "punch").
+      const ordenados = [...dia.items].sort((a, b) => a.ts - b.ts);
+      const sorted: RegistroDia[] = [];
+      for (const reg of ordenados) {
+        const last = sorted[sorted.length - 1];
+        if (last && last.tipo === reg.tipo && (reg.ts - last.ts) < DEBOUNCE_MS) continue;
+        sorted.push(reg);
+      }
+
       // Pares greedy: misma lógica que la vista de asistencia.
       // Suma solo el tiempo real trabajado, excluye breaks/comidas.
       // Solo cuenta tiempo entre entrada→salida. Entrada→entrada se descarta.
-      const sorted = [...dia.items].sort((a, b) => a.ts - b.ts);
       let currentEntrada: number | null = null;
       let horasDia = 0;
       let primeraEntrada: number | null = null;
@@ -195,6 +210,8 @@ function buildEmpleadoStats(registros: ReportesRegistro[], sucursales: Map<strin
         }
       }
       acc.horasTrabajadas += Math.min(horasDia, MAX_TURNO_HORAS);
+      // Día trabajado = tuvo al menos una entrada ese día.
+      if (primeraEntrada !== null) diasTrabajados += 1;
 
       if (primeraEntrada !== null && dia.sucursalId) {
         const suc = sucursales.get(dia.sucursalId);
@@ -204,6 +221,7 @@ function buildEmpleadoStats(registros: ReportesRegistro[], sucursales: Map<strin
         }
       }
     }
+    acc.diasTrabajados = diasTrabajados;
   }
 
   return Array.from(map.entries()).map(([id, acc]) => ({
@@ -212,6 +230,7 @@ function buildEmpleadoStats(registros: ReportesRegistro[], sucursales: Map<strin
     registros: acc.registros,
     llegadas_tarde: acc.llegadasTarde,
     horas_trabajadas: round2(acc.horasTrabajadas),
+    dias_trabajados: acc.diasTrabajados ?? 0,
     ultima_actividad: acc.ultimoTs,
   }));
 }

@@ -2,7 +2,23 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Locate, LoaderCircle, Target } from "lucide-react";
+import { Locate, LoaderCircle, Target, Search, MapPin } from "lucide-react";
+
+// Geocoding con Nominatim (OpenStreetMap) — gratis, sin API key. Límite ~1
+// req/s, así que solo geocodificamos en acciones explícitas (buscar / soltar
+// pin), nunca por cada tecla.
+const NOMINATIM = "https://nominatim.openstreetmap.org";
+
+import { geocodeAddress } from "@/lib/geocoding";
+
+
+async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+  const url = `${NOMINATIM}/reverse?format=jsonv2&accept-language=es&lat=${lat}&lon=${lng}`;
+  const res = await fetch(url, { headers: { "Accept": "application/json" } });
+  if (!res.ok) return null;
+  const data = await res.json();
+  return (data?.display_name as string) ?? null;
+}
 
 const PIN_SVG = `
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 40" width="26" height="34">
@@ -36,10 +52,13 @@ export function LocationPicker({
   lat,
   lng,
   onChange,
+  onAddressResolved,
 }: {
   lat: number | null;
   lng: number | null;
   onChange: (lat: number, lng: number) => void;
+  /** Se llama con la dirección resuelta al geocodificar/buscar/soltar pin. */
+  onAddressResolved?: (address: string) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -47,8 +66,24 @@ export function LocationPicker({
   const accuracyCircleRef = useRef<L.Circle | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const onAddressRef = useRef(onAddressResolved);
+  onAddressRef.current = onAddressResolved;
 
   const [geo, setGeo] = useState<GeoState>({ phase: "idle" });
+  const [query, setQuery] = useState("");          // búsqueda por dirección
+  const [searching, setSearching] = useState(false);
+  const [searchMsg, setSearchMsg] = useState<string | null>(null);
+  const [latInput, setLatInput] = useState(lat != null ? lat.toString() : "");    // entrada manual de coords
+  const [lngInput, setLngInput] = useState(lng != null ? lng.toString() : "");
+
+  // Reverse-geocode cuando se coloca un pin (click/drag/GPS) para autollenar
+  // la dirección. Best-effort: si falla, no rompe nada.
+  const resolveAddress = useCallback((la: number, ln: number) => {
+    if (!onAddressRef.current) return;
+    reverseGeocode(la, ln).then((addr) => {
+      if (addr && onAddressRef.current) onAddressRef.current(addr);
+    }).catch(() => {});
+  }, []);
 
   // Mount-once: crear mapa
   useEffect(() => {
@@ -77,6 +112,7 @@ export function LocationPicker({
 
     map.on("click", (e: L.LeafletMouseEvent) => {
       onChangeRef.current(e.latlng.lat, e.latlng.lng);
+      resolveAddress(e.latlng.lat, e.latlng.lng);
     });
 
     mapRef.current = map;
@@ -86,6 +122,7 @@ export function LocationPicker({
       marker.on("dragend", () => {
         const ll = marker.getLatLng();
         onChangeRef.current(ll.lat, ll.lng);
+        resolveAddress(ll.lat, ll.lng);
       });
       markerRef.current = marker;
     }
@@ -118,10 +155,33 @@ export function LocationPicker({
       marker.on("dragend", () => {
         const ll = marker.getLatLng();
         onChangeRef.current(ll.lat, ll.lng);
+        resolveAddress(ll.lat, ll.lng);
       });
       markerRef.current = marker;
     }
     map.setView([lat, lng], Math.max(map.getZoom(), 14), { animate: true });
+  }, [lat, lng, resolveAddress]);
+
+  // Sync inputs con lat/lng props (cuando cambian externamente, por ejemplo, click/drag/GPS)
+  useEffect(() => {
+    if (lat != null) {
+      const parsedLat = parseFloat(latInput.replace(",", "."));
+      if (parsedLat !== lat) {
+        setLatInput(lat.toString());
+      }
+    } else {
+      if (latInput !== "") setLatInput("");
+    }
+
+    if (lng != null) {
+      const parsedLng = parseFloat(lngInput.replace(",", "."));
+      if (parsedLng !== lng) {
+        setLngInput(lng.toString());
+      }
+    } else {
+      if (lngInput !== "") setLngInput("");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lat, lng]);
 
   /** Pide al navegador la ubicacion del usuario y coloca el pin. */
@@ -149,6 +209,7 @@ export function LocationPicker({
           }).addTo(map);
         }
         setGeo({ phase: "success", accuracyM: accuracy });
+        resolveAddress(latitude, longitude);
       },
       (err) => {
         const message =
@@ -160,7 +221,41 @@ export function LocationPicker({
       },
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 0 }
     );
-  }, []);
+  }, [resolveAddress]);
+
+  /** Busca una dirección escrita y coloca el pin (geocoding). */
+  const buscarDireccion = useCallback(async () => {
+    const q = query.trim();
+    if (q.length < 3) { setSearchMsg("Escribe una dirección más completa."); return; }
+    setSearching(true);
+    setSearchMsg(null);
+    try {
+      const hit = await geocodeAddress(q);
+      if (!hit) { setSearchMsg("No se encontró esa dirección. Prueba con más detalle (ciudad, estado)."); return; }
+      onChangeRef.current(hit.lat, hit.lng);
+      if (onAddressRef.current) onAddressRef.current(hit.label);
+      const map = mapRef.current;
+      if (map) map.flyTo([hit.lat, hit.lng], 16, { duration: 0.6 });
+      setSearchMsg(null);
+    } catch {
+      setSearchMsg("Error al buscar. Revisa tu conexión e intenta de nuevo.");
+    } finally {
+      setSearching(false);
+    }
+  }, [query]);
+
+  /** Aplica coordenadas escritas manualmente. */
+  const aplicarCoords = useCallback(() => {
+    const la = parseFloat(latInput.replace(",", "."));
+    const ln = parseFloat(lngInput.replace(",", "."));
+    if (!Number.isFinite(la) || la < -90 || la > 90) { setSearchMsg("Latitud inválida (-90 a 90)."); return; }
+    if (!Number.isFinite(ln) || ln < -180 || ln > 180) { setSearchMsg("Longitud inválida (-180 a 180)."); return; }
+    setSearchMsg(null);
+    onChangeRef.current(la, ln);
+    resolveAddress(la, ln);
+    const map = mapRef.current;
+    if (map) map.flyTo([la, ln], 16, { duration: 0.6 });
+  }, [latInput, lngInput, resolveAddress]);
 
   /** Centra el mapa en el pin actual (sin moverlo). */
   const centrarEnPin = useCallback(() => {
@@ -173,6 +268,78 @@ export function LocationPicker({
 
   return (
     <div className="loc-picker">
+      {/* Barra de búsqueda por dirección (geocoding) */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+        <div style={{ position: "relative", flex: 1 }}>
+          <Search size={14} strokeWidth={2} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-faint)", pointerEvents: "none" }} />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); buscarDireccion(); } }}
+            placeholder="Buscar dirección (calle, número, ciudad, estado)…"
+            style={{
+              width: "100%", padding: "9px 12px 9px 32px",
+              background: "var(--bg-elevated)", border: "1px solid var(--border)",
+              borderRadius: 8, fontSize: 13, color: "var(--text-primary)", outline: "none",
+            }}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={buscarDireccion}
+          disabled={searching}
+          className="btn btn-primary btn-sm"
+          title="Buscar la dirección en el mapa"
+        >
+          {searching ? <LoaderCircle size={13} strokeWidth={2.5} className="animate-spin-slow" /> : <Search size={13} strokeWidth={2.5} />}
+          {searching ? "Buscando…" : "Buscar"}
+        </button>
+      </div>
+
+      {/* Entrada manual de coordenadas */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+        <div style={{ display: "flex", flex: 1, gap: 6 }}>
+          <input
+            type="text"
+            value={latInput}
+            onChange={(e) => setLatInput(e.target.value)}
+            placeholder="Latitud (ej: 19.4326)"
+            style={{
+              flex: 1, padding: "9px 12px",
+              background: "var(--bg-elevated)", border: "1px solid var(--border)",
+              borderRadius: 8, fontSize: 13, color: "var(--text-primary)", outline: "none",
+            }}
+          />
+          <input
+            type="text"
+            value={lngInput}
+            onChange={(e) => setLngInput(e.target.value)}
+            placeholder="Longitud (ej: -99.1332)"
+            style={{
+              flex: 1, padding: "9px 12px",
+              background: "var(--bg-elevated)", border: "1px solid var(--border)",
+              borderRadius: 8, fontSize: 13, color: "var(--text-primary)", outline: "none",
+            }}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={aplicarCoords}
+          className="btn btn-secondary btn-sm"
+          style={{ height: 38 }}
+          title="Aplicar coordenadas manuales"
+        >
+          Aplicar
+        </button>
+      </div>
+
+      {searchMsg && (
+        <p className="loc-picker__feedback loc-picker__feedback--error" style={{ marginBottom: 8 }}>
+          {searchMsg}
+        </p>
+      )}
+
       {/* Toolbar de acciones (afuera del mapa, sin chocar con zoom controls) */}
       <div className="loc-picker__toolbar" role="toolbar" aria-label="Acciones de ubicación">
         <button

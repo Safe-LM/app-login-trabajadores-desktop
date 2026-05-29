@@ -711,6 +711,27 @@ function formatHoras(ms: number): string {
   return `${h}h ${m}min`;
 }
 
+// Debounce de scans duplicados: dos marcas del MISMO tipo en menos de 5 min
+// son la misma persona pasando dos veces frente a la cámara (o un re-scan de
+// prueba) → se conserva la primera (hora real) y se descartan las repetidas.
+// Marcas separadas por más tiempo (ej. olvido de salida con horas de diferencia)
+// NO se tocan: siguen como par incompleto "Sin salida". Es el "minimum punch
+// interval" estándar de los sistemas de asistencia.
+const DEBOUNCE_MS = 5 * 60 * 1000;
+
+function dedupeScans(sortedAsc: Registro[]): Registro[] {
+  const out: Registro[] = [];
+  for (const r of sortedAsc) {
+    const last = out[out.length - 1];
+    if (last && last.tipo === r.tipo) {
+      const diff = new Date(r.timestamp).getTime() - new Date(last.timestamp).getTime();
+      if (diff < DEBOUNCE_MS) continue; // duplicado del mismo tipo → ignorar
+    }
+    out.push(r);
+  }
+  return out;
+}
+
 function groupByDia(rows: Registro[]): DiaGroup[] {
   const byFecha = new Map<string, Registro[]>();
   for (const r of rows) {
@@ -734,7 +755,7 @@ function groupByDia(rows: Registro[]): DiaGroup[] {
       }
 
       const empleados: EmpleadoDia[] = Array.from(byEmp.entries()).map(([empId, regs]) => {
-        const sorted = [...regs].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+        const sorted = dedupeScans([...regs].sort((a, b) => a.timestamp.localeCompare(b.timestamp)));
         const nombre = regs[0]?.empleados ? `${regs[0].empleados.nombre} ${regs[0].empleados.apellido}` : "Sin empleado";
         const inicial = regs[0]?.empleados?.nombre?.[0]?.toUpperCase() ?? "?";
         const pares: ParJornada[] = [];

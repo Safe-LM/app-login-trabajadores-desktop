@@ -1,6 +1,7 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { geocodeAddress } from "@/lib/geocoding";
 import dynamic from "next/dynamic";
 import { useNotifications } from "@/components/notifications/NotificationProvider";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -202,6 +203,23 @@ function ModalSucursal({ sucursal, onClose, onDone }: { sucursal?: Sucursal; onC
   const [lng, setLng] = useState<number | null>(sucursal?.lng ?? null);
   const [loading, setLoading] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+
+  const lastGeocodedAddress = useRef(direccion);
+  const handleDireccionBlur = async () => {
+    const q = direccion.trim();
+    if (q.length < 5 || q === lastGeocodedAddress.current) return;
+    lastGeocodedAddress.current = q;
+    try {
+      const hit = await geocodeAddress(q);
+      if (hit) {
+        setLat(hit.lat);
+        setLng(hit.lng);
+        notify({ kind: "success", title: "Coordenadas actualizadas", message: "Ubicación resuelta a partir de la nueva dirección." });
+      }
+    } catch (e) {
+      console.error("Error geocoding on blur:", e);
+    }
+  };
   const [tab, setTab] = useState<"info" | "horario" | "ubicacion">("info");
 
   async function save() {
@@ -346,6 +364,7 @@ function ModalSucursal({ sucursal, onClose, onDone }: { sucursal?: Sucursal; onC
                 lat={lat}
                 lng={lng}
                 onChange={(la, ln) => { setLat(la); setLng(ln); }}
+                onAddressResolved={(addr) => setDireccion(addr)}
               />
 
               <div style={{
@@ -394,6 +413,7 @@ function ModalSucursal({ sucursal, onClose, onDone }: { sucursal?: Sucursal; onC
                 <textarea
                   value={direccion}
                   onChange={e => setDireccion(e.target.value)}
+                  onBlur={handleDireccionBlur}
                   className="input"
                   style={{ minHeight: 90, resize: "none" }}
                   placeholder="Calle, número, colonia, ciudad..."

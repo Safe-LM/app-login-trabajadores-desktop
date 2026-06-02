@@ -934,51 +934,55 @@ class DashboardWindow(QMainWindow):
     # ── Offline queue ─────────────────────────────────────────────────────────
 
     def _flush_offline_queue(self):
-        """Sube a Supabase las asistencias guardadas offline en SQLite."""
-        try:
-            from utils.database import get_db_session
-            from utils.models import RegistroAsistencia, Trabajador
-            from utils.station_manager import get_station_api_key
-            api_key = get_station_api_key()
-            if not api_key:
-                return
-            sb = get_supabase_client()
-            if not sb:
-                return
-            db = get_db_session()
+        """Sube a Supabase las asistencias guardadas offline en SQLite (en segundo plano)."""
+        import threading
+        def _bg():
             try:
-                pendientes = (
-                    db.query(RegistroAsistencia)
-                    .filter(RegistroAsistencia.sincronizado == False)  # noqa: E712
-                    .limit(50)
-                    .all()
-                )
-                for reg in pendientes:
-                    trab = db.query(Trabajador).filter(Trabajador.id == reg.trabajador_id).first()
-                    if not trab or not trab.supabase_uuid:
-                        continue
-                    try:
-                        result = sb.rpc("registrar_asistencia_station", {
-                            "p_api_key": api_key,
-                            "p_empleado_id": trab.supabase_uuid,
-                            "p_tipo": reg.tipo,
-                            "p_confianza": float(reg.confianza or 0),
-                            "p_score_raw": float(reg.score_raw) if reg.score_raw is not None else None,
-                            "p_metodo": reg.metodo,
-                            "p_embedding_count": reg.embedding_count,
-                        }).execute()
-                        if result.data and result.data.get("ok"):
-                            reg.sincronizado = True
-                    except Exception:
-                        pass
-                db.commit()
-                synced = sum(1 for r in pendientes if r.sincronizado)
-                if synced:
-                    logger.info(f"Offline queue: {synced} asistencias subidas")
-            finally:
-                db.close()
-        except Exception as e:
-            logger.error(f"flush_offline_queue: {e}")
+                from utils.database import get_db_session
+                from utils.models import RegistroAsistencia, Trabajador
+                from utils.station_manager import get_station_api_key
+                api_key = get_station_api_key()
+                if not api_key:
+                    return
+                sb = get_supabase_client()
+                if not sb:
+                    return
+                db = get_db_session()
+                try:
+                    pendientes = (
+                        db.query(RegistroAsistencia)
+                        .filter(RegistroAsistencia.sincronizado == False)  # noqa: E712
+                        .limit(50)
+                        .all()
+                    )
+                    for reg in pendientes:
+                        trab = db.query(Trabajador).filter(Trabajador.id == reg.trabajador_id).first()
+                        if not trab or not trab.supabase_uuid:
+                            continue
+                        try:
+                            result = sb.rpc("registrar_asistencia_station", {
+                                "p_api_key": api_key,
+                                "p_empleado_id": trab.supabase_uuid,
+                                "p_tipo": reg.tipo,
+                                "p_confianza": float(reg.confianza or 0),
+                                "p_score_raw": float(reg.score_raw) if reg.score_raw is not None else None,
+                                "p_metodo": reg.metodo,
+                                "p_embedding_count": reg.embedding_count,
+                            }).execute()
+                            if result.data and result.data.get("ok"):
+                                reg.sincronizado = True
+                        except Exception:
+                            pass
+                    db.commit()
+                    synced = sum(1 for r in pendientes if r.sincronizado)
+                    if synced:
+                        logger.info(f"Offline queue: {synced} asistencias subidas")
+                finally:
+                    db.close()
+            except Exception as e:
+                logger.error(f"flush_offline_queue background execution error: {e}")
+
+        threading.Thread(target=_bg, daemon=True).start()
 
     def _init_face_recognition(self):
         """Inicializa el sistema facial. Crea el thread y lo deja listo
@@ -1665,8 +1669,17 @@ class DashboardWindow(QMainWindow):
 
     def _sync_employees(self):
         self._js("document.getElementById('sb-sync-status').textContent = 'Sincronizando...';")
-        # Simular delay de red
-        QTimer.singleShot(1500, lambda: self._js("document.getElementById('sb-sync-status').textContent = 'Sincronizado';"))
+        if hasattr(self, "_sync_mgr") and self._sync_mgr is not None:
+            self._sync_mgr.force_sync()
+            def _done(count):
+                self._js("document.getElementById('sb-sync-status').textContent = 'Sincronizado';")
+                try:
+                    self._sync_mgr.sync_done.disconnect(_done)
+                except Exception:
+                    pass
+            self._sync_mgr.sync_done.connect(_done)
+        else:
+            QTimer.singleShot(1500, lambda: self._js("document.getElementById('sb-sync-status').textContent = 'Sincronizado';"))
 
     def show(self):
 

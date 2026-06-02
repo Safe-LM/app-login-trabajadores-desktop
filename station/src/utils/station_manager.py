@@ -98,16 +98,12 @@ def get_hostname() -> str:
 def get_hwid() -> str:
     """Genera un ID único para el hardware (Machine GUID o UUID)."""
     try:
-        # En Windows: reg query HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Cryptography /v MachineGuid
         if platform.system() == "Windows":
-            out = subprocess.check_output(
-                ["reg", "query",
-                 r"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Cryptography",
-                 "/v", "MachineGuid"],
-                shell=False,
-            ).decode()
-            guid = out.split()[-1]
-            return hashlib.sha256(guid.encode()).hexdigest()[:16].upper()
+            import winreg
+            key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Cryptography")
+            guid, _ = winreg.QueryValueEx(key, "MachineGuid")
+            winreg.CloseKey(key)
+            return hashlib.sha256(str(guid).encode()).hexdigest()[:16].upper()
         else:
             # Fallback para otros sistemas
             import uuid

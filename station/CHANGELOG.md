@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.8.2](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.8.1...station-v5.8.2) (2026-06-02)
+
+
+### 🐛 Correcciones
+
+* **station:** resolve cmd flashes, main thread blocking, and mock sync ([6fb31f8](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/6fb31f8ca5e4c64b5c1b828e770e20db395aa869))
+
 ## [5.8.1](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.8.0...station-v5.8.1) (2026-05-29)
 
 

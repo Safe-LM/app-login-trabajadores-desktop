@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.13.0...web-panel-v0.14.0) (2026-06-03)
+
+
+### ✨ Nuevas funcionalidades
+
+* **web-panel:** optimize UI/UX, resolve CLS, fix realtime desync, and improve mobile modal responsiveness ([499a70c](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/499a70cc79f4dd7febb47c40bcf8f93749a257c9))
+
 ## [0.13.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.12.0...web-panel-v0.13.0) (2026-05-29)
 
 

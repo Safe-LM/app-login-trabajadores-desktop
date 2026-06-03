@@ -9,6 +9,9 @@ import { PanelNotificationsWatcher } from "@/components/notifications/PanelNotif
 import { BrowserPushBridge } from "@/components/notifications/BrowserPushBridge";
 import { CommandLayer } from "@/components/command/CommandLayer";
 import { NavigationProgress } from "@/components/ui/NavigationProgress";
+import { PageTransition } from "@/components/ui/PageTransition";
+import { FloatingTooltip } from "@/components/ui/FloatingTooltip";
+
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -61,11 +64,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <DashboardTopBar unreadCount={unreadCount} userEmail={user.email ?? ""} />
           <main className="dashboard-main" style={{ flex: 1, overflow: "auto" }}>
             <Suspense fallback={<PageSkeleton />}>
-              {children}
+              <PageTransition>
+                {children}
+              </PageTransition>
             </Suspense>
           </main>
         </div>
       </div>
+      <FloatingTooltip />
+
     </NotificationProvider>
   );
 }

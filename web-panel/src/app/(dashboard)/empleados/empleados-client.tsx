@@ -720,76 +720,107 @@ export function EmpleadosClient({ empleados: initial, sucursales, empresaId }: {
         />
       </div>
 
-      <div className="card animate-fade-up" style={{ padding: "14px 18px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", animationDelay: "80ms", animationFillMode: "backwards" }}>
-        <div style={{ position: "relative", flex: "0 0 260px" }}>
-          <svg style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-faint)", pointerEvents: "none" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nombre, puesto o codigo..."
-            style={{
-              paddingLeft: 32, paddingRight: 12, paddingTop: 8, paddingBottom: 8,
-              background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)",
-              fontSize: 13, color: "var(--text-primary)", outline: "none", fontFamily: "inherit", width: "100%",
-              transition: "border-color 150ms",
-            }}
-            onFocus={(e) => e.currentTarget.style.borderColor = "var(--accent)"}
-            onBlur={(e) => e.currentTarget.style.borderColor = "var(--border)"}
+      <div className="card animate-fade-up" style={{ padding: "14px 18px", marginBottom: 16, display: "flex", flexDirection: "column", gap: 12, animationDelay: "80ms", animationFillMode: "backwards" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", width: "100%" }}>
+          <div style={{ position: "relative", flex: "0 0 260px" }}>
+            <svg style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-faint)", pointerEvents: "none" }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por nombre, puesto o codigo..."
+              style={{
+                paddingLeft: 32, paddingRight: 12, paddingTop: 8, paddingBottom: 8,
+                background: "var(--bg-elevated)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)",
+                fontSize: 13, color: "var(--text-primary)", outline: "none", fontFamily: "inherit", width: "100%",
+                transition: "border-color 150ms",
+              }}
+              onFocus={(e) => e.currentTarget.style.borderColor = "var(--accent)"}
+              onBlur={(e) => e.currentTarget.style.borderColor = "var(--border)"}
+            />
+          </div>
+
+          <div style={{ width: 1, height: 24, background: "var(--border)", flexShrink: 0 }} />
+
+          <select value={filterSucursal} onChange={(e) => setFilterSucursal(e.target.value)} style={SELECT_STYLE}>
+            <option value="all">Todas las sucursales</option>
+            {sucursales.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+          </select>
+          <select value={filterEstado} onChange={(e) => setFilterEstado(e.target.value as typeof filterEstado)} style={SELECT_STYLE}>
+            <option value="all">Todos los estados</option>
+            <option value="activo">Activos</option>
+            <option value="inactivo">Inactivos</option>
+          </select>
+          <select value={filterEnrolado} onChange={(e) => setFilterEnrolado(e.target.value as typeof filterEnrolado)} style={SELECT_STYLE}>
+            <option value="all">Enrolamiento</option>
+            <option value="si">Enrolados</option>
+            <option value="no">Pendientes</option>
+          </select>
+
+          {hasActiveFilters && (
+            <button
+              onClick={() => { setSearch(""); setFilterSucursal("all"); setFilterEstado("all"); setFilterEnrolado("all"); }}
+              className="btn btn-ghost btn-sm"
+              style={{ color: "var(--text-muted)", gap: 4 }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              Limpiar
+            </button>
+          )}
+
+          <div style={{ flex: 1 }} />
+
+          <button onClick={() => setModal("import-info")} className="btn btn-secondary btn-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Importar
+          </button>
+          <ExportButton
+            label="Exportar"
+            filenamePrefix="empleados"
+            sheetName="Empleados"
+            getRows={() => filtered.map((e) => ({
+              Nombre: e.nombre,
+              Apellido: e.apellido,
+              Codigo: e.employee_code ?? "",
+              Puesto: e.puesto ?? "",
+              Sucursal: e.sucursales?.nombre ?? "",
+              Estado: e.activo ? "Activo" : "Inactivo",
+              Enrollado: e.enrollado ? "Si" : "No",
+            }))}
           />
+          <button onClick={() => setModal("create")} className="btn btn-primary btn-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Nuevo Empleado
+          </button>
         </div>
 
-        <div style={{ width: 1, height: 24, background: "var(--border)", flexShrink: 0 }} />
-
-        <select value={filterSucursal} onChange={(e) => setFilterSucursal(e.target.value)} style={SELECT_STYLE}>
-          <option value="all">Todas las sucursales</option>
-          {sucursales.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-        </select>
-        <select value={filterEstado} onChange={(e) => setFilterEstado(e.target.value as typeof filterEstado)} style={SELECT_STYLE}>
-          <option value="all">Todos los estados</option>
-          <option value="activo">Activos</option>
-          <option value="inactivo">Inactivos</option>
-        </select>
-        <select value={filterEnrolado} onChange={(e) => setFilterEnrolado(e.target.value as typeof filterEnrolado)} style={SELECT_STYLE}>
-          <option value="all">Enrolamiento</option>
-          <option value="si">Enrolados</option>
-          <option value="no">Pendientes</option>
-        </select>
-
         {hasActiveFilters && (
-          <button
-            onClick={() => { setSearch(""); setFilterSucursal("all"); setFilterEstado("all"); setFilterEnrolado("all"); }}
-            className="btn btn-ghost btn-sm"
-            style={{ color: "var(--text-muted)", gap: 4 }}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            Limpiar
-          </button>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", width: "100%", borderTop: "1px solid var(--border)", paddingTop: 10 }}>
+            {search && (
+              <span className="filter-chip">
+                Búsqueda: &ldquo;{search}&rdquo;
+                <button onClick={() => setSearch("")} aria-label="Limpiar búsqueda">×</button>
+              </span>
+            )}
+            {filterSucursal !== "all" && (
+              <span className="filter-chip">
+                Sucursal: {sucursales.find(s => s.id === filterSucursal)?.nombre || filterSucursal}
+                <button onClick={() => setFilterSucursal("all")} aria-label="Limpiar filtro sucursal">×</button>
+              </span>
+            )}
+            {filterEstado !== "all" && (
+              <span className="filter-chip">
+                Estado: {filterEstado === "activo" ? "Activos" : "Inactivos"}
+                <button onClick={() => setFilterEstado("all")} aria-label="Limpiar filtro estado">×</button>
+              </span>
+            )}
+            {filterEnrolado !== "all" && (
+              <span className="filter-chip">
+                Enrolamiento: {filterEnrolado === "si" ? "Enrolados" : "Pendientes"}
+                <button onClick={() => setFilterEnrolado("all")} aria-label="Limpiar filtro enrolamiento">×</button>
+              </span>
+            )}
+          </div>
         )}
-
-        <div style={{ flex: 1 }} />
-
-        <button onClick={() => setModal("import-info")} className="btn btn-secondary btn-sm">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          Importar
-        </button>
-        <ExportButton
-          label="Exportar"
-          filenamePrefix="empleados"
-          sheetName="Empleados"
-          getRows={() => filtered.map((e) => ({
-            Nombre: e.nombre,
-            Apellido: e.apellido,
-            Codigo: e.employee_code ?? "",
-            Puesto: e.puesto ?? "",
-            Sucursal: e.sucursales?.nombre ?? "",
-            Estado: e.activo ? "Activo" : "Inactivo",
-            Enrollado: e.enrollado ? "Si" : "No",
-          }))}
-        />
-        <button onClick={() => setModal("create")} className="btn btn-primary btn-sm">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Nuevo Empleado
-        </button>
       </div>
 
       <div className="card animate-fade-up" style={{ overflow: "hidden", animationDelay: "120ms", animationFillMode: "backwards" }}>

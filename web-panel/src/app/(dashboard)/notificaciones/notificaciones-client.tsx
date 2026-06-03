@@ -537,27 +537,35 @@ function SeveridadIcon({ severidad }: { severidad: Severidad }) {
   }
 }
 
-/* ─────────────── EMPTY NOTIFS COMPONENT ─────────────── */
 function EmptyNotifs({ filter, hasItems }: { filter: Filter; hasItems: boolean }) {
   const messages = {
-    all:      { title: "Sin notificaciones", msg: "Te avisaremos cuando algo necesite tu atención." },
-    unread:   { title: "Todo leído", msg: "No tienes notificaciones pendientes. ¡Bien!" },
-    critical: { title: "Sin alertas críticas", msg: "Las estaciones operan con normalidad." },
+    all:      { title: "Sin notificaciones", msg: "Te avisaremos cuando algo necesite tu atención.", color: "#8b5cf6", icon: <Bell size={22} /> },
+    unread:   { title: "Todo leído", msg: "No tienes notificaciones pendientes. ¡Bien!", color: "#22c55e", icon: <Check size={22} /> },
+    critical: { title: "Sin alertas críticas", msg: "Las estaciones operan con normalidad.", color: "#ef4444", icon: <AlertCircle size={22} /> },
   };
   const m = messages[filter];
   return (
     <div style={{ padding: "70px 20px", textAlign: "center" }}>
-      <div style={{
-        width: 56, height: 56, borderRadius: 14,
-        background: "linear-gradient(135deg, rgba(34,197,94,0.10) 0%, rgba(34,197,94,0.02) 100%)",
-        border: "1px solid rgba(34,197,94,0.18)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        margin: "0 auto 14px", color: "#4ade80",
-      }}>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      <div 
+        className="animate-float empty-glow"
+        style={{
+          width: 56,
+          height: 56,
+          borderRadius: 14,
+          background: `${m.color}1f`,
+          border: `1px solid ${m.color}2e`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          margin: "0 auto 14px",
+          color: m.color,
+          ["--glow-color" as any]: `${m.color}2c`,
+        }}
+      >
+        {m.icon}
       </div>
       <p style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)", marginBottom: 5 }}>{m.title}</p>
-      <p style={{ fontSize: 12, color: "var(--text-faint)", maxWidth: 320, margin: "0 auto" }}>
+      <p style={{ fontSize: 12, color: "var(--text-faint)", maxWidth: 320, margin: "0 auto", lineHeight: 1.5 }}>
         {hasItems ? m.msg : "Cuando ocurran eventos importantes (estaciones offline, llegadas tarde, errores), aparecerán aquí."}
       </p>
     </div>

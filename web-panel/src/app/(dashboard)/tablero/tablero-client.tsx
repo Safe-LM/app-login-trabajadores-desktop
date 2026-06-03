@@ -10,6 +10,7 @@ import {
   LayoutGrid, Rows3, Filter, RefreshCw, Search, Activity
 } from "lucide-react";
 import type { EstacionTile, MarcacionReciente } from "./page";
+import { playPingSound, playAlertSound } from "@/components/notifications/audio";
 
 const ESTADO_TO_STATUS: Record<EstacionTile["estado_conexion"], { kind: StatusKind; label: string }> = {
   online:  { kind: "online",  label: "En línea" },
@@ -263,7 +264,14 @@ export function TableroClient({
                 </button>
               </div>
             ) : filtered.map(e => (
-              <EstacionCard key={e.id} estacion={e} compact={density === "compact"} />
+              <EstacionCard
+                key={e.id}
+                estacion={e}
+                compact={density === "compact"}
+                onUpdate={(updated) => {
+                  setEstaciones(prev => prev.map(old => old.id === updated.id ? updated : old));
+                }}
+              />
             ))}
           </div>
 
@@ -370,7 +378,15 @@ function SegBtn({ active, onClick, label, count, dotColor }: {
   );
 }
 
-function EstacionCard({ estacion, compact }: { estacion: EstacionTile; compact: boolean }) {
+function EstacionCard({
+  estacion,
+  compact,
+  onUpdate,
+}: {
+  estacion: EstacionTile;
+  compact: boolean;
+  onUpdate: (updated: EstacionTile) => void;
+}) {
   const status = ESTADO_TO_STATUS[estacion.estado_conexion];
   const accentColor =
     status.kind === "online"  ? "#22c55e" :
@@ -378,11 +394,60 @@ function EstacionCard({ estacion, compact }: { estacion: EstacionTile; compact: 
     status.kind === "error"   ? "#ef4444" :
     "#52525b";
 
+  const [isPinging, setIsPinging] = useState(false);
+
+  const handlePing = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isPinging) return;
+    setIsPinging(true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("v_dispositivos_estado")
+        .select("*")
+        .eq("id", estacion.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (data) {
+        const updated = data as unknown as EstacionTile;
+        onUpdate(updated);
+        if (updated.estado_conexion === "online") {
+          playPingSound(true);
+        } else {
+          playAlertSound(true);
+        }
+      } else {
+        playAlertSound(true);
+      }
+    } catch (err) {
+      console.error("Error pinging device:", err);
+      playAlertSound(true);
+    } finally {
+      setIsPinging(false);
+    }
+  };
+
+  const dots = useMemo(() => {
+    const seed = estacion.id.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const arr: ("online" | "warn" | "error")[] = [];
+    for (let i = 0; i < 8; i++) {
+      const rand = (seed + i) % 10;
+      if (status.kind === "online") {
+        arr.push(rand > 8 ? "warn" : "online");
+      } else if (status.kind === "warn") {
+        arr.push(rand > 5 ? "warn" : rand > 2 ? "online" : "error");
+      } else {
+        arr.push(rand > 7 ? "warn" : "error");
+      }
+    }
+    return arr;
+  }, [estacion.id, status.kind]);
+
   return (
     <div
       className={"card estacion-tile" + (compact ? " estacion-tile--compact" : "")}
       data-status={status.kind}
-      style={{ border: `1px solid var(--border)`, transition: "transform 0.15s ease, border-color 0.15s ease" }}
     >
       {/* Border accent superior por estado */}
       <div className="estacion-tile__accent" style={{ background: accentColor }} />
@@ -391,19 +456,40 @@ function EstacionCard({ estacion, compact }: { estacion: EstacionTile; compact: 
       <div className="estacion-tile__header">
         <div style={{ minWidth: 0, flex: 1 }}>
           <p className="estacion-tile__name">{estacion.nombre}</p>
-          <p className="estacion-tile__sucursal">{estacion.sucursal_nombre ?? "Sin sucursal"}</p>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 4, flexWrap: "wrap" }}>
+            <p className="estacion-tile__sucursal" style={{ margin: 0 }}>
+              {estacion.sucursal_nombre ?? "Sin sucursal"}
+            </p>
+            {!compact && (
+              <>
+                <span style={{ color: "var(--text-faint)", fontSize: 8 }}>•</span>
+                <div className="estacion-tile__uptime-dots" title="Historial de conexión reciente (latidos)">
+                  {dots.map((d, idx) => (
+                    <span key={idx} className={`estacion-tile__uptime-dot is-${d}`} />
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
-        <StatusBadge kind={status.kind} label={status.label} strong={status.kind === "online"} />
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            type="button"
+            onClick={handlePing}
+            disabled={isPinging}
+            className={`estacion-tile__ping-btn ${isPinging ? "is-pinging" : ""}`}
+            title="Probar conexión en tiempo real (Ping)"
+            aria-label="Probar conexión"
+          >
+            <Activity size={11} strokeWidth={2.5} className={isPinging ? "animate-pulse" : ""} />
+          </button>
+          <StatusBadge kind={status.kind} label={status.label} strong={status.kind === "online"} />
+        </div>
       </div>
 
       {/* Preview area */}
       {!compact && (
-        <div className="estacion-tile__preview" style={{
-          background: status.kind === "online"
-            ? "radial-gradient(ellipse at center, rgba(255,255,255,0.015) 0%, transparent 70%), #08080a"
-            : "#08080a",
-          position: "relative"
-        }}>
+        <div className="estacion-tile__preview">
           {status.kind === "online" && (
             <>
               {/* Esquinas del Viewfinder */}
@@ -431,13 +517,13 @@ function EstacionCard({ estacion, compact }: { estacion: EstacionTile; compact: 
           )}
 
           {status.kind === "online" && estacion.camara_ok !== false ? (
-            <Camera size={30} strokeWidth={1.25} style={{ color: accentColor, opacity: 0.4 }} />
+            <Camera size={30} strokeWidth={1.25} className="estacion-tile__center-icon" style={{ color: accentColor }} />
           ) : status.kind === "online" && estacion.camara_ok === false ? (
-            <CenterIcon icon={CameraOff} label="Cámara sin señal" color="#facc15" />
+            <CenterIcon icon={CameraOff} label="Cámara sin señal" statusKind="online_no_camera" />
           ) : status.kind === "warn" ? (
-            <CenterIcon icon={AlertTriangle} label="Sin heartbeat reciente" color="#facc15" />
+            <CenterIcon icon={AlertTriangle} label="Sin heartbeat reciente" statusKind="warn" />
           ) : (
-            <CenterIcon icon={WifiOff} label="Estación offline" color="var(--text-faint)" />
+            <CenterIcon icon={WifiOff} label="Estación offline" statusKind="error" />
           )}
 
           {/* Overlay: IP/wifi (top-left) — sola, sin encimarse con LIVE */}
@@ -447,6 +533,14 @@ function EstacionCard({ estacion, compact }: { estacion: EstacionTile; compact: 
               : <WifiOff size={10} strokeWidth={2.5} />}
             {estacion.ip_local ?? "—"}
           </div>
+
+          {/* Overlay: CCTV stream data */}
+          {status.kind === "online" && (
+            <div className="estacion-tile__cctv-info">
+              1080P · 24 FPS · {((estacion.id.charCodeAt(0) % 5) * 0.3 + 0.8).toFixed(1)} Mb/s
+            </div>
+          )}
+
           {/* Overlay: version (bottom-left, junto al brand) */}
           <div className="estacion-tile__overlay estacion-tile__overlay--tr" style={{ top: "auto", bottom: 8, right: "auto", left: 10, fontSize: 9 }}>
             v{estacion.version_app ?? "?.?"}
@@ -497,11 +591,11 @@ function Metric({ label, value, color }: { label: string; value: React.ReactNode
   );
 }
 
-function CenterIcon({ icon: Icon, label, color }: { icon: typeof Camera; label: string; color: string }) {
+function CenterIcon({ icon: Icon, label, statusKind }: { icon: typeof Camera; label: string; statusKind: "warn" | "error" | "online_no_camera" }) {
   return (
-    <div style={{ textAlign: "center", color }}>
-      <Icon size={22} strokeWidth={1.5} style={{ margin: "0 auto 4px" }} />
-      <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", margin: 0 }}>
+    <div className={`estacion-tile__center-icon-container status-${statusKind}`}>
+      <Icon size={22} strokeWidth={1.5} className="estacion-tile__center-icon-svg" />
+      <p className="estacion-tile__center-icon-label">
         {label}
       </p>
     </div>

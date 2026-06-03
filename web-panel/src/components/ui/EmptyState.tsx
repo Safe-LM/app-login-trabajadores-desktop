@@ -37,11 +37,15 @@ export function EmptyState({
   return (
     <div style={containerStyle}>
       {Icon && (
-        <div style={{
-          ...iconBoxStyle,
-          background: `${color}1f`,
-          color,
-        }}>
+        <div
+          className="animate-float empty-glow"
+          style={{
+            ...iconBoxStyle,
+            background: `${color}1f`,
+            color,
+            ["--glow-color" as any]: `${color}2c`,
+          }}
+        >
           <Icon size={28} />
         </div>
       )}

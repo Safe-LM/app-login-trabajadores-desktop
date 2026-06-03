@@ -12,7 +12,7 @@ import type { SucursalMapa } from "./page";
  */
 function makePinIcon(color: string, opts: { selected?: boolean; pulse?: boolean; count?: number } = {}): L.DivIcon {
   const { selected, pulse, count } = opts;
-  const size = selected ? 38 : 30;
+  const size = selected ? 28 : 20;
   const html = `
     <div class="sl-pin ${pulse ? "sl-pin--pulse" : ""} ${selected ? "sl-pin--selected" : ""}"
          style="--sl-pin-color: ${color}; width: ${size}px; height: ${size}px;">
@@ -26,8 +26,9 @@ function makePinIcon(color: string, opts: { selected?: boolean; pulse?: boolean;
     className: "safelink-pin",
     html,
     iconSize:   [size, size],
-    iconAnchor: [size / 2, size / 2],
-    popupAnchor: [0, -size / 2 - 2],
+    // Anchor at bottom-left corner of the teardrop (the pointed tip)
+    iconAnchor: [0, size],
+    popupAnchor: [size / 2, -size],
   });
 }
 
@@ -124,12 +125,30 @@ export function MapView({
     const { center, zoom } = computeView(sucursales);
     const map = L.map(el, { center, zoom, scrollWheelZoom: true });
 
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+    const isLightInitial = document.documentElement.classList.contains("light");
+    const initialUrl = isLightInitial
+      ? "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+      : "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+
+    const tileLayer = L.tileLayer(initialUrl, {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
       maxZoom: 19,
     }).addTo(map);
 
     mapRef.current = map;
+
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === "class") {
+          const isLight = document.documentElement.classList.contains("light");
+          const nextUrl = isLight
+            ? "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+            : "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+          tileLayer.setUrl(nextUrl);
+        }
+      });
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
 
     // Expone handle al padre con utilidades del mapa.
     onReadyRef.current?.({
@@ -146,6 +165,7 @@ export function MapView({
     });
 
     return () => {
+      observer.disconnect();
       map.off();
       map.remove();
       mapRef.current = null;

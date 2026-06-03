@@ -1,5 +1,6 @@
 "use client";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { playPingSound } from "./audio";
 
 export type NotifKind = "info" | "success" | "warning" | "error";
 
@@ -33,6 +34,7 @@ export function useNotifications(): Ctx {
   return ctx;
 }
 
+
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -64,6 +66,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       const t = setTimeout(() => dismiss(id), next.duration ?? 5000);
       timers.current.set(id, t);
     }
+    playPingSound();
     return id;
   }, [dismiss]);
 

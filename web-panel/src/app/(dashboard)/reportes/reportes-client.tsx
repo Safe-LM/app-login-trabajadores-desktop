@@ -725,6 +725,23 @@ function FilterBar({
           </select>
         </Field>
       </div>
+
+      {(filtros.sucursalId !== "all" || filtros.empleadoId !== "all") && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", borderTop: "1px solid var(--border)", paddingTop: 10, marginTop: 4 }}>
+          {filtros.sucursalId !== "all" && (
+            <span className="filter-chip">
+              Sucursal: {sucursales.find(s => s.id === filtros.sucursalId)?.nombre || filtros.sucursalId}
+              <button onClick={() => setFiltro("sucursalId", "all")} aria-label="Limpiar filtro sucursal">×</button>
+            </span>
+          )}
+          {filtros.empleadoId !== "all" && (
+            <span className="filter-chip">
+              Colaborador: {empleados.find(e => e.id === filtros.empleadoId)?.nombre || filtros.empleadoId}
+              <button onClick={() => setFiltro("empleadoId", "all")} aria-label="Limpiar filtro colaborador">×</button>
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

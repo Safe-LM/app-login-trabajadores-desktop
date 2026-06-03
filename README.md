@@ -188,7 +188,7 @@ se asigna **después**, en el primer arranque, por una de estas 2 vías:
 | `/ejecutivo` | ✅ | Vista resumida para gerentes |
 | `/actividad` | ✅ | Audit log de acciones admin |
 | `/notificaciones` | ✅ | Histórico de eventos (estación offline, llegada tarde, etc.) |
-| `/configuracion` | 🔧 | Placeholder — ajustes de empresa pendientes |
+| `/configuracion` | ✅ | Configuración general (logo, zona horaria), horarios por sucursal, miembros de equipo y webhooks |
 
 ### Sistema de diseño (v0.7+)
 
@@ -651,14 +651,10 @@ Output: `dist/SafeLink_Station/SafeLink_Station.exe` (carpeta completa)
 
 ## 🔄 Auto-Update System
 
-La estación verifica actualizaciones al arrancar:
-- Check `https://updates.safelnk.com/version.txt`
-- Si hay nueva versión, descarga en background
-- Instala cuando el usuario lo confirme
-
-Para configurar tu servidor de updates:
-1. Hostear `version.txt` con contenido tipo `1.0.1`
-2. Hostear `SafeLink_v1.0.1_Setup.exe`
+La estación verifica actualizaciones al arrancar contra el repositorio de GitHub Releases (configurable vía la variable `SAFELINK_UPDATE_REPO` en el `.env`):
+- Consulta el archivo `version.txt` hospedado en el release más reciente de GitHub.
+- Si hay una versión más nueva que la local, envía una notificación de tipo `station_update_available` a Supabase para alertar al administrador en el panel web.
+- La descarga e instalación del instalador NSIS (.exe) se realiza de manera semiautomática guiando al usuario o silenciosa en segundo plano.
 
 **¿Qué es el HWID y por qué importa?**
 El HWID (Hardware ID) es un identificador único derivado del hardware de cada PC (GUID de Windows). Se captura al registrar la estación y se valida en cada heartbeat. Si alguien clona los archivos de configuración a otra máquina, el sistema detecta la discrepancia y rechaza la conexión. Esto previene el uso no autorizado de licencias.

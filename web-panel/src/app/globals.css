@@ -832,70 +832,79 @@ main {
 .leaflet-popup-content { margin: 8px 12px !important; }
 .safelink-pin { background: transparent !important; border: none !important; }
 
-/* ─── Pin custom Safe Link (Mapa) ─────────────────────────────── */
+/* ─── Pin custom Safe Link (Mapa) — Teardrop drop-pin ─────────── */
 .sl-pin {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), filter 220ms ease;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
 }
-.sl-pin:hover { transform: scale(1.12); }
-.sl-pin--selected { transform: scale(1.15); z-index: 1000 !important; }
+.sl-pin:hover { transform: scale(1.15); filter: drop-shadow(0 3px 6px rgba(0,0,0,0.6)); }
+.sl-pin--selected { transform: scale(1.2); z-index: 1000 !important; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.7)); }
 
+/* Teardrop body — uses border-radius to form the tapered bottom */
 .sl-pin__ring {
   position: absolute;
   inset: 0;
-  border-radius: 50%;
   background: var(--sl-pin-color);
-  box-shadow: 0 0 0 2px var(--bg-black), 0 0 10px color-mix(in srgb, var(--sl-pin-color) 60%, transparent);
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
   opacity: 0.92;
+  border: 1.5px solid rgba(255,255,255,0.15);
 }
+
+/* Inner dot centered on the rounded top of the teardrop */
 .sl-pin__core {
   position: relative;
-  width: 36%;
-  height: 36%;
+  width: 38%;
+  height: 38%;
   border-radius: 50%;
   background: var(--bg-black);
   z-index: 2;
+  /* Shift up slightly to sit in the circular head of the teardrop */
+  margin-bottom: 20%;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
 }
 .sl-pin--selected .sl-pin__core {
-  width: 30%;
-  height: 30%;
-  background: var(--bg-card);
-  box-shadow: 0 0 0 1.5px var(--sl-pin-color);
+  width: 32%;
+  height: 32%;
+  background: #fff;
+  box-shadow: 0 0 0 1.5px var(--sl-pin-color), inset 0 0 0 1px rgba(0,0,0,0.1);
 }
 
-/* Halo expandiendose para pines online o seleccionados */
+/* Halo pulse — smaller, more subtle for the teardrop shape */
 .sl-pin__halo {
   position: absolute;
   inset: 0;
-  border-radius: 50%;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
   background: var(--sl-pin-color);
-  opacity: 0.45;
-  animation: sl-pin-halo 2.4s ease-out infinite;
+  opacity: 0.35;
+  animation: sl-pin-halo 2.8s ease-out infinite;
   pointer-events: none;
 }
 @keyframes sl-pin-halo {
-  0%   { transform: scale(1);   opacity: 0.45; }
-  70%  { transform: scale(2.2); opacity: 0;    }
-  100% { transform: scale(2.2); opacity: 0;    }
+  0%   { transform: rotate(-45deg) scale(1);   opacity: 0.35; }
+  70%  { transform: rotate(-45deg) scale(1.6); opacity: 0;    }
+  100% { transform: rotate(-45deg) scale(1.6); opacity: 0;    }
 }
 
-/* Contador de estaciones (si la sucursal tiene mas de 1) */
+/* Station count badge — repositioned for teardrop */
 .sl-pin__count {
   position: absolute;
-  top: -6px;
-  right: -8px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
+  top: -5px;
+  right: -7px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
   border-radius: 99px;
   background: var(--bg-card);
   border: 1.5px solid var(--sl-pin-color);
   font-family: var(--font-data);
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 700;
   color: var(--text-primary);
   display: flex;
@@ -1935,6 +1944,7 @@ main {
 /* ─── Estacion tile ────────────────────────────────────────────── */
 .estacion-tile {
   --tile-accent: #52525b;
+  position: relative;
   padding: 0;
   overflow: hidden;
   cursor: default;
@@ -2002,6 +2012,7 @@ main {
   display: flex;
   align-items: center;
   justify-content: center;
+  background: #08080a;
 }
 .estacion-tile__overlay {
   position: absolute;
@@ -2016,6 +2027,7 @@ main {
   padding: 3px 7px;
   border-radius: 5px;
   letter-spacing: 0.02em;
+  transition: all 150ms ease;
 }
 .estacion-tile__overlay--tl { top: 8px; left: 8px; }
 .estacion-tile__overlay--tr { top: 8px; right: 8px; }
@@ -2028,6 +2040,7 @@ main {
   color: rgba(255,255,255,0.20);
   text-transform: uppercase;
   user-select: none;
+  transition: all 150ms ease;
 }
 
 .estacion-tile__metrics {
@@ -2036,6 +2049,19 @@ main {
   padding: 10px 14px;
   font-variant-numeric: tabular-nums;
 }
+.estacion-tile__metrics > div:not(:last-child) {
+  border-right: 1px solid var(--border);
+}
+.estacion-tile__metrics > div {
+  padding: 0 8px;
+}
+.estacion-tile__metrics > div:first-child {
+  padding-left: 0;
+}
+.estacion-tile__metrics > div:last-child {
+  padding-right: 0;
+}
+
 .estacion-tile__metric-label {
   font-size: 9px;
   font-weight: 700;
@@ -2057,6 +2083,183 @@ main {
 .estacion-tile--compact .estacion-tile__preview { display: none; }
 .estacion-tile--compact .estacion-tile__header { padding: 10px 12px 8px; }
 .estacion-tile--compact .estacion-tile__metrics { padding: 8px 12px; }
+
+/* CenterIcon styling */
+.estacion-tile__center-icon {
+  opacity: 0.4;
+  transition: opacity 150ms ease;
+}
+.estacion-tile__center-icon-container {
+  text-align: center;
+  transition: color 150ms ease;
+}
+.estacion-tile__center-icon-svg {
+  margin: 0 auto 4px;
+  display: block;
+}
+.estacion-tile__center-icon-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0;
+}
+.status-warn,
+.status-online_no_camera {
+  color: #facc15;
+}
+.status-error {
+  color: var(--text-faint);
+}
+
+.estacion-tile[data-status="error"] .estacion-tile__preview {
+  background-image: repeating-linear-gradient(45deg, rgba(239, 68, 68, 0.015), rgba(239, 68, 68, 0.015) 10px, transparent 10px, transparent 20px);
+}
+
+/* CCTV technical info overlay */
+.estacion-tile__cctv-info {
+  position: absolute;
+  top: 12px;
+  right: 65px;
+  display: inline-flex;
+  align-items: center;
+  font-family: monospace, Courier, monospace;
+  font-size: 8.5px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(0, 0, 0, 0.4);
+  padding: 2.5px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Uptime mini-dots */
+.estacion-tile__uptime-dots {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+.estacion-tile__uptime-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  display: inline-block;
+  transition: background-color 150ms ease;
+}
+.estacion-tile__uptime-dot.is-online { background-color: #22c55e; }
+.estacion-tile__uptime-dot.is-warn   { background-color: #eab308; }
+.estacion-tile__uptime-dot.is-error  { background-color: #ef4444; }
+
+/* Interactive real-time Ping Connection Button */
+.estacion-tile__ping-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+.estacion-tile__ping-btn:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  transform: translateY(-0.5px);
+}
+.estacion-tile__ping-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+.estacion-tile__ping-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 🌗 Overrides de Estacion Tiles para Tema Claro */
+.light .estacion-tile {
+  background: var(--bg-card);
+  border-color: color-mix(in srgb, var(--tile-accent) 18%, var(--border));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.01),
+              0 6px 16px -4px color-mix(in srgb, var(--tile-accent) 10%, transparent),
+              0 0 0 1px color-mix(in srgb, var(--tile-accent) 5%, transparent);
+}
+.light .estacion-tile:hover {
+  border-color: color-mix(in srgb, var(--tile-accent) 36%, var(--border));
+  box-shadow: 0 12px 28px -8px color-mix(in srgb, var(--tile-accent) 22%, transparent),
+              0 0 0 1px color-mix(in srgb, var(--tile-accent) 12%, transparent);
+}
+.light .estacion-tile__preview {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  background-image: radial-gradient(rgba(15, 23, 42, 0.04) 1px, transparent 1px);
+  background-size: 14px 14px;
+}
+.light .estacion-tile[data-status="online"] .estacion-tile__preview {
+  background: radial-gradient(ellipse at center, rgba(34,197,94,0.05) 0%, transparent 70%), #f8fafc;
+  background-image: radial-gradient(rgba(34,197,94,0.08) 1.5px, transparent 1.5px);
+  background-size: 14px 14px;
+}
+.light .estacion-tile[data-status="warn"] .estacion-tile__preview {
+  background: radial-gradient(ellipse at center, rgba(234,179,8,0.05) 0%, transparent 70%), #fffbeb;
+  background-image: radial-gradient(rgba(234,179,8,0.08) 1.5px, transparent 1.5px);
+  background-size: 14px 14px;
+}
+.light .estacion-tile[data-status="error"] .estacion-tile__preview {
+  background: radial-gradient(ellipse at center, rgba(239,68,68,0.04) 0%, transparent 70%), #fffafb;
+  background-size: 14px 14px;
+  background-image: repeating-linear-gradient(45deg, rgba(239, 68, 68, 0.03), rgba(239, 68, 68, 0.03) 10px, transparent 10px, transparent 20px),
+                    radial-gradient(rgba(239, 68, 68, 0.08) 1.5px, transparent 1.5px);
+}
+.light .estacion-tile__center-icon {
+  opacity: 0.65;
+}
+.light .status-warn,
+.light .status-online_no_camera {
+  color: #b45309; /* Amber oscuro para excelente contraste en fondo claro */
+}
+.light .status-error {
+  color: #b91c1c; /* Rojo oscuro para que resalte y se lea claro */
+}
+.light .camera-viewfinder {
+  border-color: #10b981 !important;
+  opacity: 0.85 !important;
+}
+.light .scanning-laser-line {
+  background: linear-gradient(90deg, transparent, #10b981, transparent) !important;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.8) !important;
+}
+.light .estacion-tile__overlay {
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.05);
+}
+.light .estacion-tile__brand {
+  color: rgba(15, 23, 42, 0.12);
+}
+.light .estacion-tile__cctv-info {
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+.light .estacion-tile__uptime-dot.is-online { background-color: #10b981; }
+.light .estacion-tile__uptime-dot.is-warn   { background-color: #d97706; }
+.light .estacion-tile__uptime-dot.is-error  { background-color: #ef4444; }
+
+.light .estacion-tile__ping-btn {
+  border-color: rgba(15, 23, 42, 0.08);
+  background: rgba(15, 23, 42, 0.02);
+  color: var(--text-muted);
+}
+.light .estacion-tile__ping-btn:hover:not(:disabled) {
+  border-color: rgba(15, 23, 42, 0.16);
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--text-primary);
+}
 
 /* Marcaciones */
 .marcacion-row {
@@ -2487,4 +2690,244 @@ main {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
 }
+
+/* 🌗 TEMA CLARO — Overrides de variables CSS */
+.light {
+  --bg-black:      #f8fafc;
+  --bg-card:       #ffffff;
+  --bg-elevated:   #f1f5f9;
+  --bg-hover:      rgba(15, 23, 42, 0.04);
+
+  --border:        #e2e8f0;
+  --border-strong: #cbd5e1;
+  --border-hover:  #94a3b8;
+
+  --text-primary:  #0f172a;
+  --text-secondary:#475569;
+  --text-muted:    #64748b;
+  --text-faint:    #94a3b8;
+
+  --accent-glow:   rgba(37,99,235,0.08);
+  --accent-soft:   rgba(37,99,235,0.04);
+  
+  --teal-glow:     rgba(20,184,166,0.12);
+  --teal-soft:     rgba(20,184,166,0.04);
+}
+
+/* ─── Transición de entrada de rutas ───────────────────────────── */
+@keyframes page-entry {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-page-entry {
+  animation: page-entry 280ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ─── Chips de Filtros Activos ────────────────────────────────── */
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all 120ms ease;
+}
+.filter-chip button {
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: color 120ms;
+}
+.filter-chip button:hover {
+  color: #ef4444;
+}
+
+/* ─── Premium Floating Tooltip ────────────────────────────────── */
+.premium-tooltip {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  background: rgba(15, 15, 18, 0.9);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #f4f4f5;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.3;
+  box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.5);
+  max-width: 240px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  transform: scale(0.95);
+  opacity: 0;
+  transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1), opacity 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.premium-tooltip--visible {
+  transform: scale(1);
+  opacity: 1;
+}
+
+/* Tooltip claro si el body está en modo claro */
+.light .premium-tooltip {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  color: #0f172a;
+  box-shadow: 0 8px 24px -6px rgba(15, 23, 42, 0.15);
+}
+
+/* ─── Feedback interactivo adicional ───────────────────────────── */
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.light .btn:hover:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+}
+.nav-item {
+  transition: transform 120ms ease, background-color 120ms ease, color 120ms ease;
+}
+.nav-item:active {
+  transform: scale(0.98);
+}
+
+/* ─── Optimización de Impresión ───────────────────────────────── */
+@media print {
+  body, html, :root {
+    --bg-black: #ffffff !important;
+    --bg-card: #ffffff !important;
+    --bg-elevated: #f8fafc !important;
+    --border: #e2e8f0 !important;
+    --border-strong: #cbd5e1 !important;
+    --text-primary: #0f172a !important;
+    --text-secondary: #334155 !important;
+    --text-muted: #64748b !important;
+    --text-faint: #94a3b8 !important;
+    background: white !important;
+    color: #0f172a !important;
+  }
+
+  .sidebar,
+  .topbar,
+  .sidebar-burger,
+  .sidebar-backdrop,
+  .no-print,
+  button,
+  .btn,
+  .filter-bar,
+  .page-header-actions,
+  nav,
+  aside,
+  header,
+  footer,
+  input,
+  select {
+    display: none !important;
+  }
+
+  .dashboard-shell, 
+  .dashboard-main-col, 
+  .dashboard-main, 
+  main, 
+  .page {
+    background: white !important;
+    color: #0f172a !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .card {
+    background: white !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    margin-bottom: 20px !important;
+    padding: 16px !important;
+    border-radius: 8px !important;
+  }
+}
+
+/* ─── Animaciones de Estado Vacío (Floating / Glowing) ────────── */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+.empty-glow {
+  box-shadow: 0 0 20px 2px var(--glow-color, rgba(255,255,255,0.05));
+  transition: box-shadow 0.3s ease;
+}
+
+/* ─── Topbar Control Dock Group ───────────────────────────────── */
+.topbar__action--control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-secondary) !important;
+  cursor: pointer;
+  position: relative;
+  transition: all 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.topbar__action--control:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
+  color: var(--text-primary) !important;
+  transform: translateY(-1px);
+}
+.topbar__action--control:active {
+  transform: scale(0.95);
+}
+.topbar__action--control svg {
+  color: currentColor;
+}
+
+/* 🌗 Configuración de color-scheme y mejoras en modo claro */
+html.light {
+  color-scheme: light;
+}
+.light .data-table thead {
+  background: rgba(0, 0, 0, 0.015);
+}
+
+/* Transiciones suaves globales de color de fondo/borde para el cambio de tema */
+body, html, .card, .topbar, .sidebar, .nav-item, .segmented, .input, .btn, .filter-chip {
+  transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease, transform 120ms ease, box-shadow 120ms ease;
+}
+
+
+
 

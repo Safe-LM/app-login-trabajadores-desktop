@@ -536,12 +536,29 @@ function MarcacionRow({ marcacion }: { marcacion: MarcacionReciente }) {
           {marcacion.sucursal_nombre ?? "Sin sucursal"} · {isEntrada ? "Entrada" : "Salida"}
         </p>
       </div>
-      <span style={{
-        fontSize: 11, fontWeight: 600, color: "var(--text-secondary)",
-        fontVariantNumeric: "tabular-nums", marginLeft: 8
-      }}>
-        {hora}
-      </span>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3, marginLeft: 8 }}>
+        <span style={{
+          fontSize: 11, fontWeight: 600, color: "var(--text-secondary)",
+          fontVariantNumeric: "tabular-nums"
+        }}>
+          {hora}
+        </span>
+        {marcacion.confianza != null && (
+          <span style={{
+            fontSize: 9,
+            fontWeight: 700,
+            color: marcacion.confianza >= 0.9 ? "#4ade80" : marcacion.confianza >= 0.75 ? "#facc15" : "#f87171",
+            background: "rgba(255,255,255,0.02)",
+            border: "1px solid rgba(255,255,255,0.04)",
+            borderRadius: 4,
+            padding: "1px 4px",
+            lineHeight: 1,
+            fontVariantNumeric: "tabular-nums"
+          }} title={`Confianza: ${Math.round(marcacion.confianza * 100)}%`}>
+            {Math.round(marcacion.confianza * 100)}%
+          </span>
+        )}
+      </div>
     </div>
   );
 }

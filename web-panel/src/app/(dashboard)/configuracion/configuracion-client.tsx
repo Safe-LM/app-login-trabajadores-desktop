@@ -166,11 +166,31 @@ export function ConfiguracionClient({ empresa, sucursales }: { empresa: Empresa;
 
         {/* Panel de Contenido Activo */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          {activeTab === "general" && <EmpresaSection empresa={empresa} />}
-          {activeTab === "horarios" && <SucursalesSection initial={sucursales} />}
-          {activeTab === "equipo" && <EquipoTabContent />}
-          {activeTab === "integraciones" && <IntegracionesTabContent />}
-          {activeTab === "seguridad" && <DangerZone />}
+          {activeTab === "general" && (
+            <div key="general" className="animate-fade-in">
+              <EmpresaSection empresa={empresa} />
+            </div>
+          )}
+          {activeTab === "horarios" && (
+            <div key="horarios" className="animate-fade-in">
+              <SucursalesSection initial={sucursales} />
+            </div>
+          )}
+          {activeTab === "equipo" && (
+            <div key="equipo" className="animate-fade-in">
+              <EquipoTabContent />
+            </div>
+          )}
+          {activeTab === "integraciones" && (
+            <div key="integraciones" className="animate-fade-in">
+              <IntegracionesTabContent />
+            </div>
+          )}
+          {activeTab === "seguridad" && (
+            <div key="seguridad" className="animate-fade-in">
+              <DangerZone />
+            </div>
+          )}
         </div>
 
       </div>

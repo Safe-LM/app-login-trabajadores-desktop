@@ -161,21 +161,37 @@ function EmpModal({
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0, 0, 0, 0.75)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20 }} onClick={onClose}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        .employee-modal-grid {
+          grid-template-columns: 280px 1fr;
+        }
+        @media (max-width: 680px) {
+          .employee-modal-grid {
+            grid-template-columns: 1fr !important;
+          }
+          .employee-modal-photo-col {
+            border-right: none !important;
+            border-bottom: 1px solid var(--border) !important;
+          }
+        }
+      ` }} />
       <div className="animate-modal-up" style={{
         background: "var(--bg-card)",
         border: "1px solid var(--border)",
         borderRadius: "var(--radius-lg)",
         width: "100%",
         maxWidth: 780,
+        maxHeight: "calc(100dvh - 40px)",
         position: "relative",
-        overflow: "hidden",
+        overflowY: "auto",
+        WebkitOverflowScrolling: "touch",
         boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.6)",
       }} onClick={(e) => e.stopPropagation()}>
 
-        <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", minHeight: 520 }}>
+        <div className="employee-modal-grid" style={{ display: "grid", minHeight: 520 }}>
 
           {/* ─── Columna Izquierda: Foto ─── */}
-          <div style={{
+          <div className="employee-modal-photo-col" style={{
             padding: "32px 24px",
             background: "var(--bg-elevated)",
             borderRight: "1px solid var(--border)",

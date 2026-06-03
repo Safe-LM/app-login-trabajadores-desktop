@@ -80,6 +80,12 @@ export function DashboardClient({ initial }: { initial: AsistenciaHoy[] }) {
 
       setAsistencias((prev) => {
         const map = new Map(prev.map((a) => [a.empleado_id, a]));
+        const returnedIds = new Set(updates.map((u) => u.empleado_id));
+        for (const id of ids) {
+          if (!returnedIds.has(id)) {
+            map.delete(id); // Eliminar si fue desactivado/eliminado en base de datos
+          }
+        }
         for (const u of updates) map.set(u.empleado_id, u);
         return Array.from(map.values());
       });
@@ -546,7 +552,9 @@ export function DashboardClient({ initial }: { initial: AsistenciaHoy[] }) {
                             )}
                           </td>
                           <td style={{ fontVariantNumeric: "tabular-nums", color: horas ? "#4ade80" : "var(--text-faint)" }} title={horas ? "Tiempo en oficina (sesión actual)" : undefined}>
-                            {horas ? (
+                            {a.estado === "presente" && !now ? (
+                              <div className="skeleton" style={{ width: 45, height: 14, display: "inline-block" }} />
+                            ) : horas ? (
                               <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                                 <Clock size={11} style={{ opacity: 0.7 }} />
                                 {horas}

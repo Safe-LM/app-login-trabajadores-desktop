@@ -345,11 +345,19 @@ export function AsistenciaClient({
             <span>En Oficina Ahora</span>
           </div>
           <div className="stat-card__value" style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-            {enOficinaAhora.length}
-            <span style={{ fontSize: 11, fontWeight: 500, color: "var(--text-muted)" }}>colaboradores</span>
+            {!hoy ? (
+              <div className="skeleton" style={{ width: 35, height: 28 }} />
+            ) : (
+              <>
+                {enOficinaAhora.length}
+                <span style={{ fontSize: 11, fontWeight: 500, color: "var(--text-muted)" }}>colaboradores</span>
+              </>
+            )}
           </div>
           <div className="stat-card__delta" style={{ marginTop: 4 }}>
-            {enOficinaAhora.length > 0 ? (
+            {!hoy ? (
+              <div className="skeleton" style={{ width: 110, height: 15 }} />
+            ) : enOficinaAhora.length > 0 ? (
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <div style={{ display: "flex", alignItems: "center" }}>
                   {enOficinaAhora.slice(0, 4).map((emp, i) => {
@@ -1476,6 +1484,9 @@ function ModalShell({ title, subtitle, onClose, children }: {
       } as React.CSSProperties}>
         <div onClick={(e) => e.stopPropagation()} style={{
           width: "min(480px, 100%)",
+          maxHeight: "calc(100dvh - 40px)",
+          display: "flex",
+          flexDirection: "column",
           background: "rgba(18,18,20,0.92)",
           border: "1px solid rgba(255,255,255,0.1)",
           borderRadius: 18,
@@ -1483,20 +1494,20 @@ function ModalShell({ title, subtitle, onClose, children }: {
           overflow: "hidden",
           animation: "modal-slide-up 320ms cubic-bezier(.22,1,.36,1) both",
         }}>
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            {title && <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>{title}</h2>}
-            {subtitle && <p style={{ margin: title ? "2px 0 0" : 0, fontSize: 12, color: "rgba(255,255,255,0.35)" }}>{subtitle}</p>}
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+            <div>
+              {title && <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>{title}</h2>}
+              {subtitle && <p style={{ margin: title ? "2px 0 0" : 0, fontSize: 12, color: "rgba(255,255,255,0.35)" }}>{subtitle}</p>}
+            </div>
+            <button onClick={onClose} aria-label="Cerrar" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", cursor: "pointer", color: "rgba(255,255,255,0.45)", padding: 0, borderRadius: 8, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <X size={14} />
+            </button>
           </div>
-          <button onClick={onClose} aria-label="Cerrar" style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", cursor: "pointer", color: "rgba(255,255,255,0.45)", padding: 0, borderRadius: 8, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <X size={14} />
-          </button>
-        </div>
-        <div style={{ padding: 20 }}>
-          {children}
+          <div style={{ padding: 20, overflowY: "auto", flex: 1, WebkitOverflowScrolling: "touch" }}>
+            {children}
+          </div>
         </div>
       </div>
-    </div>
     </>,
     document.body
   );

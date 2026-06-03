@@ -38,9 +38,9 @@ export function PageHeader({ eyebrow, title, count, subtitle, icon, iconColor, a
           </div>
         )}
         <div style={{ minWidth: 0 }}>
-          {eyebrow && (
-            <p className="text-eyebrow" style={{ marginBottom: 4 }}>
-              {eyebrow}
+          {eyebrow !== undefined && (
+            <p className="text-eyebrow" style={{ marginBottom: 4, minHeight: 16 }}>
+              {eyebrow || <span style={{ opacity: 0 }}>&nbsp;</span>}
             </p>
           )}
           <h1 className="heading-1" style={{

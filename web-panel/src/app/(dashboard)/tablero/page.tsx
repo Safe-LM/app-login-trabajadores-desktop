@@ -26,6 +26,7 @@ export type MarcacionReciente = {
   dispositivo_id: string | null;
   tipo: "entrada" | "salida";
   timestamp: string;
+  confianza: number | null;
 };
 
 export default async function TableroPage() {
@@ -41,7 +42,7 @@ export default async function TableroPage() {
     (supabase as any).from("v_dispositivos_estado").select("*").order("nombre"),
     supabase
       .from("registros_asistencia")
-      .select("empleado_id, dispositivo_id, sucursal_id, tipo, timestamp, empleados(nombre, apellido), sucursales(nombre)")
+      .select("empleado_id, dispositivo_id, sucursal_id, tipo, timestamp, confianza, empleados(nombre, apellido), sucursales(nombre)")
       .eq("empresa_id", empresaId)
       .order("timestamp", { ascending: false })
       .limit(8),
@@ -54,6 +55,7 @@ export default async function TableroPage() {
     dispositivo_id: string | null;
     tipo: "entrada" | "salida";
     timestamp: string;
+    confianza: number | null;
     empleados: { nombre: string; apellido: string } | null;
     sucursales: { nombre: string } | null;
   };
@@ -64,6 +66,7 @@ export default async function TableroPage() {
     dispositivo_id: m.dispositivo_id,
     tipo: m.tipo,
     timestamp: m.timestamp,
+    confianza: m.confianza,
   }));
 
   return <TableroClient estaciones={estaciones} marcaciones={marcaciones} />;

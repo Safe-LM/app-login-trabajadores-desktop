@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.15.0...web-panel-v0.16.0) (2026-06-03)
+
+
+### ✨ Nuevas funcionalidades
+
+* **web-panel:** implement 10 ui/ux improvements including light/dark mode, sound chime, premium tooltips, active filter chips, custom transitions, cctv telemetry, and uptime dots ([99b2b92](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/99b2b92cc69a764f6779c9a3c60e6b6b5121508d))
+
 ## [0.15.0](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/web-panel-v0.14.0...web-panel-v0.15.0) (2026-06-03)
 
 

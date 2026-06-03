@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.8.3](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.8.2...station-v5.8.3) (2026-06-03)
+
+
+### 🐛 Correcciones
+
+* **station:** check online attendance status via get_last_asistencia_empleado RPC to correctly resolve entry/exit type ([b5401c7](https://github.com/Safe-LM/app-login-trabajadores-desktop/commit/b5401c79785211eb5e18c8d9f2991953f62a43ac))
+
 ## [5.8.2](https://github.com/Safe-LM/app-login-trabajadores-desktop/compare/station-v5.8.1...station-v5.8.2) (2026-06-02)
 
 

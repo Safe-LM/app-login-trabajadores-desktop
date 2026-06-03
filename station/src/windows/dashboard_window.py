@@ -1351,7 +1351,8 @@ class DashboardWindow(QMainWindow):
             ahora = datetime.now()
 
             try:
-                ultimo = (
+                # Cooldown local de 60 segundos
+                ultimo_local = (
                     db.query(RegistroAsistencia)
                     .filter(
                         RegistroAsistencia.trabajador_id == trab.id,
@@ -1359,16 +1360,43 @@ class DashboardWindow(QMainWindow):
                     )
                     .order_by(RegistroAsistencia.timestamp.desc()).first()
                 )
-
-                if ultimo:
-                    secs_since = (ahora - ultimo.timestamp).total_seconds()
+                if ultimo_local:
+                    secs_since = (ahora - ultimo_local.timestamp).total_seconds()
                     if secs_since < 60:
-                        hora_ult = ultimo.timestamp.strftime("%H:%M")
-                        self._js(f"showAlreadyRegistered({ultimo.tipo!r}, {hora_ult!r});")
+                        hora_ult = ultimo_local.timestamp.strftime("%H:%M")
+                        self._js(f"showAlreadyRegistered({ultimo_local.tipo!r}, {hora_ult!r});")
                         db.close()
                         return
 
-                tipo = "salida" if ultimo and ultimo.tipo == "entrada" else "entrada"
+                # Intentar consultar el último registro de hoy en Supabase si estamos online
+                ultimo_tipo_supabase = None
+                if supabase_empleado_uuid:
+                    try:
+                        api_key = get_station_api_key()
+                        sb = get_supabase_client()
+                        if api_key and sb:
+                            res = sb.rpc("get_last_asistencia_empleado", {
+                                "p_api_key": api_key,
+                                "p_empleado_id": supabase_empleado_uuid
+                            }).execute()
+                            if res.data and res.data.get("ok"):
+                                ultimo_tipo_supabase = res.data.get("tipo")
+                    except Exception as e:
+                        logger.debug(f"Error consultando get_last_asistencia_empleado: {e}")
+
+                # Decidir tipo: priorizar Supabase, si no responde usar SQLite local
+                if ultimo_tipo_supabase is not None:
+                    tipo = "salida" if ultimo_tipo_supabase == "entrada" else "entrada"
+                else:
+                    ultimo = (
+                        db.query(RegistroAsistencia)
+                        .filter(
+                            RegistroAsistencia.trabajador_id == trab.id,
+                            func.date(RegistroAsistencia.timestamp) == hoy,
+                        )
+                        .order_by(RegistroAsistencia.timestamp.desc()).first()
+                    )
+                    tipo = "salida" if ultimo and ultimo.tipo == "entrada" else "entrada"
 
                 # 1. Guardar localmente (siempre). A7: persistir tambien
                 # score_raw, metodo y embedding_count para auditoria.
@@ -1391,7 +1419,7 @@ class DashboardWindow(QMainWindow):
                 db.commit()
                 db.refresh(reg)
                 self._attendance_done = True
-                self._update_last_reg(tipo, ahora)
+                self._update_last_reg(tipo, ahora, add_to_recent=False)
             finally:
                 db.close()
 
@@ -1553,16 +1581,17 @@ class DashboardWindow(QMainWindow):
         except Exception:
             pass
 
-    def _update_last_reg(self, tipo, ts):
+    def _update_last_reg(self, tipo, ts, add_to_recent: bool = True):
         hora  = ts.strftime("%H:%M:%S") if hasattr(ts, "strftime") else str(ts)
         color = "var(--green)" if tipo == "entrada" else "var(--accent)"
         self._js(f"setLastReg({(tipo.upper() + '  ' + hora)!r}, {color!r});")
         # Also add to the recent list
-        if self.trabajador:
-            nombre = f"{self.trabajador.nombre} {self.trabajador.apellido}"
-        else:
-            nombre = "Empleado"
-        self._js(f"addRecentRecord({nombre!r}, {tipo!r}, {hora!r});")
+        if add_to_recent:
+            if self.trabajador:
+                nombre = f"{self.trabajador.nombre} {self.trabajador.apellido}"
+            else:
+                nombre = "Empleado"
+            self._js(f"addRecentRecord({nombre!r}, {tipo!r}, {hora!r});")
 
     def _logout(self):
         self._stop_camera()

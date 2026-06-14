@@ -1,16 +1,16 @@
-import type { Filtros, Granularidad, ReportesData, ReportesRegistro, ReportesSucursal } from "./types";
+import type {
+  Filtros,
+  Granularidad,
+  ReportesData,
+  ReportesRegistro,
+  ReportesSucursal,
+  ReportesEmpleado,
+  EmpleadoFila,
+  DiaEmpleado,
+  EstadoDia,
+} from "./types";
 
 export type DiaPunto = { fecha: string; label: string; entradas: number; salidas: number; total: number };
-
-export type EmpleadoFila = {
-  empleado_id: string;
-  nombre: string;
-  registros: number;
-  llegadas_tarde: number;
-  horas_trabajadas: number;
-  dias_trabajados: number;
-  ultima_actividad: string | null;
-};
 
 export type Kpis = {
   totalRegistros: number;
@@ -49,6 +49,9 @@ export function computeReport(data: ReportesData, filtros: Filtros, granularidad
     ? data.empleados
     : data.empleados.filter(e => e.id === filtros.empleadoId);
 
+  const empleadosScope = empleadosFiltrados.filter(e => filtros.sucursalId === "all" || e.sucursal_id === filtros.sucursalId);
+  const empleadosActivos = empleadosScope.filter(e => e.activo).length;
+
   const registrosFiltrados = data.registros.filter(r => {
     const ts = new Date(r.timestamp).getTime();
     if (Number.isNaN(ts)) return false;
@@ -60,15 +63,24 @@ export function computeReport(data: ReportesData, filtros: Filtros, granularidad
 
   const serieTiempo = buildSerie(registrosFiltrados, desdeMs, hastaMs, granularidad);
   const porSucursal = buildPorSucursal(registrosFiltrados);
-  const empleadoStats = buildEmpleadoStats(registrosFiltrados, sucursalById);
-
-  const empleadosScope = empleadosFiltrados.filter(e => filtros.sucursalId === "all" || e.sucursal_id === filtros.sucursalId);
-  const empleadosActivos = empleadosScope.filter(e => e.activo).length;
+  
+  const empleadoStats = buildEmpleadoStats(
+    empleadosScope,
+    registrosFiltrados,
+    sucursalById,
+    filtros.desde,
+    filtros.hasta
+  );
 
   const diasEnRango = Math.max(1, Math.round((hastaMs - desdeMs) / ONE_DAY_MS));
   const diasLaborables = countWeekdays(desdeMs, hastaMs);
   const asistenciasEsperadas = empleadosActivos * diasLaborables;
-  const asistenciasRealizadas = countDistinctEmpleadoDia(registrosFiltrados);
+  
+  // Coherencia de totales con los estados de asistencia
+  const asistenciasRealizadas = empleadoStats
+    .filter(e => e.activo)
+    .reduce((acc, e) => acc + e.dias_trabajados, 0);
+
   const pctAsistencia = asistenciasEsperadas > 0
     ? Math.round((asistenciasRealizadas / asistenciasEsperadas) * 100)
     : 0;
@@ -91,7 +103,7 @@ export function computeReport(data: ReportesData, filtros: Filtros, granularidad
     registrosFiltrados,
     serieTiempo,
     porSucursal,
-    porEmpleado: empleadoStats.sort((a, b) => b.registros - a.registros),
+    porEmpleado: empleadoStats.sort((a, b) => a.nombre.localeCompare(b.nombre)),
     kpis: {
       totalRegistros: registrosFiltrados.length,
       empleadosActivos,
@@ -143,99 +155,208 @@ function buildPorSucursal(registros: ReportesRegistro[]): { name: string; value:
     .sort((a, b) => b.value - a.value);
 }
 
-function buildEmpleadoStats(registros: ReportesRegistro[], sucursales: Map<string, ReportesSucursal>): EmpleadoFila[] {
-  type RegistroDia = { tipo: "entrada" | "salida"; ts: number };
-  type Acc = {
-    nombre: string;
-    registros: number;
-    llegadasTarde: number;
-    horasTrabajadas: number;
-    diasTrabajados: number;
-    ultimoTs: string | null;
-    porDia: Map<string, { items: RegistroDia[]; sucursalId: string | null }>;
-  };
+function buildEmpleadoStats(
+  empleadosScope: ReportesEmpleado[],
+  registros: ReportesRegistro[],
+  sucursales: Map<string, ReportesSucursal>,
+  desdeStr: string,
+  hastaStr: string
+): EmpleadoFila[] {
+  const start = new Date(parseLocalDateStart(desdeStr));
+  const end = new Date(parseLocalDateStart(hastaStr));
+  const diasHabiles: string[] = [];
 
-  const map = new Map<string, Acc>();
+  let current = new Date(start);
+  while (current <= end) {
+    diasHabiles.push(
+      `${current.getFullYear()}-${pad(current.getMonth() + 1)}-${pad(current.getDate())}`
+    );
+    current.setDate(current.getDate() + 1);
+  }
+
+  const empsStats: EmpleadoFila[] = empleadosScope.map(emp => {
+    const suc = emp.sucursal_id ? sucursales.get(emp.sucursal_id) : null;
+    const sucursal_nombre = suc?.nombre ?? null;
+
+    return {
+      empleado_id: emp.id,
+      nombre: emp.nombre,
+      sucursal_id: emp.sucursal_id,
+      sucursal_nombre,
+      registros: 0,
+      llegadas_tarde: 0,
+      horas_trabajadas: 0,
+      dias_trabajados: 0,
+      dias_laborables: diasHabiles.length,
+      ausencias: 0,
+      asistencia_pct: 0,
+      activo: emp.activo,
+      incidencias: 0,
+      ultima_actividad: null,
+      dias: []
+    };
+  });
+
+  const empsMap = new Map<string, EmpleadoFila>();
+  for (const stat of empsStats) {
+    empsMap.set(stat.empleado_id, stat);
+  }
+
+  type RegistroDia = { tipo: "entrada" | "salida"; ts: number; confidence: number | null };
+  const recordsMap = new Map<string, Map<string, RegistroDia[]>>(); // employee_id -> dayStr -> RegistroDia[]
 
   for (const r of registros) {
-    let acc = map.get(r.empleado_id);
-    if (!acc) {
-      acc = {
-        nombre: r.empleado_nombre ?? r.empleado_id.slice(0, 8),
-        registros: 0,
-        llegadasTarde: 0,
-        horasTrabajadas: 0,
-        diasTrabajados: 0,
-        ultimoTs: null,
-        porDia: new Map(),
-      };
-      map.set(r.empleado_id, acc);
-    }
-    acc.registros += 1;
-    if (!acc.ultimoTs || r.timestamp > acc.ultimoTs) acc.ultimoTs = r.timestamp;
-
     const ts = new Date(r.timestamp).getTime();
-    const dayKey = bucketKey(new Date(ts), "dia");
-    const dia = acc.porDia.get(dayKey) ?? { items: [], sucursalId: r.sucursal_id };
-    dia.items.push({ tipo: r.tipo as "entrada" | "salida", ts });
-    dia.sucursalId = dia.sucursalId ?? r.sucursal_id;
-    acc.porDia.set(dayKey, dia);
-  }
+    if (Number.isNaN(ts)) continue;
+    const d = new Date(ts);
+    const dayKey = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-  for (const acc of map.values()) {
-    let diasTrabajados = 0;
-    for (const dia of acc.porDia.values()) {
-      // Debounce: colapsa marcas del mismo tipo en <5 min (mismo "punch").
-      const ordenados = [...dia.items].sort((a, b) => a.ts - b.ts);
-      const sorted: RegistroDia[] = [];
-      for (const reg of ordenados) {
-        const last = sorted[sorted.length - 1];
-        if (last && last.tipo === reg.tipo && (reg.ts - last.ts) < DEBOUNCE_MS) continue;
-        sorted.push(reg);
-      }
+    const empStat = empsMap.get(r.empleado_id);
+    if (!empStat) continue;
 
-      // Pares greedy: misma lógica que la vista de asistencia.
-      // Suma solo el tiempo real trabajado, excluye breaks/comidas.
-      // Solo cuenta tiempo entre entrada→salida. Entrada→entrada se descarta.
-      let currentEntrada: number | null = null;
-      let horasDia = 0;
-      let primeraEntrada: number | null = null;
-      for (const reg of sorted) {
-        if (reg.tipo === "entrada") {
-          currentEntrada = reg.ts;
-          if (primeraEntrada === null) primeraEntrada = reg.ts;
-        } else if (currentEntrada !== null) {
-          horasDia += (reg.ts - currentEntrada) / 3_600_000;
-          currentEntrada = null;
-        }
-      }
-      acc.horasTrabajadas += Math.min(horasDia, MAX_TURNO_HORAS);
-      // Día trabajado = tuvo al menos una entrada ese día.
-      if (primeraEntrada !== null) diasTrabajados += 1;
-
-      if (primeraEntrada !== null && dia.sucursalId) {
-        const suc = sucursales.get(dia.sucursalId);
-        if (suc?.hora_apertura) {
-          const minutosTarde = computeMinutosTarde(primeraEntrada, suc.hora_apertura, suc.tolerancia_min);
-          if (minutosTarde > 0) acc.llegadasTarde += 1;
-        }
-      }
+    empStat.registros += 1;
+    if (!empStat.ultima_actividad || r.timestamp > empStat.ultima_actividad) {
+      empStat.ultima_actividad = r.timestamp;
     }
-    acc.diasTrabajados = diasTrabajados;
+
+    let empDays = recordsMap.get(r.empleado_id);
+    if (!empDays) {
+      empDays = new Map<string, RegistroDia[]>();
+      recordsMap.set(r.empleado_id, empDays);
+    }
+
+    let dayRecords = empDays.get(dayKey);
+    if (!dayRecords) {
+      dayRecords = [];
+      empDays.set(dayKey, dayRecords);
+    }
+    dayRecords.push({ tipo: r.tipo, ts, confidence: r.confianza });
   }
 
-  return Array.from(map.entries()).map(([id, acc]) => ({
-    empleado_id: id,
-    nombre: acc.nombre,
-    registros: acc.registros,
-    llegadas_tarde: acc.llegadasTarde,
-    horas_trabajadas: round2(acc.horasTrabajadas),
-    dias_trabajados: acc.diasTrabajados ?? 0,
-    ultima_actividad: acc.ultimoTs,
-  }));
+  for (const stat of empsStats) {
+    const empDays = recordsMap.get(stat.empleado_id);
+    const empSuc = stat.sucursal_id ? sucursales.get(stat.sucursal_id) : null;
+    const horaApertura = empSuc?.hora_apertura ?? "09:00:00";
+    const toleranciaMin = empSuc?.tolerancia_min ?? 10;
+
+    let diasTrabajadosCount = 0;
+    let llegadasTardeCount = 0;
+    let incidenciasCount = 0;
+    let horasAcumuladas = 0;
+    let diasLaborablesCount = 0;
+    let ausenciasCount = 0;
+
+    for (const dayStr of diasHabiles) {
+      const dateObj = new Date(dayStr + "T00:00:00");
+      const dayOfWeek = dateObj.getDay();
+      const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+
+      if (!isWeekend) {
+        diasLaborablesCount += 1;
+      }
+
+      const records = empDays?.get(dayStr) ?? [];
+
+      const sortedRecords = [...records].sort((a, b) => a.ts - b.ts);
+      const debounced: RegistroDia[] = [];
+      for (const reg of sortedRecords) {
+        const last = debounced[debounced.length - 1];
+        if (last && last.tipo === reg.tipo && (reg.ts - last.ts) < DEBOUNCE_MS) continue;
+        debounced.push(reg);
+      }
+
+      const entryReg = debounced.find(r => r.tipo === "entrada");
+      const exitReg = [...debounced].reverse().find(r => r.tipo === "salida");
+
+      let entradaTime: string | null = null;
+      if (entryReg) {
+        entradaTime = formatLocalMXTime(entryReg.ts);
+      }
+
+      let salidaTime: string | null = null;
+      if (exitReg) {
+        salidaTime = formatLocalMXTime(exitReg.ts);
+      }
+
+      let estado: EstadoDia = "ausente";
+      let horas: number | null = 0;
+      let retardo = false;
+      let minutosRetardo = 0;
+
+      const hasEntrada = !!entryReg;
+      const hasSalida = !!exitReg;
+
+      if (hasEntrada && hasSalida) {
+        const rawHours = (exitReg.ts - entryReg.ts) / 3_600_000;
+        horas = round2(Math.min(rawHours, MAX_TURNO_HORAS));
+
+        minutosRetardo = computeMinutosTarde(entryReg.ts, horaApertura, toleranciaMin);
+        if (minutosRetardo > 0) {
+          estado = "retardo";
+          retardo = true;
+          llegadasTardeCount += 1;
+        } else {
+          estado = "completo";
+        }
+
+        diasTrabajadosCount += 1;
+        horasAcumuladas += horas;
+      } else if (hasEntrada && !hasSalida) {
+        estado = "sin_salida";
+        horas = null;
+        incidenciasCount += 1;
+        diasTrabajadosCount += 1;
+      } else if (!hasEntrada && hasSalida) {
+        estado = "sin_entrada";
+        horas = null;
+        incidenciasCount += 1;
+        diasTrabajadosCount += 1;
+      } else {
+        estado = "ausente";
+        horas = 0;
+        if (!isWeekend) {
+          ausenciasCount += 1;
+        }
+      }
+
+      stat.dias.push({
+        fecha: dayStr,
+        entrada: entradaTime,
+        salida: salidaTime,
+        horas,
+        retardo,
+        minutos_retardo: minutosRetardo,
+        estado
+      });
+    }
+
+    stat.dias_trabajados = diasTrabajadosCount;
+    stat.llegadas_tarde = llegadasTardeCount;
+    stat.incidencias = incidenciasCount;
+    stat.horas_trabajadas = round2(horasAcumuladas);
+    stat.dias_laborables = diasLaborablesCount;
+    stat.ausencias = ausenciasCount;
+    stat.asistencia_pct = stat.dias_laborables > 0
+      ? Math.round((diasTrabajadosCount / stat.dias_laborables) * 100)
+      : 0;
+  }
+
+  return empsStats;
 }
 
 const TIMEZONE = "America/Mexico_City";
+
+function formatLocalMXTime(tsMs: number): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(tsMs));
+  const hh = parts.find(p => p.type === "hour")?.value ?? "00";
+  const mm = parts.find(p => p.type === "minute")?.value ?? "00";
+  return `${hh.padStart(2, "0")}:${mm.padStart(2, "0")}`;
+}
 
 function minutosLocalMX(tsMs: number): number {
   const parts = new Intl.DateTimeFormat("en-US", {

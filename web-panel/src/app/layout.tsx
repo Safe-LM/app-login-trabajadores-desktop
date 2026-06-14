@@ -27,6 +27,10 @@ export const metadata: Metadata = {
   title: "Safe Link Monitoring",
   description: "Control biométrico de asistencia empresarial",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/icon.svg",
+    apple: "/apple-icon.svg",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",

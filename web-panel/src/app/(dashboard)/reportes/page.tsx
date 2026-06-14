@@ -25,14 +25,16 @@ export default async function ReportesPage() {
   desde.setDate(desde.getDate() - RANGE_DAYS);
   desde.setHours(0, 0, 0, 0);
 
+  const REGISTROS_LIMIT = 5000;
+
   const [registrosRes, empleadosRes, sucursalesRes, empresaRes] = await Promise.all([
     supabase
       .from("registros_asistencia")
-      .select("id, tipo, timestamp, confianza, empleado_id, sucursal_id, empleados(nombre, apellido), sucursales(nombre)")
+      .select("id, tipo, timestamp, confianza, empleado_id, sucursal_id, empleados(nombre, apellido), sucursales(nombre)", { count: "exact" })
       .eq("empresa_id", empresaId)
       .gte("timestamp", desde.toISOString())
       .order("timestamp", { ascending: false })
-      .limit(5000),
+      .limit(REGISTROS_LIMIT),
     supabase
       .from("empleados")
       .select("id, nombre, apellido, sucursal_id, activo")
@@ -62,9 +64,16 @@ export default async function ReportesPage() {
   const registrosRaw = (registrosRes.data ?? []) as unknown as RegistroJoined[];
   const empresaNombre = empresaRes.data?.nombre ?? "Safe Link";
 
+  // count = total real en BD para el rango; si supera el límite cargado, los datos son parciales.
+  const totalRegistrosReal = registrosRes.count ?? registrosRaw.length;
+  const truncado = totalRegistrosReal > registrosRaw.length;
+
   const data: ReportesData = {
     desde: desde.toISOString(),
     rangeDays: RANGE_DAYS,
+    totalRegistrosReal,
+    registrosLimit: REGISTROS_LIMIT,
+    truncado,
     registros: registrosRaw.map(r => ({
       id: r.id,
       tipo: r.tipo,
